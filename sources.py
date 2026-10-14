@@ -201,38 +201,46 @@ class PerseusExtIO:
             dll = ctypes.WinDLL(dll_path)
             u32 = ctypes.windll.user32
 
+            # callback cdecl: void cb(int cnt, int status, float IQoffs, void* IQdata)
+            CB = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_void_p)
+            self._CB = CB
             name = ctypes.create_string_buffer(64)
             model = ctypes.create_string_buffer(64)
             typ = ctypes.c_int(0)
             dll.InitHW.restype = ctypes.c_bool
             dll.InitHW.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+            fmt, bpf = 's24', 6                     # aggiornati dopo InitHW
+            fmt_box = {'fmt': fmt, 'bpf': bpf}
+
+            def cb_early(cnt, status, iqoffs, data):
+                try:
+                    if cnt > 0 and data:
+                        raw = ctypes.string_at(data, cnt * fmt_box['bpf'])
+                        self.nsamp += cnt
+                        self.nblocks += 1
+                        if self.nblocks == 1:
+                            self.on_status(f'Primo blocco dal Perseus: {cnt} campioni')
+                        self.on_iq(to_complex(raw, fmt_box['fmt']))
+                    elif cnt < 0:
+                        self.on_status(f'Messaggio dal driver: stato {status}')
+                        if status == 100:
+                            self.cmd.put(('rate',))
+                        elif status == 101:
+                            self.cmd.put(('getlo',))
+                except Exception as e:
+                    self.on_status(f'Errore dati: {e}')
+
+            self._cb = CB(cb_early)                 # tenere il riferimento!
+            dll.SetCallback.argtypes = [CB]
+            dll.SetCallback.restype = None
+            dll.SetCallback(self._cb)
             if not dll.InitHW(name, model, ctypes.byref(typ)):
                 raise RuntimeError('Perseus non trovato (InitHW). È acceso e collegato? Un altro programma lo sta usando?')
             if typ.value not in self.TYPES:
                 raise RuntimeError(f'Formato campioni ExtIO non gestito: {typ.value}')
             fmt, bpf = self.TYPES[typ.value]
+            fmt_box['fmt'], fmt_box['bpf'] = fmt, bpf
 
-            # callback cdecl: void cb(int cnt, int status, float IQoffs, void* IQdata)
-            CB = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_void_p)
-
-            def cb(cnt, status, iqoffs, data):
-                try:
-                    if cnt > 0 and data:
-                        raw = ctypes.string_at(data, cnt * bpf)
-                        self.nsamp += cnt
-                        self.nblocks += 1
-                        self.on_iq(to_complex(raw, fmt))
-                    elif cnt < 0:
-                        if status == 100:          # cambio campionamento
-                            self.cmd.put(('rate',))
-                        elif status == 101:        # cambio LO dall'interfaccia della DLL
-                            self.cmd.put(('getlo',))
-                except Exception as e:             # mai lasciar uscire eccezioni verso la DLL
-                    self.on_status(f'Errore dati: {e}')
-
-            self._cb = CB(cb)                      # tenere il riferimento!
-            dll.SetCallback.argtypes = [CB]
-            dll.SetCallback(self._cb)
             dll.OpenHW.restype = ctypes.c_bool
             if not dll.OpenHW():
                 raise RuntimeError('Apertura del Perseus fallita (OpenHW)')
@@ -257,7 +265,7 @@ class PerseusExtIO:
                     while u32.PeekMessageW(ctypes.byref(msg0), None, 0, 0, 1):
                         u32.TranslateMessage(ctypes.byref(msg0))
                         u32.DispatchMessageW(ctypes.byref(msg0))
-                    time.sleep(0.01)
+                    k32.SleepEx(10, True)
                 meas = (self.nsamp - n0) / (time.time() - t0)
                 known = [48077, 95238, 96154, 125000, 192308, 250000, 500000, 1000000, 2000000]
                 self.fs = float(min(known, key=lambda k: abs(k - meas))) if meas > 1000 else 0.0
@@ -270,12 +278,25 @@ class PerseusExtIO:
 
             msg = wintypes.MSG()
             running = True
+            QS_ALLINPUT, MWMO_ALERTABLE, MWMO_INPUTAVAILABLE = 0x04FF, 0x0002, 0x0004
+            u32.MsgWaitForMultipleObjectsEx.argtypes = [wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD]
+            t_start = time.time()
+            retried = False
             while running:
+                # attesa che lascia lavorare la USB (APC) e la finestra del driver
+                u32.MsgWaitForMultipleObjectsEx(0, None, 20, QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE)
                 while u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
                     u32.TranslateMessage(ctypes.byref(msg))
                     u32.DispatchMessageW(ctypes.byref(msg))
+                if not retried and self.nsamp == 0 and time.time() - t_start > 4:
+                    retried = True
+                    self.on_status('Nessun dato dopo 4 s: riavvio lo streaming (StopHW/StartHW)')
+                    dll.StopHW()
+                    k32.SleepEx(300, True)
+                    r = dll.StartHW(self.lo)
+                    self.on_status(f'StartHW di nuovo -> {r}')
                 try:
-                    c = self.cmd.get(timeout=0.02)
+                    c = self.cmd.get_nowait()
                 except queue.Empty:
                     continue
                 if c[0] == 'stop':
