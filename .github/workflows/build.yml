@@ -1,0 +1,40 @@
+name: Compila SplitWatch.exe
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x86'
+
+      - name: Dipendenze
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller==6.10.0
+
+      - name: Controllo 32 bit
+        run: python -c "import struct,sys; b=struct.calcsize('P')*8; print(sys.version, b, 'bit'); assert b==32"
+
+      - name: Prova del motore (CW sintetico)
+        run: python selftest.py
+
+      - name: Crea l'eseguibile
+        run: pyinstaller --onefile --console --name SplitWatch --add-data "index.html;." splitwatch.py
+
+      - name: Prova l'eseguibile
+        run: dist\SplitWatch.exe --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitWatch
+          path: |
+            dist/SplitWatch.exe
+            LEGGIMI.md
