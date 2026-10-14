@@ -162,6 +162,8 @@ class PerseusExtIO:
         self.ready = threading.Event()
         self.error = None
         self._cb = None
+        self.nsamp = 0                         # campioni ricevuti (diagnostica)
+        self.nblocks = 0
 
     # API pubblica (thread-safe)
     def start(self):
@@ -217,6 +219,8 @@ class PerseusExtIO:
                 try:
                     if cnt > 0 and data:
                         raw = ctypes.string_at(data, cnt * bpf)
+                        self.nsamp += cnt
+                        self.nblocks += 1
                         self.on_iq(to_complex(raw, fmt))
                     elif cnt < 0:
                         if status == 100:          # cambio campionamento
@@ -237,11 +241,30 @@ class PerseusExtIO:
             dll.SetHWLO.argtypes = [ctypes.c_long]
             dll.StartHW.argtypes = [ctypes.c_long]
             dll.StartHW.restype = ctypes.c_int
-            self.fs = float(dll.GetHWSR())
-            self.on_rate(self.fs, float(self.lo))
-            if dll.StartHW(self.lo) <= 0:
+            sr0 = float(dll.GetHWSR())
+            self.on_status(f'Perseus: {name.value.decode(errors="ignore")} {model.value.decode(errors="ignore")}, formato {fmt}, campionamento dichiarato {sr0:.0f} Hz')
+            nb = dll.StartHW(self.lo)
+            self.on_status(f'StartHW({self.lo}) -> {nb} campioni per blocco')
+            if nb <= 0:
                 raise RuntimeError('Avvio del Perseus fallito (StartHW)')
             self.center = float(dll.GetHWLO() or self.lo)
+            self.fs = float(dll.GetHWSR()) or sr0
+            if self.fs <= 0:
+                # il driver non lo dice: lo misuro dai dati in arrivo
+                t0 = time.time(); n0 = self.nsamp
+                while time.time() - t0 < 1.5:
+                    msg0 = wintypes.MSG()
+                    while u32.PeekMessageW(ctypes.byref(msg0), None, 0, 0, 1):
+                        u32.TranslateMessage(ctypes.byref(msg0))
+                        u32.DispatchMessageW(ctypes.byref(msg0))
+                    time.sleep(0.01)
+                meas = (self.nsamp - n0) / (time.time() - t0)
+                known = [48077, 95238, 96154, 125000, 192308, 250000, 500000, 1000000, 2000000]
+                self.fs = float(min(known, key=lambda k: abs(k - meas))) if meas > 1000 else 0.0
+                self.on_status(f'Campionamento non dichiarato dal driver: misurati {meas:.0f} campioni/s -> {self.fs:.0f} Hz')
+                if self.fs <= 0:
+                    raise RuntimeError('Il Perseus non manda dati (0 campioni/s). Controlla che nessun altro programma lo stia usando.')
+            self.on_rate(self.fs, self.center)
             self.on_status(f'Perseus attivo: {model.value.decode(errors="ignore") or "Perseus"} · {self.fs/1000:.1f} kHz · centro {self.center/1000:.3f}')
             self.ready.set()
 
@@ -268,7 +291,7 @@ class PerseusExtIO:
                     self.center = float(dll.GetHWLO())
                     self.on_rate(self.fs, self.center)
                 elif c[0] == 'rate':
-                    self.fs = float(dll.GetHWSR())
+                    self.fs = float(dll.GetHWSR()) or self.fs
                     self.on_rate(self.fs, self.center)
                     self.on_status(f'Campionamento: {self.fs/1000:.1f} kHz')
                 elif c[0] == 'gui':
