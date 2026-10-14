@@ -1,8 +1,8 @@
-"""Split Watch - ricevitore per pile-up in split.
+"""FZR Skimmer - dai punti alle parole. Ricevitore per pile-up in split con il Perseus.
 
 Uso:
-  SplitWatch.exe                         Perseus dal vivo (ExtIO_perseus.dll nella stessa cartella)
-  SplitWatch.exe registrazione.wav       riproduce una registrazione IQ
+  FZRSkimmer.exe                         Perseus dal vivo (ExtIO_perseus.dll nella stessa cartella)
+  FZRSkimmer.exe registrazione.wav       riproduce una registrazione IQ
        --centro 18085.0                  frequenza centrale della registrazione in kHz (CW Skimmer non la salva)
        --dx 18085.0                      frequenza del DX in kHz
        --porta 8073                      porta dell'interfaccia web
@@ -29,7 +29,8 @@ import websockets
 from dsp import Engine
 from sources import PerseusDirect, PerseusExtIO, WavFile
 
-VERSION = '0.4'
+VERSION = '1.1'
+APP = 'FZR Skimmer'
 
 
 def app_dir():
@@ -43,8 +44,9 @@ def res_path(name):
     return os.path.join(base, name)
 
 
-CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')
-LOG_PATH = os.path.join(app_dir(), 'splitwatch.log')
+CFG_PATH = os.path.join(app_dir(), 'fzrskimmer.json')
+OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni della versione FZR Skimmer
+LOG_PATH = os.path.join(app_dir(), 'fzrskimmer.log')
 
 
 def log(msg):
@@ -77,12 +79,28 @@ def band_of(hz):
     return None
 
 
+def find_perseus_folder(cfg, explicit=None):
+    """Cerca la cartella con perseususb.dll e i file .sbs: indicata, salvata, quella dell'exe,
+    poi le installazioni tipiche di CW Skimmer e del software Perseus."""
+    cands = [explicit, cfg.get('cartella'), app_dir()]
+    for pf in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), r'C:\Program Files (x86)', r'C:\Program Files'):
+        if pf:
+            cands += [os.path.join(pf, 'Afreet', 'CwSkimmer'), os.path.join(pf, 'Afreet', 'SkimSrv'),
+                      os.path.join(pf, 'Microtelecom', 'Perseus'), os.path.join(pf, 'Perseus'), os.path.join(pf, 'HDSDR')]
+    for c in cands:
+        if c and os.path.exists(os.path.join(c, 'perseususb.dll')) and os.path.exists(os.path.join(c, 'perseus96k24v31.sbs')):
+            return c
+    return explicit or cfg.get('cartella') or app_dir()
+
+
 def load_cfg():
-    try:
-        with open(CFG_PATH, encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    for path in (CFG_PATH, OLD_CFG_PATH):          # recupera memorie e impostazioni di FZR Skimmer
+        try:
+            with open(path, encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            continue
+    return {}
 
 
 def save_cfg(cfg):
@@ -142,7 +160,11 @@ class Hub:
             self.src.start()
             self.on_status(f'Riproduzione: {os.path.basename(a.file)} · {self.src.fs/1000:.1f} kHz · {self.src.duration:.0f} s')
         else:
-            folder = a.cartella or self.cfg.get('cartella') or app_dir()
+            folder = find_perseus_folder(self.cfg, a.cartella)
+            log(f'Cartella del Perseus: {folder}')
+            if folder != app_dir():
+                self.cfg['cartella'] = folder
+                save_cfg(self.cfg)
             lo = self.cfg.get('lo', 21025000)
             if a.extio:
                 self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
@@ -161,7 +183,7 @@ class Hub:
             except Exception:
                 import traceback
                 log('ERRORE nel calcolo:\n' + traceback.format_exc())
-                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi splitwatch.log'})
+                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi fzrskimmer.log'})
                 time.sleep(1)
 
     def diag_thread(self):
@@ -256,6 +278,8 @@ class Hub:
                 self.engine = Engine(fs, self.dx_abs - center)
                 up = self.cfg.get('up', [0.15, 10.0])
                 self.engine.up_lo, self.engine.up_hi = up[0] * 1000, up[1] * 1000
+                self.engine.set_bw(float(self.cfg.get('filtro', 500)))
+                self.engine.min_snr = float(self.cfg.get('sensibilita', 5.0))
             else:
                 self.engine.set_dx(self.dx_abs - center)
             with self.lock:
@@ -272,6 +296,18 @@ class Hub:
                 self.engine.set_dx(self.dx_abs - self.center)
             self.cfg['dx'] = self.dx_abs
             save_cfg(self.cfg)
+            self.post_json(self.cfg_msg())
+        elif c[0] == 'bw':
+            self.cfg['filtro'] = float(c[1])
+            save_cfg(self.cfg)
+            if self.engine:
+                self.engine.set_bw(float(c[1]))
+            self.post_json(self.cfg_msg())
+        elif c[0] == 'snr':
+            self.cfg['sensibilita'] = float(c[1])
+            save_cfg(self.cfg)
+            if self.engine:
+                self.engine.min_snr = float(c[1])
             self.post_json(self.cfg_msg())
         elif c[0] == 'up':
             lo, hi = sorted([float(c[1]), float(c[2])])
@@ -292,7 +328,8 @@ class Hub:
                 'src': self.src_kind, 'status': self.status, 'version': VERSION,
                 'rate_sel': int(self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
-                'band': band_of(self.dx_abs or 0) or band_of(self.center or 0)}
+                'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
+                'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0))}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -337,6 +374,10 @@ class Hub:
                     self.cmd_q.put(('dx', float(c['hz'])))
                 elif k == 'up':
                     self.cmd_q.put(('up', c['lo'], c['hi']))
+                elif k == 'bw':
+                    self.cmd_q.put(('bw', float(c['hz'])))
+                elif k == 'snr':
+                    self.cmd_q.put(('snr', float(c['v'])))
                 elif k == 'lo' and self.src:
                     self.src.set_lo(int(c['hz']))
                 elif k == 'band':
@@ -380,15 +421,19 @@ class Hub:
             return (200, [('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store')], body)
         if path == '/ws':
             return None
-        if path == '/favicon.ico':
-            return (204, [], b'')
+        if path in ('/logo.png', '/favicon.ico'):
+            try:
+                with open(res_path('logo.png'), 'rb') as f:
+                    return (200, [('Content-Type', 'image/png'), ('Cache-Control', 'max-age=86400')], f.read())
+            except Exception:
+                return (204, [], b'')
         return (404, [('Content-Type', 'text/plain')], b'non trovato')
 
     async def main(self):
         self.loop = asyncio.get_running_loop()
         threading.Thread(target=self.dsp_thread, daemon=True).start()
         threading.Thread(target=self.diag_thread, daemon=True).start()
-        log(f'Split Watch {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
+        log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         try:
             self.start_source()
         except Exception as e:
@@ -398,7 +443,7 @@ class Hub:
                                     max_size=2 ** 20, compression=None):
             url = f'http://localhost:{port}/'
             ip = local_ip()
-            print(f'Split Watch {VERSION}: apri {url}' + (f'  (dal tablet: http://{ip}:{port}/)' if ip else ''), flush=True)
+            print(f'{APP} {VERSION}: apri {url}' + (f'  (dal tablet: http://{ip}:{port}/)' if ip else ''), flush=True)
             if not self.args.no_browser:
                 webbrowser.open(url)
             await asyncio.Future()
@@ -416,7 +461,7 @@ def local_ip():
 
 
 def main():
-    p = argparse.ArgumentParser(description='Split Watch - pile-up in split')
+    p = argparse.ArgumentParser(description='FZR Skimmer - pile-up in split con il Perseus')
     p.add_argument('file', nargs='?', help='registrazione IQ .wav da riprodurre')
     p.add_argument('--centro', type=float, help='frequenza centrale della registrazione (kHz)')
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
@@ -425,6 +470,8 @@ def main():
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true')
     args = p.parse_args()
+    if os.name == 'nt':
+        os.system(f'title {APP} {VERSION}')
     if args.file and not args.centro and sys.stdin and sys.stdin.isatty():
         # file trascinato sull'eseguibile: CW Skimmer non salva la frequenza, la chiedo
         try:

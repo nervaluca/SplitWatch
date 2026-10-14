@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Split Watch</title>
+<title>FZR Skimmer</title>
+<link rel="icon" type="image/png" href="/logo.png">
 <style>
 /* Layout: barra stato · comandi · waterfall dal vivo (sx) + testo decodificato (dx) · riga DX · impostazioni */
 :root{
@@ -19,8 +20,12 @@ html{height:100%;box-sizing:border-box}
 body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px}
 .app{height:100%;display:grid;grid-template-rows:auto auto auto minmax(260px,1fr) auto auto;gap:10px;padding-inline:16px;padding-block:12px}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px}
+.brandbox{display:flex;align-items:center;gap:12px}
+.brandbox img{width:56px;height:56px;border-radius:50%;box-shadow:0 0 0 1px #3a2c12,0 4px 18px #0009;flex:none}
 .brand{display:flex;flex-direction:column;gap:2px}
 .brand .name{font-weight:700;font-size:1.45rem;letter-spacing:.02em;line-height:1}
+.brand .name b{color:#e9b949;font-weight:700}
+.brand .motto{font-size:.74rem;color:#c9a24a;letter-spacing:.14em;text-transform:uppercase}
 .brand .tag{font-size:.78rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
 .stats{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0}
 .stats div{display:flex;flex-direction:column;gap:1px;min-width:0}
@@ -74,7 +79,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <body>
 <div class="app">
   <header class="top">
-    <div class="brand"><span class="name">Split Watch</span><span class="tag" id="tag">pile-up in split</span></div>
+    <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.1</span></span><span class="motto">dai punti alle parole</span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -97,6 +103,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="grp" id="spans"><span class="lbl">Larghezza</span>
       <button data-s="1.5">1,5</button><button data-s="3">3</button><button data-s="6">6</button><button data-s="12">12</button><button data-s="30">30</button><button data-s="0">Tutto</button>
     </div>
+    <div class="grp" id="bws"><span class="lbl">Filtro RX</span><button data-bw="100">100</button><button data-bw="200">200</button><button data-bw="300">300</button><button data-bw="500">500</button><button data-bw="800">800 Hz</button></div>
+    <div class="grp" id="snrs"><span class="lbl">Sensibilità</span><button data-v="4" title="Più nominativi deboli, più errori">Alta</button><button data-v="5">Media</button><button data-v="6" title="Solo segnali puliti">Bassa</button></div>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
     <div class="grp" id="chips"><span class="lbl">Ascolti</span></div>
   </div>
@@ -219,7 +227,8 @@ function onCfg(m){
   if(m.status)setStatus(m.status);
   if(!m.ready)return;
   const reset=!CFG||CFG.nbins!==m.nbins||CFG.center!==m.center||CFG.fs!==m.fs;
-  const dxMoved=!!CFG&&CFG.dx!==m.dx;
+  const dxMoved=!!CFG&&CFG.dx!==m.dx&&m.dx!==localDx;
+  if(m.dx===localDx)localDx=null;
   CFG=m;
   if(reset){resetRing();WORDS=[];LISTEN=[];dxDirty=chipsDirty=true}
   if(firstCfg||reset||dxMoved){firstCfg=false;toDx()}
@@ -285,7 +294,9 @@ function drawWF(){
     }
   }
   const DX=dxOff(),yd=yOf(DX);
-  c.fillStyle='rgba(88,217,139,.10)';const fh=Math.max(2*dpr,0.06*H/view.span);c.fillRect(0,yd-fh/2,plotW,fh);
+  const fh=Math.max(2*dpr,(CFG.bw_rx||500)/1000*H/view.span);
+  c.fillStyle='rgba(88,217,139,.10)';c.fillRect(0,yd-fh/2,plotW,fh);
+  c.fillStyle='rgba(88,217,139,.55)';c.fillRect(plotW-6*dpr,yd-fh/2,6*dpr,fh);
   // zona UP
   const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
   c.fillStyle='rgba(255,176,32,.05)';c.fillRect(plotW-4*dpr,Math.min(u0,u1),4*dpr,Math.abs(u1-u0));
@@ -353,6 +364,8 @@ function updateUI(){
   const full=CFG.fs/1000;
   document.querySelectorAll('#spans button').forEach(b=>b.setAttribute('aria-pressed',String((+b.dataset.s||full)===view.span)));
   document.querySelectorAll('#wins button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.w===WIN)));
+  document.querySelectorAll('#bws button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.bw===CFG.bw_rx)));
+  document.querySelectorAll('#snrs button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===CFG.snr)));
 }
 
 /* ---------------- comandi ---------------- */
@@ -360,8 +373,22 @@ $('#bUp').onclick=()=>setLow(view.low+5);$('#bDn').onclick=()=>setLow(view.low-5
 document.querySelectorAll('#spans button').forEach(b=>b.onclick=()=>{if(!CFG)return;const DX=dxOff(),dxIn=DX>view.low&&DX<view.low+view.span,mid=view.low+view.span/2;
   view.span=Math.min(+b.dataset.s||CFG.fs/1000,CFG.fs/1000);if(view.span>=CFG.fs/1000)setLow(-half());else if(dxIn)toDx();else setLow(mid-view.span/2)});
 document.querySelectorAll('#wins button').forEach(b=>b.onclick=()=>{WIN=+b.dataset.w});
+document.querySelectorAll('#bws button').forEach(b=>b.onclick=()=>send({cmd:'bw',hz:+b.dataset.bw}));
+document.querySelectorAll('#snrs button').forEach(b=>b.onclick=()=>send({cmd:'snr',v:+b.dataset.v}));
 $('#offTop').onclick=$('#offBot').onclick=()=>{const l=LISTEN[LISTEN.length-1];if(l)centerOn(l.f/1000)};
-wf.addEventListener('wheel',e=>{e.preventDefault();setLow(view.low+(e.deltaY<0?1:-1)*view.span/20*(e.shiftKey?.25:1))},{passive:false});
+// Ctrl + rotellina: sposta il DX (50 Hz, con Maiusc 10 Hz); la vista resta ferma
+let localDx=null,dxTimer=null;
+function nudgeDx(dir,step){
+  if(!CFG)return;
+  const nd=Math.round((CFG.dx+dir*step)/step)*step;
+  CFG.dx=nd;localDx=nd;
+  setT($('#sDx'),`${(nd/1000).toFixed(2)} kHz`);
+  if(document.activeElement!==$('#iDx'))$('#iDx').value=(nd/1000).toFixed(2);
+  clearTimeout(dxTimer);dxTimer=setTimeout(()=>send({cmd:'dx',hz:nd}),120);
+}
+wf.addEventListener('wheel',e=>{e.preventDefault();
+  if(e.ctrlKey){nudgeDx(e.deltaY<0?1:-1,e.shiftKey?10:50);return}
+  setLow(view.low+(e.deltaY<0?1:-1)*view.span/20*(e.shiftKey?.25:1))},{passive:false});
 let drag=null,menuAt=null,lpTimer=null;
 const offAt=cy=>{const r=wf.getBoundingClientRect();return view.low+view.span-(cy-r.top)/r.height*view.span};
 function openMenu(cx,cy){const r=wf.getBoundingClientRect(),m=$('#menu');menuAt=offAt(cy);m.hidden=false;
@@ -377,7 +404,8 @@ $('#mDx').onclick=()=>{if(CFG&&menuAt!=null)send({cmd:'dx',hz:CFG.center+menuAt*
 $('#mMark').onclick=()=>{const i=marks.findIndex(m=>Math.abs(m-menuAt)<view.span/60);if(i>=0)marks.splice(i,1);else marks.push(menuAt);closeMenu()};
 $('#mCenter').onclick=()=>{centerOn(menuAt);closeMenu()};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const m={PageUp:5,PageDown:-5,ArrowUp:view.span/10,ArrowDown:-view.span/10}[e.key];
-  if(m!=null){e.preventDefault();setLow(view.low+m)}else if(e.key==='Home'){e.preventDefault();toDx()}else if(e.key==='Escape')closeMenu()});
+  if(m!=null){e.preventDefault();setLow(view.low+m)}else if(e.key==='Home'){e.preventDefault();toDx()}
+  else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu()});
 
 function frame(){if(W&&H){drawWF();drawTX()}updateUI();requestAnimationFrame(frame)}
 resize();connect();requestAnimationFrame(frame);

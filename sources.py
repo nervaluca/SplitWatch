@@ -1,4 +1,4 @@
-"""Sorgenti IQ per Split Watch.
+"""Sorgenti IQ per FZR Skimmer.
 
 PerseusExtIO : Perseus dal vivo tramite ExtIO_perseus.dll (32 bit, formato Winrad/HDSDR)
 WavFile      : riproduzione in tempo reale di una registrazione IQ (CW Skimmer, HDSDR, SDR Console)
@@ -189,7 +189,7 @@ class PerseusExtIO:
         from ctypes import wintypes
         try:
             if struct.calcsize('P') != 4:
-                raise RuntimeError('ExtIO_perseus.dll è a 32 bit: serve la versione a 32 bit di Split Watch')
+                raise RuntimeError('ExtIO_perseus.dll è a 32 bit: serve la versione a 32 bit di FZR Skimmer')
             dll_path = os.path.join(self.folder, 'ExtIO_perseus.dll')
             if not os.path.exists(dll_path):
                 raise RuntimeError(f'Non trovo ExtIO_perseus.dll in {self.folder}')
@@ -400,7 +400,7 @@ class PerseusDirect:
         import ctypes
         try:
             if struct.calcsize('P') != 4:
-                raise RuntimeError('perseususb.dll è a 32 bit: serve la versione a 32 bit di Split Watch')
+                raise RuntimeError('perseususb.dll è a 32 bit: serve la versione a 32 bit di FZR Skimmer')
             path = os.path.join(self.folder, 'perseususb.dll')
             if not os.path.exists(path):
                 raise RuntimeError(f'Non trovo perseususb.dll in {self.folder} (è nella cartella di CW Skimmer o del software Perseus)')

@@ -17,6 +17,20 @@ MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
 
 HOT = re.compile(r'^(5NN|599|5NNTU|TU5NN|ENN|5N|NN|R5NN)$')
 JUNK = set('EIST')
+NOISE = set('EISHT5·')                      # lettere che il rumore genera facilmente
+KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'EE', 'QRZ', 'UP', 'CQ', 'TEST'}
+CALL_RE = re.compile(r'^(?:[A-Z]{1,2}|\d[A-Z]|[A-Z]\d)\d{1,2}[A-Z]{1,4}(?:/[A-Z0-9]+)?$')
+
+
+def is_junk(w):
+    """Parole tipiche del rumore: quasi solo E I S H T 5."""
+    if w in KEEP:
+        return False
+    if CALL_RE.match(w) and sum(c in NOISE for c in w) / len(w) < 0.75:
+        return False
+    if '·' in w and len(w) <= 3:
+        return True
+    return sum(c in NOISE for c in w) / len(w) >= 0.6
 
 
 def _nextpow2(v):
@@ -78,6 +92,7 @@ class Engine:
         self.out_audio = []
         # DX e ascolto
         self.bfo = bfo
+        self.min_snr = 5.0                                 # soglia minima del segnale (x rumore)
         self.up_lo, self.up_hi = 150.0, 10000.0             # zona UP dove cercare l'ascolto (Hz dal DX)
         self.set_dx(dx_off_hz)
         self.over = None                                   # [t_inizio, t_ultima_attività, parole]
@@ -88,16 +103,27 @@ class Engine:
         self.arate = self.fs / self.adec
         self.nco_ph = 0.0
         self.box_tail = np.zeros(0, np.complex64)
-        taps = 129
-        fc = 260.0 / self.arate
-        n = np.arange(taps) - (taps - 1) / 2
-        h = np.sinc(2 * fc * n) * np.hamming(taps)
-        self.alp = (h / h.sum()).astype(np.float32)
-        self.afir_state = np.zeros(taps - 1, np.complex64)
+        self.bw = 500.0
+        self._design_filter()
         self.bfo_ph = 0.0
         self.agc = 1e-6
 
     # ------------------------------------------------------------------ comandi
+    def _design_filter(self):
+        """Filtro audio del DX: passa-basso complesso = banda passante larga bw (Hz)."""
+        half = max(30.0, self.bw / 2)
+        # più stretto il filtro, più coefficienti (fronti ripidi): transizione ~ 0,6 x mezza banda
+        taps = int(5.5 * self.arate / max(40.0, 0.6 * half)) | 1
+        taps = max(129, min(1201, taps))
+        n = np.arange(taps) - (taps - 1) / 2
+        h = np.sinc(2 * (half / self.arate) * n) * np.blackman(taps)
+        self.alp = (h / h.sum()).astype(np.float32)
+        self.afir_state = np.zeros(taps - 1, np.complex64)
+
+    def set_bw(self, hz):
+        self.bw = float(min(3000, max(50, hz)))
+        self._design_filter()
+
     def set_dx(self, off_hz):
         self.dx_off = float(off_hz)
         self.dx_k = int(round(self.dx_off / self.binhz)) % self.nfft
@@ -166,7 +192,7 @@ class Engine:
         # picco con decadimento (~0,4 s di emivita)
         cm = A.max(0)
         self.pk = np.maximum(self.pk * 0.85, cm)
-        snr_ok = self.pk > 4.0 * self.nf
+        snr_ok = self.pk > self.min_snr * self.nf
         th = self.nf + 0.5 * (self.pk - self.nf)
         act = (A > th[None, :]) & snr_ok[None, :]
         strong = A > 6.0 * self.nf[None, :]
@@ -281,9 +307,7 @@ class Engine:
         t = ch.t0 if ch.t0 is not None else self.t
         if len(w) < 2 and w not in ('R', 'K'):
             return
-        if set(w) <= JUNK or w.count('·') > 1:
-            return
-        if not ch.is_dx and set(w) <= set('EISH5·') and len(w) < 7:
+        if set(w) <= JUNK or w.count('·') > 1 or is_junk(w):
             return
         nb = self.nfft
         self.recent = [r for r in self.recent if t - r[0] < 1.5]
