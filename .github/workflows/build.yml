@@ -19,30 +19,14 @@ jobs:
       - name: Dipendenze
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller==6.10.0 pillow
+          pip install -r requirements.txt pyinstaller==6.10.0 pillow==10.4.0
+
+      - name: Logo e icona
+        run: |
+          python -c "import os;from PIL import Image,ImageDraw;src=next((f for f in ('logo.png','fzrskimmer.png') if os.path.exists(f)),None);assert src,'manca il logo';im=Image.open(src).convert('RGBA');w,h=im.size;s=min(w,h);im=im.crop(((w-s)//2,(h-s)//2,(w-s)//2+s,(h-s)//2+s));m=Image.new('L',im.size,0);ImageDraw.Draw(m).ellipse((int(s*.012),int(s*.012),int(s*.988),int(s*.988)),fill=255);im.putalpha(m);os.path.exists('logo.png') or im.resize((256,256)).save('logo.png');os.path.exists('logo.ico') or im.save('logo.ico',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]);print('logo ok')"
 
       - name: Controllo 32 bit
         run: python -c "import struct,sys; b=struct.calcsize('P')*8; print(sys.version, b, 'bit'); assert b==32"
 
       - name: Prova del motore (CW sintetico)
-        run: python selftest.py
-
-      - name: Crea l'eseguibile
-        run: pyinstaller --onefile --console --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
-
-      - name: Prova l'eseguibile
-        run: dist\FZRSkimmer.exe --help
-
-      - name: Prepara la cartella FZRSkimmer
-        run: |
-          mkdir FZRSkimmer
-          copy dist\FZRSkimmer.exe FZRSkimmer\
-          copy LEGGIMI.md FZRSkimmer\
-          copy prepara_cartella.bat FZRSkimmer\
-          copy logo.png FZRSkimmer\
-        shell: cmd
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: FZRSkimmer
-          path: FZRSkimmer
+        run:
