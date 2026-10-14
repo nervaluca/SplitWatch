@@ -29,7 +29,7 @@ import websockets
 from dsp import Engine
 from sources import PerseusExtIO, WavFile
 
-VERSION = '0.2'
+VERSION = '0.3'
 
 
 def app_dir():
