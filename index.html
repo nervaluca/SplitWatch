@@ -41,6 +41,7 @@ button.audio[aria-pressed="true"]{background:#1d5a37;border-color:var(--dx)}
 .chip.old{opacity:.55}
 input[type=number]{width:7.2em;font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 input.short{width:4.6em}
+select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 .scope{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,34%);min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#05080c}
 .cell{position:relative;min-width:0;min-height:0}
 .cell+.cell{border-left:1px solid var(--line);background:#0a1016}
@@ -113,6 +114,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <label for="iUpLo">Zona UP da <input class="short" type="number" id="iUpLo" step="0.5" min="0"></label>
     <label for="iUpHi">a <input class="short" type="number" id="iUpHi" step="0.5" min="0"> kHz</label>
     <label for="iLo" id="loBox">Centro Perseus kHz <input type="number" id="iLo" step="1"></label>
+    <label for="selRate" id="rateBox">Campionamento <select id="selRate"><option value="48000">48 kHz</option><option value="96000">96 kHz</option><option value="192000">192 kHz</option></select></label>
+    <label for="chkSwap" id="swapBox"><input type="checkbox" id="chkSwap"> Inverti I/Q</label>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
   </div>
@@ -215,7 +218,10 @@ function onCfg(m){
   if(document.activeElement!==$('#iUpLo'))$('#iUpLo').value=m.up[0];
   if(document.activeElement!==$('#iUpHi'))$('#iUpHi').value=m.up[1];
   if(document.activeElement!==$('#iLo'))$('#iLo').value=(m.center/1000).toFixed(0);
-  const live=m.src==='perseus';$('#bGui').hidden=!live;$('#iLo').disabled=!live;
+  const live=m.src==='perseus';$('#bGui').hidden=true;$('#iLo').disabled=!live;
+  $('#rateBox').hidden=!live;$('#swapBox').hidden=!live;
+  if(m.rate_sel&&document.activeElement!==$('#selRate'))$('#selRate').value=String(m.rate_sel);
+  $('#chkSwap').checked=!!m.swap;
   $('#tag').textContent=(live?'Perseus dal vivo':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   setT($('#sDx'),`${(m.dx/1000).toFixed(2)} kHz`);
 }
@@ -223,6 +229,8 @@ $('#iDx').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'dx',
 $('#iUpLo').onchange=$('#iUpHi').onchange=()=>send({cmd:'up',lo:parseFloat($('#iUpLo').value)||0,hi:parseFloat($('#iUpHi').value)||10});
 $('#iLo').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'lo',hz:Math.round(v*1000)})};
 $('#bGui').onclick=()=>send({cmd:'gui'});
+$('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
+$('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
 
 /* ---------------- disegno ---------------- */
 const wf=$('#wf'),tx=$('#tx'),wc=wf.getContext('2d'),tc=tx.getContext('2d');
