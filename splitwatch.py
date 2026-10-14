@@ -29,7 +29,7 @@ import websockets
 from dsp import Engine
 from sources import PerseusExtIO, WavFile
 
-VERSION = '0.2'
+VERSION = '0.1'
 
 
 def app_dir():
@@ -44,17 +44,6 @@ def res_path(name):
 
 
 CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')
-LOG_PATH = os.path.join(app_dir(), 'splitwatch.log')
-
-
-def log(msg):
-    line = time.strftime('%H:%M:%S ') + str(msg)
-    print(line, flush=True)
-    try:
-        with open(LOG_PATH, 'a', encoding='utf-8') as f:
-            f.write(line + '\n')
-    except Exception:
-        pass
 
 
 def load_cfg():
@@ -105,7 +94,7 @@ class Hub:
 
     def on_status(self, s):
         self.status = s
-        log(s)
+        print(s, flush=True)
         self.post_json({'type': 'status', 'text': s})
 
     def on_rate(self, fs, center):
@@ -129,32 +118,6 @@ class Hub:
 
     # -------------------------------------------------------------- DSP
     def dsp_thread(self):
-        while True:
-            try:
-                self._dsp_loop()
-            except Exception:
-                import traceback
-                log('ERRORE nel calcolo:\n' + traceback.format_exc())
-                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi splitwatch.log'})
-                time.sleep(1)
-
-    def diag_thread(self):
-        last = 0
-        while True:
-            time.sleep(3)
-            n = getattr(self.src, 'nsamp', None)
-            if n is None:
-                continue
-            rate = (n - last) / 3
-            last = n
-            q = self.iq_q.qsize()
-            msg = f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · motore {"sì" if self.engine else "no"}'
-            if rate == 0:
-                msg = 'Nessun dato dal Perseus · ' + msg
-            log(msg)
-            self.post_json({'type': 'status', 'text': (self.status if rate else 'Nessun dato dal Perseus') + ' · ' + f'{rate/1000:.0f} k/s'})
-
-    def _dsp_loop(self):
         last_send = time.perf_counter()
         pend_rows, pend_audio, pend_words, pend_listen = [], [], [], []
         while True:
@@ -217,10 +180,6 @@ class Hub:
     def _apply(self, c):
         if c[0] == 'rate':
             fs, center = c[1], c[2]
-            log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz')
-            if fs <= 0:
-                self.on_status('Campionamento sconosciuto: attendo i dati…')
-                return
             if self.dx_abs is None:
                 d = self.args.dx * 1000 if self.args.dx else self.cfg.get('dx')
                 self.dx_abs = float(d) if d else center
@@ -331,8 +290,6 @@ class Hub:
     async def main(self):
         self.loop = asyncio.get_running_loop()
         threading.Thread(target=self.dsp_thread, daemon=True).start()
-        threading.Thread(target=self.diag_thread, daemon=True).start()
-        log(f'Split Watch {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         try:
             self.start_source()
         except Exception as e:
