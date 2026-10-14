@@ -29,4 +29,24 @@ jobs:
         run: python -c "import struct,sys; b=struct.calcsize('P')*8; print(sys.version, b, 'bit'); assert b==32"
 
       - name: Prova del motore (CW sintetico)
-        run:
+        run: python selftest.py
+
+      - name: Crea l'eseguibile
+        run: pyinstaller --onefile --console --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
+
+      - name: Prova l'eseguibile
+        run: dist\FZRSkimmer.exe --help
+
+      - name: Prepara la cartella FZRSkimmer
+        run: |
+          mkdir FZRSkimmer
+          copy dist\FZRSkimmer.exe FZRSkimmer\
+          copy LEGGIMI.md FZRSkimmer\
+          if exist prepara_cartella.bat copy prepara_cartella.bat FZRSkimmer\
+          copy logo.png FZRSkimmer\
+        shell: cmd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FZRSkimmer
+          path: FZRSkimmer
