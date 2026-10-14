@@ -27,9 +27,9 @@ import numpy as np
 import websockets
 
 from dsp import Engine
-from sources import PerseusExtIO, WavFile
+from sources import PerseusDirect, PerseusExtIO, WavFile
 
-VERSION = '0.3'
+VERSION = '0.4'
 
 
 def app_dir():
@@ -55,6 +55,26 @@ def log(msg):
             f.write(line + '\n')
     except Exception:
         pass
+
+
+BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefinito) in Hz
+    '160': (1810000, 2000000, 1830000, 1824000),
+    '80':  (3500000, 3800000, 3525000, 3505000),
+    '40':  (7000000, 7200000, 7025000, 7005000),
+    '30':  (10100000, 10150000, 10125000, 10105000),
+    '20':  (14000000, 14350000, 14035000, 14025000),
+    '17':  (18068000, 18168000, 18085000, 18075000),
+    '15':  (21000000, 21450000, 21035000, 21025000),
+    '12':  (24890000, 24990000, 24905000, 24895000),
+    '10':  (28000000, 29700000, 28035000, 28025000),
+}
+
+
+def band_of(hz):
+    for b, (lo, hi, _, _) in BANDS.items():
+        if lo - 50000 <= hz <= hi + 50000:
+            return b
+    return None
 
 
 def load_cfg():
@@ -124,7 +144,13 @@ class Hub:
         else:
             folder = a.cartella or self.cfg.get('cartella') or app_dir()
             lo = self.cfg.get('lo', 21025000)
-            self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
+            if a.extio:
+                self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
+            else:
+                self.src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
+                                         self.on_iq, self.on_status, self.on_rate,
+                                         preamp=bool(self.cfg.get('preamp', True)),
+                                         swap_iq=bool(self.cfg.get('inverti_iq', False)))
             self.src.start()
 
     # -------------------------------------------------------------- DSP
@@ -263,7 +289,10 @@ class Hub:
                 'nbins': e.nbins_out, 'bw': e.binhz * e.pool,
                 'f0': (-e.nfft / 2 + (e.pool - 1) / 2) * e.binhz,
                 'rowdt': 4.0 / 400.0, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
-                'src': self.src_kind, 'status': self.status, 'version': VERSION}
+                'src': self.src_kind, 'status': self.status, 'version': VERSION,
+                'rate_sel': int(self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
+                'band': band_of(self.dx_abs or 0) or band_of(self.center or 0)}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -310,6 +339,33 @@ class Hub:
                     self.cmd_q.put(('up', c['lo'], c['hi']))
                 elif k == 'lo' and self.src:
                     self.src.set_lo(int(c['hz']))
+                elif k == 'band':
+                    b = str(c['band'])
+                    if b in BANDS:
+                        m = self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3]}
+                        self.cmd_q.put(('dx', float(m['dx'])))
+                        if isinstance(self.src, (PerseusDirect, PerseusExtIO)):
+                            self.src.set_lo(int(m['centro']))
+                        else:
+                            self.on_status('In riproduzione la frequenza centrale non si cambia: imposto solo il DX')
+                elif k == 'save':
+                    b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
+                    if b:
+                        self.cfg.setdefault('memorie', {})[b] = {'centro': int(self.center), 'dx': float(self.dx_abs)}
+                        save_cfg(self.cfg)
+                        self.on_status(f'Memoria {b} m salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
+                        self.post_json(self.cfg_msg())
+                    else:
+                        self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
+                elif k == 'rate' and isinstance(self.src, PerseusDirect):
+                    self.cfg['campionamento'] = int(c['hz'])
+                    save_cfg(self.cfg)
+                    self.src.set_rate(int(c['hz']))
+                elif k == 'swap' and isinstance(self.src, PerseusDirect):
+                    self.cfg['inverti_iq'] = bool(c['on'])
+                    save_cfg(self.cfg)
+                    self.src.set_swap(bool(c['on']))
+                    self.post_json(self.cfg_msg())
                 elif k == 'gui' and isinstance(self.src, PerseusExtIO):
                     self.src.show_gui()
         except Exception:
@@ -365,7 +421,8 @@ def main():
     p.add_argument('--centro', type=float, help='frequenza centrale della registrazione (kHz)')
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
-    p.add_argument('--cartella', help='cartella con ExtIO_perseus.dll e perseususb.dll')
+    p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
+    p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true')
     args = p.parse_args()
     if args.file and not args.centro and sys.stdin and sys.stdin.isatty():

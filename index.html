@@ -17,7 +17,7 @@ html{height:100%;box-sizing:border-box}
 *,*::before,*::after{box-sizing:inherit}
 [hidden]{display:none!important}
 body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px}
-.app{height:100%;display:grid;grid-template-rows:auto auto minmax(260px,1fr) auto auto;gap:10px;padding-inline:16px;padding-block:12px}
+.app{height:100%;display:grid;grid-template-rows:auto auto auto minmax(260px,1fr) auto auto;gap:10px;padding-inline:16px;padding-block:12px}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px}
 .brand{display:flex;flex-direction:column;gap:2px}
 .brand .name{font-weight:700;font-size:1.45rem;letter-spacing:.02em;line-height:1}
@@ -35,6 +35,9 @@ button:hover{border-color:#2f4152;background:#131c26}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 button[aria-pressed="true"]{background:#123038;border-color:var(--accent);color:#e8fbfb}
 button.big{font-size:1rem;padding:7px 14px}
+button.band{min-width:3.2em;font-family:var(--f-mono)}
+button.band[aria-pressed="true"]{background:#2a2410;border-color:var(--hot);color:#ffe2a8}
+button.band.pred{opacity:.75}
 button.audio{background:#123020;border-color:#2a6a45;color:#dff7e8}
 button.audio[aria-pressed="true"]{background:#1d5a37;border-color:var(--dx)}
 .chip{font:500 .82rem var(--f-mono);padding:4px 8px;border-color:#3a2c12;color:var(--hot);background:#17120a}
@@ -78,6 +81,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <div class="hot"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
     </dl>
   </header>
+
+  <div class="ctrl" id="bandRow">
+    <div class="grp" id="bands"><span class="lbl">Banda</span></div>
+    <button id="bSave" title="Memorizza centro e DX attuali per questa banda">Salva memoria</button>
+  </div>
 
   <div class="ctrl">
     <div class="grp">
@@ -211,9 +219,10 @@ function onCfg(m){
   if(m.status)setStatus(m.status);
   if(!m.ready)return;
   const reset=!CFG||CFG.nbins!==m.nbins||CFG.center!==m.center||CFG.fs!==m.fs;
+  const dxMoved=!!CFG&&CFG.dx!==m.dx;
   CFG=m;
   if(reset){resetRing();WORDS=[];LISTEN=[];dxDirty=chipsDirty=true}
-  if(firstCfg){firstCfg=false;toDx()}
+  if(firstCfg||reset||dxMoved){firstCfg=false;toDx()}
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(m.dx/1000).toFixed(2);
   if(document.activeElement!==$('#iUpLo'))$('#iUpLo').value=m.up[0];
   if(document.activeElement!==$('#iUpHi'))$('#iUpHi').value=m.up[1];
@@ -224,11 +233,24 @@ function onCfg(m){
   $('#chkSwap').checked=!!m.swap;
   $('#tag').textContent=(live?'Perseus dal vivo':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   setT($('#sDx'),`${(m.dx/1000).toFixed(2)} kHz`);
+  renderBands(m);
+}
+function renderBands(m){
+  const box=$('#bands');box.querySelectorAll('button').forEach(n=>n.remove());
+  for(const b of ['160','80','40','30','20','17','15','12','10']){
+    const mem=m.bands&&m.bands[b];if(!mem)continue;
+    const el=document.createElement('button');el.className='band'+(mem.pred?' pred':'');el.textContent=b;
+    el.title=`${b} m · centro ${(mem.centro/1000).toFixed(1)} · DX ${(mem.dx/1000).toFixed(2)} kHz`+(mem.pred?' (predefinita)':'');
+    el.setAttribute('aria-pressed',String(m.band===b));
+    el.onclick=()=>{send({cmd:'band',band:b});firstCfg=true};
+    box.appendChild(el);
+  }
 }
 $('#iDx').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'dx',hz:v*1000})};
 $('#iUpLo').onchange=$('#iUpHi').onchange=()=>send({cmd:'up',lo:parseFloat($('#iUpLo').value)||0,hi:parseFloat($('#iUpHi').value)||10});
 $('#iLo').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'lo',hz:Math.round(v*1000)})};
 $('#bGui').onclick=()=>send({cmd:'gui'});
+$('#bSave').onclick=()=>send({cmd:'save'});
 $('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
 $('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
 

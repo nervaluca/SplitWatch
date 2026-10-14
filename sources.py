@@ -321,3 +321,217 @@ class PerseusExtIO:
             self.error = str(e)
             self.on_status(str(e))
             self.ready.set()
+
+
+# ---------------------------------------------------------------------------- Perseus diretto
+class PerseusDirect:
+    """Perseus comandato direttamente tramite perseususb.dll (driver WinUSB),
+    come fa CW Skimmer. Non serve ExtIO_perseus.dll.
+
+    Sequenza ricavata dalla ExtIO di Microtelecom e da libperseus-sdr:
+      Open -> FirmwareDownload(NULL) -> FpgaConfig(sbs, chiave) -> preselettore/attenuatore
+      -> Sio(controllo, frequenza) -> StartAsyncInput(n*6144, callback) -> Sio(+FIFO)
+    """
+
+    ADC_CLK = 80e6
+    # campionamento: (file .sbs, chiave di controllo a 8 byte, campioni/s reali)
+    RATES = {
+        48000:   ('perseus48k24v31',  'e437737b9a6a0000', 80e6 / 1664),
+        96000:   ('perseus96k24v31',  '391879f5908c0000', 80e6 / 832),
+        125000:  ('perseus125k24v21', '457cd43a0ed40000', 80e6 / 640),
+        192000:  ('perseus192k24v31', '7b3926759f7b0000', 80e6 / 416),
+        250000:  ('perseus250k24v21', 'cf4b9f02b21e0000', 80e6 / 320),
+    }
+    # preselettore: limite superiore (Hz) -> filtro; oltre 32 MHz = banda larga (10)
+    PRESEL = [(1.7e6, 0), (2.1e6, 1), (3.0e6, 2), (4.2e6, 3), (6.0e6, 4), (8.4e6, 5),
+              (12e6, 6), (17e6, 7), (24e6, 8), (32e6, 9)]
+    FIFOEN, DITHER, GAINHIGH = 0x01, 0x02, 0x04
+
+    def __init__(self, folder, lo_hz, rate, on_iq, on_status, on_rate, preamp=True, swap_iq=False):
+        self.folder = folder
+        self.lo = int(lo_hz)
+        self.rate_key = rate if rate in self.RATES else 96000
+        self.on_iq = on_iq
+        self.on_status = on_status
+        self.on_rate = on_rate
+        self.ctl = self.DITHER | (self.GAINHIGH if preamp else 0)
+        self.swap_iq = swap_iq
+        self.cmd = queue.Queue()
+        self.ready = threading.Event()
+        self.error = None
+        self.nsamp = 0
+        self.nblocks = 0
+        self.fs = None
+        self.center = float(lo_hz)
+        self._cb = None
+
+    # API pubblica
+    def start(self):
+        threading.Thread(target=self._thread, daemon=True).start()
+        self.ready.wait(20)
+        if self.error:
+            raise RuntimeError(self.error)
+        if not self.ready.is_set():
+            raise RuntimeError('Il Perseus non risponde')
+
+    def stop(self):
+        self.cmd.put(('stop',))
+
+    def set_lo(self, hz):
+        self.cmd.put(('lo', int(hz)))
+
+    def set_rate(self, rate):
+        self.cmd.put(('rate', int(rate)))
+
+    def show_gui(self):
+        self.on_status('Con il driver diretto non c\'è la finestra del Perseus: usa i comandi della pagina')
+
+    def set_swap(self, on):
+        self.swap_iq = bool(on)
+
+    # thread
+    def _presel(self, hz):
+        for lim, fid in self.PRESEL:
+            if hz < lim:
+                return fid
+        return 10
+
+    def _thread(self):
+        import ctypes
+        try:
+            if struct.calcsize('P') != 4:
+                raise RuntimeError('perseususb.dll è a 32 bit: serve la versione a 32 bit di Split Watch')
+            path = os.path.join(self.folder, 'perseususb.dll')
+            if not os.path.exists(path):
+                raise RuntimeError(f'Non trovo perseususb.dll in {self.folder} (è nella cartella di CW Skimmer o del software Perseus)')
+            k32 = ctypes.windll.kernel32
+            k32.SetDllDirectoryW(self.folder)
+            os.chdir(self.folder)                      # i file .sbs si caricano da qui
+            u = ctypes.WinDLL(path)                    # funzioni __stdcall
+            u.Open.restype = ctypes.c_int
+            u.Close.restype = ctypes.c_int
+            u.FirmwareDownload.argtypes = [ctypes.c_char_p]
+            u.FirmwareDownload.restype = ctypes.c_int
+            u.FpgaConfig.argtypes = [ctypes.c_char_p, ctypes.c_void_p]
+            u.FpgaConfig.restype = ctypes.c_int
+            u.Sio.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            u.Sio.restype = ctypes.c_int
+            u.SetAttenuator.argtypes = [ctypes.c_int]
+            u.SetPreselector.argtypes = [ctypes.c_int]
+            CB = ctypes.WINFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)   # void __stdcall cb(buf, extra)
+            u.StartAsyncInput.argtypes = [ctypes.c_int, CB, ctypes.c_void_p]
+            u.StartAsyncInput.restype = ctypes.c_int
+            u.StopAsyncInput.restype = ctypes.c_int
+            try:
+                u.GetDLLVersion.restype = ctypes.c_int
+                ver = u.GetDLLVersion()
+            except Exception:
+                ver = '?'
+
+            sio = (ctypes.c_ubyte * 5)()
+
+            def send_sio(freq):
+                freg = int(round(freq / self.ADC_CLK * 4294967296.0)) & 0xFFFFFFFF
+                sio[0] = self.ctl & 0xFF
+                struct.pack_into('<I', sio, 1, freg)
+                return u.Sio(ctypes.byref(sio), 5)
+
+            state = {'bufsize': 0}
+
+            def cb(buf, extra):
+                try:
+                    n = state['bufsize']
+                    if buf and n:
+                        raw = ctypes.string_at(buf, n)
+                        self.nsamp += n // 6
+                        self.nblocks += 1
+                        if self.nblocks == 1:
+                            self.on_status(f'Primo blocco dal Perseus: {n // 6} campioni')
+                        iq = to_complex(raw, 's24')
+                        if self.swap_iq:
+                            iq = np.conj(iq) * 1j
+                        self.on_iq(iq)
+                except Exception as e:
+                    self.on_status(f'Errore dati: {e}')
+
+            self._cb = CB(cb)                           # tenere il riferimento!
+
+            def configure(rate_key):
+                name, key_hex, fs = self.RATES[rate_key]
+                if not os.path.exists(os.path.join(self.folder, name + '.sbs')):
+                    raise RuntimeError(f'Manca il file {name}.sbs nella cartella {self.folder}')
+                key = ctypes.create_string_buffer(bytes.fromhex(key_hex), 8)
+                r = u.FpgaConfig(name.encode(), key)
+                self.on_status(f'FPGA {name}.sbs -> {r} (0 = ok)')
+                if r != 0:
+                    raise RuntimeError(f'Configurazione FPGA fallita ({name}.sbs, codice {r})')
+                return fs
+
+            def start_stream():
+                # blocchi multipli di 6144 byte (1024 campioni), ~30 ms
+                k = max(1, int(round(self.fs * 0.03 / 1024)))
+                state['bufsize'] = 6144 * k
+                self.ctl &= ~self.FIFOEN
+                send_sio(self.lo)
+                ok = u.StartAsyncInput(state['bufsize'], self._cb, None)
+                self.on_status(f'StartAsyncInput({state["bufsize"]}) -> {ok} (1 = ok)')
+                if not ok:
+                    raise RuntimeError('Avvio dello streaming fallito (StartAsyncInput)')
+                self.ctl |= self.FIFOEN
+                send_sio(self.lo)
+
+            def stop_stream():
+                self.ctl &= ~self.FIFOEN
+                send_sio(self.lo)
+                u.StopAsyncInput()
+
+            def tune(hz):
+                self.lo = int(hz)
+                fid = self._presel(self.lo)
+                u.SetPreselector(fid)
+                send_sio(self.lo)
+                self.center = float(self.lo)
+                return fid
+
+            if not u.Open():
+                raise RuntimeError('Perseus non trovato (Open). È acceso e collegato? CW Skimmer o un altro programma lo stanno usando?')
+            r = u.FirmwareDownload(None)
+            self.on_status(f'perseususb.dll versione {ver} · firmware -> {r} (0 = ok)')
+            self.fs = configure(self.rate_key)
+            u.SetAttenuator(0)
+            fid = tune(self.lo)
+            self.on_rate(self.fs, self.center)
+            start_stream()
+            self.on_status(f'Perseus attivo · {self.fs/1000:.1f} kHz · centro {self.center/1000:.3f} · preselettore {fid}')
+            self.ready.set()
+
+            t0 = time.time()
+            while True:
+                try:
+                    c = self.cmd.get(timeout=0.25)
+                except queue.Empty:
+                    if self.nsamp == 0 and time.time() - t0 > 4:
+                        self.on_status('Ancora nessun dato dal Perseus dopo 4 s')
+                        t0 = time.time() + 1e9
+                    continue
+                if c[0] == 'stop':
+                    stop_stream()
+                    u.Close()
+                    break
+                elif c[0] == 'lo':
+                    fid = tune(c[1])
+                    self.on_rate(self.fs, self.center)
+                    self.on_status(f'Centro {self.center/1000:.3f} kHz · preselettore {fid}')
+                elif c[0] == 'rate':
+                    if c[1] in self.RATES and c[1] != self.rate_key:
+                        stop_stream()
+                        self.rate_key = c[1]
+                        self.fs = configure(self.rate_key)
+                        tune(self.lo)
+                        self.on_rate(self.fs, self.center)
+                        start_stream()
+                        self.on_status(f'Campionamento {self.fs/1000:.1f} kHz')
+        except Exception as e:
+            self.error = str(e)
+            self.on_status(str(e))
+            self.ready.set()
