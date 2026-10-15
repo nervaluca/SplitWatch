@@ -535,3 +535,112 @@ class PerseusDirect:
             self.error = str(e)
             self.on_status(str(e))
             self.ready.set()
+
+
+# ---------------------------------------------------------------------------- scheda audio
+def list_audio_inputs():
+    """Ingressi audio disponibili: [(indice, nome, canali)]."""
+    try:
+        import sounddevice as sd
+        out = []
+        hostapis = sd.query_hostapis()
+        for i, d in enumerate(sd.query_devices()):
+            if d.get('max_input_channels', 0) > 0:
+                api = hostapis[d['hostapi']]['name'] if d.get('hostapi') is not None else ''
+                if 'WDM-KS' in api:            # spesso instabile, lo salto
+                    continue
+                out.append((i, f"{d['name']} ({api})", int(d['max_input_channels'])))
+        return out
+    except Exception:
+        return []
+
+
+class AudioCard:
+    """Ricezione dalla scheda audio del PC.
+
+    mode 'audio': uscita audio della radio (mono, USB o CW). Il segnale reale viene reso
+                  complesso (spostamento di fs/4 + filtro), così non ci sono immagini.
+                  Frequenza RF = frequenza radio + (frequenza audio - offset).
+                  Offset = nota CW se la radio mostra la frequenza del segnale (Icom in CW),
+                  0 se mostra la portante USB.
+    mode 'iq':    I e Q sui canali sinistro/destro (SoftRock e simili), centro = LO.
+    """
+
+    def __init__(self, device, mode, dial_hz, offset_hz, rate, on_iq, on_status, on_rate, swap_iq=False):
+        self.device = device
+        self.mode = mode
+        self.dial = float(dial_hz)
+        self.offset = float(offset_hz)
+        self.fs = float(rate)
+        self.on_iq = on_iq
+        self.on_status = on_status
+        self.on_rate = on_rate
+        self.swap_iq = swap_iq
+        self.nsamp = 0
+        self.stream = None
+        self.n4 = 0
+        taps = 127
+        n = np.arange(taps) - (taps - 1) / 2
+        h = np.sinc(2 * 0.235 * n) * np.blackman(taps)          # passa-basso a ~fs/4
+        self.h = (h / h.sum()).astype(np.float32)
+        self.state = np.zeros(taps - 1, np.complex64)
+
+    @property
+    def center(self):
+        if self.mode == 'audio':
+            return self.dial - self.offset + self.fs / 4
+        return self.dial
+
+    def _real_to_iq(self, x):
+        n = len(x)
+        rot = np.array([1, -1j, -1, 1j], np.complex64)[(self.n4 + np.arange(n)) % 4]   # e^{-j pi n/2}
+        self.n4 = (self.n4 + n) % 4
+        y = np.concatenate([self.state, x.astype(np.float32) * rot])
+        z = np.convolve(y, self.h, mode='valid').astype(np.complex64)
+        self.state = y[-(len(self.h) - 1):]
+        return z
+
+    def _cb(self, indata, frames, t, status):
+        try:
+            if self.mode == 'iq' and indata.shape[1] >= 2:
+                a, b = indata[:, 0], indata[:, 1]
+                if self.swap_iq:
+                    a, b = b, a
+                iq = (a + 1j * b).astype(np.complex64)
+            else:
+                iq = self._real_to_iq(indata[:, 0])
+            self.nsamp += frames
+            self.on_iq(iq)
+        except Exception as e:
+            self.on_status(f'Errore audio: {e}')
+
+    def start(self):
+        import sounddevice as sd
+        ch = 2 if self.mode == 'iq' else 1
+        self.stream = sd.InputStream(device=self.device, channels=ch, samplerate=self.fs, dtype='float32',
+                                     blocksize=int(self.fs * 0.02), callback=self._cb, latency='low')
+        self.stream.start()
+        name = sd.query_devices(self.device)['name'] if self.device is not None else 'predefinito'
+        self.on_rate(self.fs, self.center)
+        what = 'IQ stereo' if self.mode == 'iq' else f'audio radio (offset {self.offset:.0f} Hz)'
+        self.on_status(f'Scheda audio: {name} · {what} · {self.fs/1000:.0f} kHz')
+
+    def stop(self):
+        try:
+            if self.stream:
+                self.stream.stop()
+                self.stream.close()
+        except Exception:
+            pass
+
+    def set_lo(self, hz):
+        """Senza CAT: è la frequenza mostrata dalla radio, la imposti tu."""
+        self.dial = float(hz)
+        self.on_rate(self.fs, self.center)
+
+    def set_offset(self, hz):
+        self.offset = float(hz)
+        self.on_rate(self.fs, self.center)
+
+    def set_swap(self, on):
+        self.swap_iq = bool(on)
