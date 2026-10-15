@@ -30,7 +30,7 @@ import dsp
 from dsp import Engine
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.3'
+VERSION = '1.4'
 APP = 'FZR Skimmer'
 
 

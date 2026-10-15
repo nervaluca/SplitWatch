@@ -18,7 +18,13 @@ MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
 HOT = re.compile(r'^(5NN|599|5NNTU|TU5NN|ENN|5N|NN|R5NN)$')
 JUNK = set('EIST')
 NOISE = set('EISHT5·')                      # lettere che il rumore genera facilmente
-KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'EE', 'QRZ', 'UP', 'CQ', 'TEST'}
+KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'EE', 'QRZ', 'UP', 'CQ', 'TEST',
+        # parole e abbreviazioni dei QSO in CW: non vanno mai scartate
+        'DE', 'ES', 'HI', 'ST', 'TNX', 'TKS', 'TX', 'RX', 'RST', 'UR', 'FB', 'OM', 'OP', 'QTH', 'QSL', 'QSO',
+        'QRL', 'QRM', 'QRN', 'QRP', 'QRO', 'QRQ', 'QRS', 'QRT', 'QRV', 'QSB', 'QSY', 'QRU', 'NAME', 'AGN', 'PSE',
+        'KN', 'BK', 'SK', 'AR', 'AS', 'RR', 'GM', 'GA', 'GE', 'GN', 'GL', 'WX', 'HR', 'HW', 'ANT', 'RIG', 'PWR',
+        'FER', 'FOR', 'NR', 'NW', 'SRI', 'CFM', 'TIME', 'DR', 'TEMP', 'VY', 'GD', 'BEST', 'TEST', 'IS', 'HIS',
+        'SIG', '73', '88', '599', 'SSB', 'CW'}
 CALL_RE = re.compile(r'^(?:[A-Z]{1,2}|\d[A-Z]|[A-Z]\d)\d{1,2}[A-Z]{1,4}(?:/[A-Z0-9]+)?$')
 
 
@@ -102,7 +108,7 @@ def _nextpow2(v):
 
 class Channel:
     """Decoder CW di un singolo canale (bin FFT)."""
-    __slots__ = ('k', 'on', 'edge', 'u', 'sym', 'word', 't0', 'last', 'is_dx')
+    __slots__ = ('k', 'on', 'edge', 'u', 'sym', 'word', 't0', 'last', 'is_dx', 'last_good')
 
     def __init__(self, k, t, is_dx=False):
         self.k = k
@@ -114,6 +120,7 @@ class Channel:
         self.t0 = None
         self.last = t           # ultima attività
         self.is_dx = is_dx
+        self.last_good = -99.0  # ultima parola "vera" (non fatta solo di punti)
 
 
 MORSE = {'.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E', '..-.': 'F', '--.': 'G', '....': 'H',
@@ -148,6 +155,7 @@ class Engine:
         self.row_n = 0
         self.row_floor = None
         self.channels = {}
+        self.act_hist = []                                 # ultimi ~1,5 s di attività (inizio, matrice)
         self.recent = []                                   # (t, k, testo) per deduplica
         self.out_words = []
         self.out_rows = []
@@ -275,7 +283,23 @@ class Engine:
                 self.row_n = 0
 
         # canali attivi
+        self.new_channels = []
         self._update_channels(tA + m * fr_dt)
+        if self.new_channels and self.act_hist:
+            # canale appena aperto: ridecodifica l'ultimo secondo e mezzo, così non si perde la prima lettera
+            H = np.vstack([a for _, a in self.act_hist])
+            tH = self.act_hist[0][0]
+            for k in self.new_channels:
+                ch = self.channels[k]
+                ch.on = False
+                ch.edge = tH
+                col = H[:, k].astype(np.int8)
+                d = np.diff(np.concatenate([[0], col]))
+                idx = np.nonzero(d)[0]
+                if len(idx):
+                    self._decode_edges(ch, idx, d[idx], tH, fr_dt)
+                if ch.on is False and (ch.sym or ch.word):
+                    pass                                   # il resto lo chiude il blocco corrente
         chs = list(self.channels.values())
         ks = np.array([c.k for c in chs], dtype=np.int64)
         prev = np.array([c.on for c in chs], dtype=np.int8)
@@ -290,6 +314,10 @@ class Engine:
                 self._decode_edges(ch, ci[a:b], D[ci[a:b], j], tA, fr_dt)
             if not ch.on and (ch.sym or ch.word):
                 self._gap(ch, tend - ch.edge, ch.edge)
+
+        self.act_hist.append((tA, act))
+        while self.act_hist and self.act_hist[0][0] < tA - 1.5:
+            self.act_hist.pop(0)
 
         # DX: over e ascolto
         self._dx_track(strong[:, self.dx_k] & act[:, self.dx_k], tA, fr_dt)
@@ -321,6 +349,7 @@ class Engine:
                 continue
             if True:
                 self.channels[k] = Channel(k, t)
+                self.new_channels.append(k)
         if self.dx_k not in self.channels:
             self.channels[self.dx_k] = Channel(self.dx_k, t, is_dx=True)
         else:
@@ -371,8 +400,14 @@ class Engine:
         t = ch.t0 if ch.t0 is not None else self.t
         if len(w) < 2 and w not in ('R', 'K'):
             return
-        if set(w) <= JUNK or w.count('·') > 1 or is_junk(w):
+        if w.count('·') > 1 or is_junk(w):
             return
+        if set(w) <= NOISE:
+            # EE, ES, HI, ST...: valide solo dentro una trasmissione già riconosciuta
+            if t - ch.last_good > 2.5:
+                return
+        else:
+            ch.last_good = ch.last          # fine dell'ultimo segno della parola buona
         nb = self.nfft
         self.recent = [r for r in self.recent if t - r[0] < 1.5]
         for (tr, kr, wr) in self.recent:
