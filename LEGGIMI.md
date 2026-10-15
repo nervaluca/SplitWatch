@@ -1,4 +1,4 @@
-# FZR Skimmer 1.5
+# FZR Skimmer 1.6
 
 IW1FZR
 
@@ -74,6 +74,8 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
 - **Filtro RX** (100–800 Hz): larghezza dell'audio sul DX, per togliere chi chiama troppo vicino.
   La fascia verde sul waterfall mostra la banda passante.
 - **Sensibilità**: Alta = più nominativi deboli ma più errori; Media (iniziale); Bassa = solo segnali puliti.
+- **Colori / Luce / Contrasto**: tavolozza del waterfall (Skimmer, Classica, Fosfori, Grigio, Notte),
+  luminosità e contrasto. Doppio clic su un cursore = valore iniziale. Restano memorizzati.
 - Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX.
 
 ## Riprodurre una registrazione

@@ -48,6 +48,8 @@ button.audio[aria-pressed="true"]{background:#1d5a37;border-color:var(--dx)}
 .chip.old{opacity:.55}
 input[type=number]{width:7.2em;font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 input.short{width:4.6em}
+.rng{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--dim);letter-spacing:.05em;text-transform:uppercase}
+.rng input{width:90px;accent-color:var(--accent)}
 select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 .scope{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,34%);min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#05080c}
 .cell{position:relative;min-width:0;min-height:0}
@@ -81,7 +83,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.5</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.6</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -107,6 +109,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     </div>
     <div class="grp" id="bws"><span class="lbl">Filtro RX</span><button data-bw="100">100</button><button data-bw="200">200</button><button data-bw="300">300</button><button data-bw="500">500</button><button data-bw="800">800 Hz</button></div>
     <div class="grp" id="snrs"><span class="lbl">Sensibilità</span><button data-v="4" title="Più nominativi deboli, più errori">Alta</button><button data-v="5">Media</button><button data-v="6" title="Solo segnali puliti">Bassa</button></div>
+    <div class="grp" id="wfset"><span class="lbl">Colori</span>
+      <select id="selPal" aria-label="Tavolozza del waterfall"><option value="skimmer">Skimmer</option><option value="classica">Classica</option><option value="fosfori">Fosfori</option><option value="grigio">Grigio</option><option value="notte">Notte</option></select>
+      <label class="rng" for="rLum">Luce <input type="range" id="rLum" min="-40" max="40" step="1"></label>
+      <label class="rng" for="rCon">Contrasto <input type="range" id="rCon" min="50" max="300" step="5"></label>
+    </div>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
     <div class="grp" id="chips"><span class="lbl">Ascolti</span></div>
   </div>
@@ -152,21 +159,47 @@ let CFG=null;
 /* ---------------- waterfall ad anello ---------------- */
 const RING=3000;                     // 30 s a 100 righe/s
 let ring=null,rctx=null,rowImg=null,nrows=0,tNewest=0;
-const STOPS=[[0,[6,10,16]],[.15,[11,34,52]],[.38,[20,86,110]],[.62,[63,185,196]],[.85,[168,240,234]],[1,[255,255,255]]];
+const PALETTES={
+  skimmer:[[0,[6,10,16]],[.15,[11,34,52]],[.38,[20,86,110]],[.62,[63,185,196]],[.85,[168,240,234]],[1,[255,255,255]]],
+  classica:[[0,[0,0,8]],[.2,[0,0,120]],[.42,[0,150,220]],[.62,[240,230,40]],[.82,[240,60,20]],[1,[255,255,255]]],
+  fosfori:[[0,[2,8,4]],[.3,[6,60,20]],[.6,[40,170,70]],[.85,[150,250,150]],[1,[235,255,235]]],
+  grigio:[[0,[0,0,0]],[1,[255,255,255]]],
+  notte:[[0,[0,0,0]],[.35,[70,0,0]],[.7,[200,30,10]],[1,[255,170,120]]]
+};
+const WFS={pal:'skimmer',lum:0,con:100};
+try{Object.assign(WFS,JSON.parse(localStorage.getItem('fzr_wf')||'{}'))}catch(e){}
 const LUT=new Uint8ClampedArray(256*3);
-for(let v=0;v<256;v++){const x=v/255;for(let i=1;i<STOPS.length;i++){const[a,ca]=STOPS[i-1],[b,cb]=STOPS[i];if(x<=b){const k=(x-a)/(b-a);for(let j=0;j<3;j++)LUT[v*3+j]=ca[j]+(cb[j]-ca[j])*k;break}}}
+function buildLUT(){
+  const st=PALETTES[WFS.pal]||PALETTES.skimmer,c=WFS.con/100,l=WFS.lum/100;
+  for(let v=0;v<256;v++){
+    let x=(v/255-0.5)*c+0.5+l;x=Math.max(0,Math.min(1,x));
+    for(let i=1;i<st.length;i++){const[a,ca]=st[i-1],[b,cb]=st[i];if(x<=b){const k=(x-a)/(b-a||1);for(let j=0;j<3;j++)LUT[v*3+j]=ca[j]+(cb[j]-ca[j])*k;break}}
+  }
+}
+buildLUT();
+let raw=null;                        // valori grezzi del waterfall, per ricolorare tutto quando cambi i colori
+function repaintRing(){
+  if(!ring||!raw)return;const nb=CFG.nbins,img=rctx.createImageData(RING,nb),p=img.data;
+  for(let col=0;col<RING;col++){const base=col*nb;
+    for(let i=0;i<nb;i++){const v=raw[base+i],q=((nb-1-i)*RING+col)*4;p[q]=LUT[v*3];p[q+1]=LUT[v*3+1];p[q+2]=LUT[v*3+2];p[q+3]=255}}
+  rctx.putImageData(img,0,0);
+}
+let wfTimer=null;
+function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}
+  clearTimeout(wfTimer);wfTimer=setTimeout(repaintRing,120)}
 function resetRing(){
   ring=document.createElement('canvas');ring.width=RING;ring.height=CFG.nbins;
   rctx=ring.getContext('2d');rctx.fillStyle='#06090d';rctx.fillRect(0,0,RING,CFG.nbins);
-  rowImg=rctx.createImageData(1,CFG.nbins);nrows=0;
+  rowImg=rctx.createImageData(1,CFG.nbins);nrows=0;raw=new Uint8Array(RING*CFG.nbins);
 }
 function addRows(t0,n,nb,bytes){
   if(!ring||nb!==CFG.nbins)return;
   const p=rowImg.data;
   for(let r=0;r<n;r++){
-    const off=r*nb;
+    const off=r*nb,col=nrows%RING;
+    raw.set(bytes.subarray(off,off+nb),col*nb);
     for(let i=0;i<nb;i++){const v=bytes[off+i],y=nb-1-i,q=y*4;p[q]=LUT[v*3];p[q+1]=LUT[v*3+1];p[q+2]=LUT[v*3+2];p[q+3]=255}
-    rctx.putImageData(rowImg,nrows%RING,0);nrows++;
+    rctx.putImageData(rowImg,col,0);nrows++;
   }
   tNewest=t0+(n-1)*CFG.rowdt;
 }
@@ -276,6 +309,12 @@ $('#iUpLo').onchange=$('#iUpHi').onchange=()=>send({cmd:'up',lo:parseFloat($('#i
 $('#iLo').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'lo',hz:Math.round(v*1000)})};
 $('#bGui').onclick=()=>send({cmd:'gui'});
 $('#bQuit').onclick=()=>{quitting=true;send({cmd:'quit'});setStatus('FZR Skimmer chiuso: puoi chiudere questa finestra');setTimeout(()=>{try{window.close()}catch(e){}},800)};
+$('#selPal').value=WFS.pal;$('#rLum').value=WFS.lum;$('#rCon').value=WFS.con;
+$('#selPal').onchange=e=>{WFS.pal=e.target.value;wfChanged()};
+$('#rLum').oninput=e=>{WFS.lum=+e.target.value;wfChanged()};
+$('#rCon').oninput=e=>{WFS.con=+e.target.value;wfChanged()};
+$('#rLum').ondblclick=()=>{WFS.lum=0;$('#rLum').value=0;wfChanged()};
+$('#rCon').ondblclick=()=>{WFS.con=100;$('#rCon').value=100;wfChanged()};
 $('#bSave').onclick=()=>send({cmd:'save'});
 $('#selSrc').onchange=e=>{send({cmd:'source',kind:e.target.value});setStatus('Cambio ricevitore…')};
 $('#selDev').onchange=e=>send({cmd:'audiodev',dev:e.target.value||null});
