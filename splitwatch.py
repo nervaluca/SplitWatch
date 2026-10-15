@@ -31,7 +31,7 @@ import licenza
 from dsp import Engine
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.7'
+VERSION = '1.8'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -40,7 +40,7 @@ URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
 
 def find_license():
     """Licenza di FZR Skimmer; se manca, quella di ADIF FZR (stesse chiavi)."""
-    dirs = [app_dir()]
+    dirs = [DATA_DIR, app_dir()]
     ad = os.environ.get('APPDATA')
     if ad:
         dirs.append(os.path.join(ad, 'ADIF_FZR'))
@@ -66,9 +66,32 @@ def res_path(name):
     return os.path.join(base, name)
 
 
-CFG_PATH = os.path.join(app_dir(), 'fzrskimmer.json')
-OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni della versione FZR Skimmer
-LOG_PATH = os.path.join(app_dir(), 'fzrskimmer.log')
+def _writable(d):
+    try:
+        os.makedirs(d, exist_ok=True)
+        t = os.path.join(d, '.prova_scrittura')
+        with open(t, 'w') as f:
+            f.write('x')
+        os.remove(t)
+        return True
+    except Exception:
+        return False
+
+
+def data_dir():
+    """Cartella per impostazioni, registro e licenza: quella dell'exe se scrivibile,
+    altrimenti %APPDATA%\\FZRSkimmer (come ADIF FZR)."""
+    if _writable(app_dir()):
+        return app_dir()
+    fb = os.path.join(os.environ.get('APPDATA') or os.path.expanduser('~'), 'FZRSkimmer')
+    _writable(fb)
+    return fb
+
+
+DATA_DIR = data_dir()
+CFG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.json')
+OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni della vecchia versione Split Watch
+LOG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.log')
 
 
 if sys.stdout is None:                      # eseguibile senza finestra nera
@@ -162,12 +185,20 @@ def load_cfg():
     return {}
 
 
+_save_err = [False]
+
+
 def save_cfg(cfg):
     try:
-        with open(CFG_PATH, 'w', encoding='utf-8') as f:
+        tmp = CFG_PATH + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, indent=1)
-    except Exception:
-        pass
+        os.replace(tmp, CFG_PATH)                 # scrittura sicura: niente file a metà
+        _save_err[0] = False
+    except Exception as e:
+        if not _save_err[0]:
+            _save_err[0] = True
+            log(f'Impossibile salvare le impostazioni in {CFG_PATH}: {e}')
 
 
 class Hub:
@@ -256,14 +287,29 @@ class Hub:
             self.cfg['cartella'] = folder
             save_cfg(self.cfg)
         lo = self.cfg.get('lo', 21025000)
-        if a.extio:
-            self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
-        else:
-            self.src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
-                                     self.on_iq, self.on_status, self.on_rate,
-                                     preamp=bool(self.cfg.get('preamp', True)),
-                                     swap_iq=bool(self.cfg.get('inverti_iq', False)))
-        self.src.start()
+        last_err = None
+        for tent in range(3):                     # la USB a volte si libera con un attimo di ritardo
+            if a.extio:
+                src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
+            else:
+                src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
+                                    self.on_iq, self.on_status, self.on_rate,
+                                    preamp=bool(self.cfg.get('preamp', True)),
+                                    swap_iq=bool(self.cfg.get('inverti_iq', False)))
+            try:
+                src.start()
+                self.src = src
+                return
+            except Exception as e:
+                last_err = e
+                log(f'Avvio del Perseus, tentativo {tent + 1}/3 fallito: {e}')
+                try:
+                    src.stop()
+                except Exception:
+                    pass
+                time.sleep(2)
+        self.src = None
+        raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
 
     def trial_left(self):
         if self.lic or self.src_kind == 'file':
@@ -289,10 +335,10 @@ class Hub:
                 self.post_json(self.cfg_msg())
 
     def register(self, call, key):
-        ok, info = licenza.salva(app_dir(), call, key)
+        ok, info = licenza.salva(DATA_DIR, call, key)
         if not ok:
             return False, info
-        info['origine'] = app_dir()
+        info['origine'] = DATA_DIR
         self.lic = info
         log(f"Registrazione: {info['testo']}")
         if self.locked:
@@ -517,7 +563,7 @@ class Hub:
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
                 'offset': float(self.cfg.get('audio_offset', 600)),
-                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), **lic}
+                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR, **lic}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -595,6 +641,14 @@ class Hub:
                 elif k == 'register_online':
                     ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
+                elif k == 'restart':
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq') else 'perseus')
+                elif k == 'ui' and isinstance(c.get('v'), dict):
+                    ui = self.cfg.setdefault('ui', {})
+                    for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel'):
+                        if key in c['v']:
+                            ui[key] = c['v'][key]
+                    save_cfg(self.cfg)
                 elif k == 'quit':
                     self.shutdown()
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
@@ -644,6 +698,7 @@ class Hub:
         threading.Thread(target=self.dsp_thread, daemon=True).start()
         threading.Thread(target=self.diag_thread, daemon=True).start()
         threading.Thread(target=self.trial_thread, daemon=True).start()
+        log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         try:

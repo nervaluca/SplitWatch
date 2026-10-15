@@ -1,4 +1,4 @@
-# FZR Skimmer 1.7
+# FZR Skimmer 1.8
 
 IW1FZR
 
@@ -23,6 +23,8 @@ il DX sta ascoltando.
    Dal tablet in stazione: apri nel browser l'indirizzo scritto in `fzrskimmer.log`
    (tipo `http://192.168.x.x:8073`). Dal tablet chiudere il browser non spegne nulla:
    per spegnere usa **Esci**.
+   Se il ricevitore non parte: **Riavvia ricevitore** (in basso). Il programma riprova già da solo 3 volte.
+   Se ancora niente, controlla in Gestione attività che non ci sia un altro `FZRSkimmer.exe` acceso.
    Opzioni: `--browser` apre nel browser normale; `--no-browser` non apre finestre.
 
 I file del Perseus (`perseususb.dll`, `.sbs`) sono di Microtelecom: non vanno caricati
@@ -102,5 +104,7 @@ Da riga di comando:
 - Il rilevamento dell'ascolto scatta solo quando il DX passa un 5NN decodificato.
 
 
-Le impostazioni e le memorie di banda stanno in `fzrskimmer.json` accanto all'exe
+Tutte le impostazioni (banda, DX, memorie, filtro, sensibilità, ricevitore, larghezza, scorrimento,
+colori) stanno in `fzrskimmer.json` accanto all'exe; se quella cartella non è scrivibile, in
+`%APPDATA%\FZRSkimmer`. Il percorso esatto è scritto all'inizio di `fzrskimmer.log`
 (al primo avvio vengono riprese da `splitwatch.json`, se c'è). Il registro è `fzrskimmer.log`.

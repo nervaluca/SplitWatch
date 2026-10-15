@@ -99,7 +99,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.7</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.8</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -164,6 +164,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <label for="iLo" id="loBox"><span id="loLbl">Centro Perseus kHz</span> <input type="number" id="iLo" step="0.01"></label>
     <label for="selRate" id="rateBox">Campionamento <select id="selRate"><option value="48000">48 kHz</option><option value="96000">96 kHz</option><option value="192000">192 kHz</option></select></label>
     <label for="chkSwap" id="swapBox"><input type="checkbox" id="chkSwap"> Inverti I/Q</label>
+    <button id="bRestart" title="Riavvia il ricevitore senza chiudere il programma">Riavvia ricevitore</button>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
   </div>
@@ -224,7 +225,10 @@ function repaintRing(){
   rctx.putImageData(img,0,0);
 }
 let wfTimer=null;
-function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}
+let uiTimer=null;
+function saveUI(){clearTimeout(uiTimer);uiTimer=setTimeout(()=>{if(!CFG)return;
+  send({cmd:'ui',v:{span:view.span,win:WIN,pal:WFS.pal,lum:WFS.lum,con:WFS.con,low_rel:+(view.low-dxOff()).toFixed(3)}})},600)}
+function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}saveUI();
   clearTimeout(wfTimer);wfTimer=setTimeout(repaintRing,120)}
 function resetRing(){
   ring=document.createElement('canvas');ring.width=RING;ring.height=CFG.nbins;
@@ -274,7 +278,7 @@ function addEv(m){
 /* ---------------- vista (offset in kHz dal centro) ---------------- */
 const view={low:-0.6,span:3};let WIN=10;const marks=[];
 const half=()=>CFG?CFG.fs/2000:48;
-function setLow(v){view.low=clamp(v,-half(),half()-view.span)}
+function setLow(v){view.low=clamp(v,-half(),half()-view.span);if(typeof saveUI==='function')saveUI()}
 const dxOff=()=>CFG?(CFG.dx-CFG.center)/1000:0;
 const toDx=()=>setLow(dxOff()-view.span*0.2);
 const centerOn=o=>setLow(o-view.span/2);
@@ -335,7 +339,12 @@ function onCfg(m){
   if(m.dx===localDx)localDx=null;
   CFG=m;
   if(reset){resetRing();WORDS=[];LISTEN=[];dxDirty=chipsDirty=true}
-  if(firstCfg||reset||dxMoved){firstCfg=false;toDx()}
+  if(firstCfg&&m.ui){const u=m.ui;
+    if(u.span)view.span=Math.min(+u.span,m.fs/1000);if(u.win)WIN=+u.win;
+    if(u.pal){WFS.pal=u.pal;$('#selPal').value=u.pal}if(u.lum!=null){WFS.lum=+u.lum;$('#rLum').value=u.lum}
+    if(u.con!=null){WFS.con=+u.con;$('#rCon').value=u.con}buildLUT();
+    firstCfg=false;if(u.low_rel!=null)setLow((m.dx-m.center)/1000+(+u.low_rel));else toDx();}
+  else if(firstCfg||reset||dxMoved){firstCfg=false;toDx()}
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(m.dx/1000).toFixed(2);
   if(document.activeElement!==$('#iUpLo'))$('#iUpLo').value=m.up[0];
   if(document.activeElement!==$('#iUpHi'))$('#iUpHi').value=m.up[1];
@@ -382,6 +391,7 @@ $('#rCon').oninput=e=>{WFS.con=+e.target.value;wfChanged()};
 $('#rLum').ondblclick=()=>{WFS.lum=0;$('#rLum').value=0;wfChanged()};
 $('#rCon').ondblclick=()=>{WFS.con=100;$('#rCon').value=100;wfChanged()};
 $('#bSave').onclick=()=>send({cmd:'save'});
+$('#bRestart').onclick=()=>{send({cmd:'restart'});setStatus('Riavvio del ricevitore…')};
 $('#selSrc').onchange=e=>{send({cmd:'source',kind:e.target.value});setStatus('Cambio ricevitore…')};
 $('#selDev').onchange=e=>send({cmd:'audiodev',dev:e.target.value||null});
 $('#iOff').onchange=e=>send({cmd:'offset',hz:parseFloat(e.target.value)||0});
@@ -506,7 +516,7 @@ function updateUI(){
 $('#bUp').onclick=()=>setLow(view.low+5);$('#bDn').onclick=()=>setLow(view.low-5);$('#bDx').onclick=toDx;
 document.querySelectorAll('#spans button').forEach(b=>b.onclick=()=>{if(!CFG)return;const DX=dxOff(),dxIn=DX>view.low&&DX<view.low+view.span,mid=view.low+view.span/2;
   view.span=Math.min(+b.dataset.s||CFG.fs/1000,CFG.fs/1000);if(view.span>=CFG.fs/1000)setLow(-half());else if(dxIn)toDx();else setLow(mid-view.span/2)});
-document.querySelectorAll('#wins button').forEach(b=>b.onclick=()=>{WIN=+b.dataset.w});
+document.querySelectorAll('#wins button').forEach(b=>b.onclick=()=>{WIN=+b.dataset.w;saveUI()});
 document.querySelectorAll('#bws button').forEach(b=>b.onclick=()=>send({cmd:'bw',hz:+b.dataset.bw}));
 document.querySelectorAll('#snrs button').forEach(b=>b.onclick=()=>send({cmd:'snr',v:+b.dataset.v}));
 $('#offTop').onclick=$('#offBot').onclick=()=>{const l=LISTEN[LISTEN.length-1];if(l)centerOn(l.f/1000)};
