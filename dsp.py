@@ -22,9 +22,72 @@ KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'EE'
 CALL_RE = re.compile(r'^(?:[A-Z]{1,2}|\d[A-Z]|[A-Z]\d)\d{1,2}[A-Z]{1,4}(?:/[A-Z0-9]+)?$')
 
 
+KNOWN_CALLS = set()                          # caricati da MASTER.SCP / MASTER.DTA / callsign.dat
+_NEAR = {}                                    # schema con una lettera jolly -> nominativi
+
+
+def build_index():
+    """Indice per trovare i nominativi che differiscono di una sola lettera."""
+    _NEAR.clear()
+    for c in KNOWN_CALLS:
+        for i in range(len(c)):
+            _NEAR.setdefault(c[:i] + '?' + c[i + 1:], []).append(c)
+
+
+def variants(w):
+    """La parola e le sue versioni senza 1-2 lettere da rumore (E I S T H) all'inizio o alla fine."""
+    out = [w]
+    noise = 'EISTH'
+    for a in range(0, 3):
+        for b in range(0, 3):
+            if a == 0 and b == 0:
+                continue
+            core = w[a:len(w) - b if b else None]
+            if len(core) >= 3 and all(c in noise for c in w[:a]) and all(c in noise for c in w[len(w) - b:] if b):
+                out.append(core)
+    return out
+
+
+def classify(w):
+    """(parola da mostrare, 'v' se nominativo noto | 's' se correzione dedotta | None)."""
+    vs = variants(w)
+    for v in vs:
+        if is_known(v):
+            return v, 'v'
+    for v in vs:
+        sg = suggest(v)
+        if sg:
+            return sg, 's'
+    return w, None
+
+
+def suggest(w):
+    """Nominativo noto che differisce di una sola lettera (solo se la corrispondenza è unica)."""
+    if not _NEAR or len(w) < 4 or not CALL_RE.match(w) or is_known(w):
+        return None
+    found = set()
+    for i in range(len(w)):
+        found.update(_NEAR.get(w[:i] + '?' + w[i + 1:], ()))
+        if len(found) > 1:
+            return None
+    return found.pop() if len(found) == 1 else None
+
+
+def is_known(w):
+    """Nominativo presente nell'elenco (anche con /P, /QRP, EA8/... ecc.)."""
+    if not KNOWN_CALLS or len(w) < 3:
+        return False
+    if w in KNOWN_CALLS:
+        return True
+    if '/' in w:
+        parts = [p for p in w.split('/') if len(p) >= 3]
+        return any(p in KNOWN_CALLS for p in parts)
+    return False
+
+
 def is_junk(w):
     """Parole tipiche del rumore: quasi solo E I S H T 5."""
-    if w in KEEP:
+    if w in KEEP or is_known(w):
         return False
     if CALL_RE.match(w) and sum(c in NOISE for c in w) / len(w) < 0.75:
         return False
@@ -238,7 +301,8 @@ class Engine:
         if self.pool > 1:
             p = p.reshape(-1, self.pool).max(1)
         db = 10 * np.log10(p + 1e-20)
-        fl = float(np.median(db))
+        nb = len(db)
+        fl = float(np.median(db[nb // 4: 3 * nb // 4]))   # rumore dalla metà centrale (i bordi possono essere vuoti)
         self.row_floor = fl if self.row_floor is None else self.row_floor * 0.95 + fl * 0.05
         q = np.clip((db - self.row_floor - 1.0) / 30.0, 0, 1) ** 0.8
         self.out_rows.append((t, (q * 255).astype(np.uint8)))

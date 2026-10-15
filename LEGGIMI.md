@@ -1,6 +1,6 @@
-# FZR Skimmer 1.0
+# FZR Skimmer 1.3
 
-*Dai punti alle parole* — IW1FZR
+IW1FZR
 
 Ricevitore per pile-up in split con il Perseus: l'audio resta fermo sul DX,
 il waterfall scorre libero su tutta la banda ricevuta, il testo CW decodificato
@@ -25,6 +25,35 @@ nel repository pubblico, si copiano solo sul PC della stazione.
 
 Il campionamento (48 / 96 / 192 kHz) si sceglie in basso nella pagina.
 Se le stazioni appaiono specchiate rispetto al centro, spunta **Inverti I/Q**.
+
+## Nominativi riconosciuti
+
+Se nella cartella c'è un elenco di nominativi, i call decodificati che compaiono nell'elenco
+sono evidenziati (bianco su fondo blu, sottolineati). Se un call differisce di **una sola lettera**
+da uno dell'elenco (e l'elenco ne ha uno solo così), viene mostrato corretto con un **?**
+(es. `DL9UO?`), sottolineato a tratti: è una deduzione, non una lettura sicura.
+
+File letti all'avvio (il primo che trova, anche più di uno):
+`MASTER.SCP` (Super Check Partial, da www.supercheckpartial.com o dalla cartella di N1MM Logger+),
+`MASTER.DTA` (CW Skimmer), oppure `callsign.dat` / `nominativi.txt` con un nominativo per riga.
+`prepara_cartella.bat` copia MASTER.SCP da N1MM, se c'è.
+
+## Ricevitori
+
+Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
+
+- **Perseus** – banda larga (48/96/192 kHz), il modo migliore per i pile-up.
+- **Audio della radio** – qualsiasi radio: l'uscita audio (USB o CW) entra nella scheda
+  audio del PC (es. USB Audio CODEC dell'IC-7600). Si vede e si decodifica solo la banda
+  passante della radio (2–3 kHz): basta per gli split stretti.
+  - **Frequenza radio**: scrivi la frequenza che mostra la radio (non c'è ancora il CAT).
+  - **Offset**: la nota CW (es. 600) se la radio mostra la frequenza del segnale, come gli
+    Icom in CW; 0 se mostra la portante USB.
+  - L'audio lo senti già dalla radio: in questo modo il pulsante Audio DX serve poco.
+- **IQ da scheda audio** – ricevitori che mandano I e Q sui canali sinistro/destro
+  (SoftRock e simili), a 48/96/192 kHz. **LO** = frequenza centrale del ricevitore.
+
+**Ingresso**: la scheda audio da cui leggere.
 
 ## Uso
 

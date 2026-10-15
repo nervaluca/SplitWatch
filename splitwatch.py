@@ -26,10 +26,11 @@ import webbrowser
 import numpy as np
 import websockets
 
+import dsp
 from dsp import Engine
-from sources import PerseusDirect, PerseusExtIO, WavFile
+from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.1'
+VERSION = '1.3'
 APP = 'FZR Skimmer'
 
 
@@ -93,6 +94,34 @@ def find_perseus_folder(cfg, explicit=None):
     return explicit or cfg.get('cartella') or app_dir()
 
 
+CALL_FILES = ('MASTER.SCP', 'master.scp', 'MASTER.DTA', 'master.dta', 'callsign.dat', 'Callsign.dat',
+              'calls.txt', 'nominativi.txt')
+
+
+def load_calls(extra_dirs=()):
+    """Legge l'elenco dei nominativi noti. Formati: testo (un nominativo per riga, commenti #),
+    MASTER.SCP (Super Check Partial) o MASTER.DTA (CW Skimmer/CT): si estraggono le parole
+    che hanno la forma di un nominativo."""
+    import re
+    rx = re.compile(rb'(?<![A-Z0-9/])[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}[A-Z](?:/[A-Z0-9]{1,4})?(?![A-Z0-9])')
+    calls, used = set(), []
+    for d in [app_dir(), *[x for x in extra_dirs if x]]:
+        for name in CALL_FILES:
+            p = os.path.join(d, name)
+            if os.path.exists(p) and p not in used:
+                try:
+                    with open(p, 'rb') as f:
+                        data = f.read().upper()
+                    data = re.sub(rb'#[^\n]*', b' ', data)
+                    n0 = len(calls)
+                    calls.update(m.decode() for m in rx.findall(data))
+                    used.append(p)
+                    log(f'Nominativi da {p}: {len(calls) - n0}')
+                except Exception as e:
+                    log(f'Errore leggendo {p}: {e}')
+    return calls, used
+
+
 def load_cfg():
     for path in (CFG_PATH, OLD_CFG_PATH):          # recupera memorie e impostazioni di FZR Skimmer
         try:
@@ -127,12 +156,23 @@ class Hub:
         self.dx_abs = None
         self.status = 'Avvio…'
         self.src = None
-        self.src_kind = 'file' if args.file else 'perseus'
+        self.src_kind = 'file' if args.file else (args.sorgente or self.cfg.get('sorgente', 'perseus'))
         self.rows_hist = collections.deque(maxlen=3000)    # ultimi 30 s di waterfall
         self.words_hist = collections.deque(maxlen=3000)
         self.listen_hist = collections.deque(maxlen=200)
         self.lock = threading.Lock()
         self.dropped = 0
+        self.audio_devs = list_audio_inputs()
+        up = os.environ.get('USERPROFILE', '')
+        calls, files = load_calls([self.cfg.get('cartella'),
+                                   os.path.join(up, 'Documents', 'N1MM Logger+', 'SupportFiles'),
+                                   os.path.join(up, 'OneDrive', 'Documents', 'N1MM Logger+', 'SupportFiles')])
+        if not calls:
+            log('Nessun elenco di nominativi (MASTER.SCP / MASTER.DTA / callsign.dat): i call non verranno verificati')
+        dsp.KNOWN_CALLS.clear()
+        dsp.KNOWN_CALLS.update(calls)
+        dsp.build_index()
+        self.calls_files = files
 
     # -------------------------------------------------------------- sorgente
     def on_iq(self, iq):
@@ -152,6 +192,7 @@ class Hub:
     def start_source(self):
         a = self.args
         if a.file:
+            self.src_kind = 'file'
             center = (a.centro * 1000) if a.centro else self.cfg.get('file_center', 0.0)
             self.src = WavFile(a.file, center, self.on_iq, self.on_status)
             if not a.centro and not self.src.center:
@@ -159,21 +200,59 @@ class Hub:
             self.on_rate(self.src.fs, self.src.center)
             self.src.start()
             self.on_status(f'Riproduzione: {os.path.basename(a.file)} · {self.src.fs/1000:.1f} kHz · {self.src.duration:.0f} s')
-        else:
-            folder = find_perseus_folder(self.cfg, a.cartella)
-            log(f'Cartella del Perseus: {folder}')
-            if folder != app_dir():
-                self.cfg['cartella'] = folder
-                save_cfg(self.cfg)
-            lo = self.cfg.get('lo', 21025000)
-            if a.extio:
-                self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
-            else:
-                self.src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
-                                         self.on_iq, self.on_status, self.on_rate,
-                                         preamp=bool(self.cfg.get('preamp', True)),
-                                         swap_iq=bool(self.cfg.get('inverti_iq', False)))
+            return
+        kind = a.sorgente or self.cfg.get('sorgente', 'perseus')
+        self.src_kind = kind
+        if kind in ('audio', 'iq'):
+            devs = list_audio_inputs()
+            want = self.cfg.get('audio_dev')
+            dev = next((i for i, n, c in devs if n == want), None)
+            if want and dev is None:
+                self.on_status(f'Ingresso audio "{want}" non trovato: uso quello predefinito')
+            rate = 48000 if kind == 'audio' else int(self.cfg.get('audio_rate', 96000))
+            self.src = AudioCard(dev, kind, float(self.cfg.get('dial', 21025000)), float(self.cfg.get('audio_offset', 600)),
+                                 rate, self.on_iq, self.on_status, self.on_rate,
+                                 swap_iq=bool(self.cfg.get('inverti_iq', False)))
             self.src.start()
+            return
+        folder = find_perseus_folder(self.cfg, a.cartella)
+        log(f'Cartella del Perseus: {folder}')
+        if folder != app_dir():
+            self.cfg['cartella'] = folder
+            save_cfg(self.cfg)
+        lo = self.cfg.get('lo', 21025000)
+        if a.extio:
+            self.src = PerseusExtIO(folder, lo, self.on_iq, self.on_status, self.on_rate)
+        else:
+            self.src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
+                                     self.on_iq, self.on_status, self.on_rate,
+                                     preamp=bool(self.cfg.get('preamp', True)),
+                                     swap_iq=bool(self.cfg.get('inverti_iq', False)))
+        self.src.start()
+
+    def switch_source(self, kind, dev=None):
+        """Cambia ricevitore senza riavviare il programma."""
+        def run():
+            old, self.src = self.src, None
+            if old:
+                try:
+                    old.stop()
+                except Exception:
+                    pass
+                time.sleep(0.8)
+            self.cfg['sorgente'] = kind
+            if dev is not None:
+                self.cfg['audio_dev'] = dev
+            save_cfg(self.cfg)
+            self.args.sorgente = kind
+            with self.iq_q.mutex:
+                self.iq_q.queue.clear()
+            try:
+                self.start_source()
+            except Exception as e:
+                self.on_status(f'Errore: {e}')
+            self.post_json(self.cfg_msg())
+        threading.Thread(target=run, daemon=True).start()
 
     # -------------------------------------------------------------- DSP
     def dsp_thread(self):
@@ -243,6 +322,14 @@ class Hub:
                 if pend_words or pend_listen:
                     for w in pend_words:
                         w['fa'] = round(self.center + w['f'], 1)
+                        word, kind = dsp.classify(w['w'])
+                        if kind == 'v':
+                            if word != w['w']:
+                                w['raw'] = w['w']
+                                w['w'] = word
+                            w['v'] = 1
+                        elif kind == 's':
+                            w['s'] = word
                     for l in pend_listen:
                         l['fa'] = round(self.center + l['f'], 1)
                         l['t'] = float(l['t'])
@@ -289,6 +376,9 @@ class Hub:
             if self.src_kind == 'perseus':
                 self.cfg['lo'] = int(center)
                 save_cfg(self.cfg)
+            elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
+                self.cfg['dial'] = self.src.dial
+                save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
         elif c[0] == 'dx':
             self.dx_abs = float(c[1])
@@ -326,10 +416,13 @@ class Hub:
                 'f0': (-e.nfft / 2 + (e.pool - 1) / 2) * e.binhz,
                 'rowdt': 4.0 / 400.0, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
                 'src': self.src_kind, 'status': self.status, 'version': VERSION,
-                'rate_sel': int(self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
-                'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0))}
+                'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
+                'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
+                'offset': float(self.cfg.get('audio_offset', 600)),
+                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS)}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -387,6 +480,9 @@ class Hub:
                         self.cmd_q.put(('dx', float(m['dx'])))
                         if isinstance(self.src, (PerseusDirect, PerseusExtIO)):
                             self.src.set_lo(int(m['centro']))
+                        elif isinstance(self.src, AudioCard):
+                            self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
+                            self.on_status(f'Sintonizza la radio su {m["dx"]/1000:.2f} kHz')
                         else:
                             self.on_status('In riproduzione la frequenza centrale non si cambia: imposto solo il DX')
                 elif k == 'save':
@@ -398,11 +494,22 @@ class Hub:
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
+                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
+                    self.switch_source(c['kind'], c.get('dev'))
+                elif k == 'audiodev':
+                    self.switch_source(self.src_kind if self.src_kind in ('audio', 'iq') else 'audio', c.get('dev'))
+                elif k == 'offset' and isinstance(self.src, AudioCard):
+                    self.cfg['audio_offset'] = float(c['hz'])
+                    save_cfg(self.cfg)
+                    self.src.set_offset(float(c['hz']))
+                elif k == 'rate' and isinstance(self.src, AudioCard) and self.src_kind == 'iq':
+                    self.cfg['audio_rate'] = int(c['hz'])
+                    self.switch_source('iq')
                 elif k == 'rate' and isinstance(self.src, PerseusDirect):
                     self.cfg['campionamento'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
-                elif k == 'swap' and isinstance(self.src, PerseusDirect):
+                elif k == 'swap' and isinstance(self.src, (PerseusDirect, AudioCard)):
                     self.cfg['inverti_iq'] = bool(c['on'])
                     save_cfg(self.cfg)
                     self.src.set_swap(bool(c['on']))
@@ -467,6 +574,7 @@ def main():
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
+    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true')
     args = p.parse_args()
