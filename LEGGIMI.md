@@ -1,4 +1,4 @@
-# FZR Skimmer 1.6
+# FZR Skimmer 1.7
 
 IW1FZR
 
@@ -30,6 +30,16 @@ nel repository pubblico, si copiano solo sul PC della stazione.
 
 Il campionamento (48 / 96 / 192 kHz) si sceglie in basso nella pagina.
 Se le stazioni appaiono specchiate rispetto al centro, spunta **Inverti I/Q**.
+
+## Registrazione
+
+FZR Skimmer usa **la stessa registrazione di ADIF FZR** (stessa chiave, stesso nominativo).
+- Senza registrazione funziona **5 minuti per ogni avvio**, poi il ricevitore si ferma
+  e compare la finestra di registrazione. La riproduzione delle registrazioni IQ è libera.
+- **Registra** (in alto): nominativo + chiave incollata, oppure **Verifica online** se il
+  nominativo è già abilitato sul sito. **Richiedi una chiave** apre la pagina di iw1fzr.it.
+- Se ADIF FZR è già registrato sullo stesso PC, FZR Skimmer trova da solo la sua licenza.
+- La licenza viene salvata in `licenza.json` accanto all'exe.
 
 ## Nominativi riconosciuti
 

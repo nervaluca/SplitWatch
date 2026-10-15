@@ -27,11 +27,32 @@ import numpy as np
 import websockets
 
 import dsp
+import licenza
 from dsp import Engine
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.6'
+VERSION = '1.7'
 APP = 'FZR Skimmer'
+TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
+URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
+URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
+
+
+def find_license():
+    """Licenza di FZR Skimmer; se manca, quella di ADIF FZR (stesse chiavi)."""
+    dirs = [app_dir()]
+    ad = os.environ.get('APPDATA')
+    if ad:
+        dirs.append(os.path.join(ad, 'ADIF_FZR'))
+    for pf in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LOCALAPPDATA')):
+        if pf:
+            dirs += [os.path.join(pf, 'ADIF FZR'), os.path.join(pf, 'ADIF_FZR'), os.path.join(pf, 'Programs', 'ADIF FZR')]
+    for d in dirs:
+        info = licenza.carica(d)
+        if info:
+            info['origine'] = d
+            return info
+    return None
 
 
 def app_dir():
@@ -172,6 +193,9 @@ class Hub:
         self.lock = threading.Lock()
         self.dropped = 0
         self.audio_devs = list_audio_inputs()
+        self.lic = find_license()
+        self.t_start = time.time()
+        self.locked = False                              # prova scaduta: ricevitore fermo
         up = os.environ.get('USERPROFILE', '')
         calls, files = load_calls([self.cfg.get('cartella'),
                                    os.path.join(up, 'Documents', 'N1MM Logger+', 'SupportFiles'),
@@ -212,6 +236,8 @@ class Hub:
             return
         kind = a.sorgente or self.cfg.get('sorgente', 'perseus')
         self.src_kind = kind
+        if self.locked:
+            return
         if kind in ('audio', 'iq'):
             devs = list_audio_inputs()
             want = self.cfg.get('audio_dev')
@@ -239,8 +265,64 @@ class Hub:
                                      swap_iq=bool(self.cfg.get('inverti_iq', False)))
         self.src.start()
 
+    def trial_left(self):
+        if self.lic or self.src_kind == 'file':
+            return None
+        return max(0, TRIAL_S - (time.time() - self.t_start))
+
+    def trial_thread(self):
+        while True:
+            time.sleep(1)
+            left = self.trial_left()
+            if left is None or self.locked:
+                continue
+            if left <= 0:
+                self.locked = True
+                src, self.src = self.src, None
+                if src:
+                    try:
+                        src.stop()
+                    except Exception:
+                        pass
+                log('Prova terminata: ricevitore fermato')
+                self.on_status('Prova di 5 minuti terminata: registra FZR Skimmer per continuare')
+                self.post_json(self.cfg_msg())
+
+    def register(self, call, key):
+        ok, info = licenza.salva(app_dir(), call, key)
+        if not ok:
+            return False, info
+        info['origine'] = app_dir()
+        self.lic = info
+        log(f"Registrazione: {info['testo']}")
+        if self.locked:
+            self.locked = False
+            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq') else 'perseus')
+        self.post_json(self.cfg_msg())
+        return True, info['testo']
+
+    def register_online(self, call):
+        import urllib.request, urllib.parse
+        cn = licenza.normalizza_call(call)
+        if len(cn) < 3:
+            return False, 'Scrivi prima il nominativo'
+        try:
+            url = URL_LICENZA + '?' + urllib.parse.urlencode({'call': cn})
+            req = urllib.request.Request(url, headers={'User-Agent': 'FZR-Skimmer'})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = json.loads(r.read().decode('utf-8', 'ignore'))
+        except Exception:
+            return False, 'Servizio non raggiungibile (nessuna connessione?)'
+        if not isinstance(data, dict) or not data.get('ok') or not data.get('chiave'):
+            return False, f'Nessuna registrazione trovata online per {cn}'
+        return self.register(cn, data['chiave'])
+
     def switch_source(self, kind, dev=None):
         """Cambia ricevitore senza riavviare il programma."""
+        if self.locked:
+            self.on_status('Prova terminata: registra FZR Skimmer per riattivare il ricevitore')
+            return
+
         def run():
             old, self.src = self.src, None
             if old:
@@ -281,6 +363,8 @@ class Hub:
             n = getattr(self.src, 'nsamp', None)
             if n is None:
                 continue
+            if n < last:                     # sorgente nuova: il contatore riparte da zero
+                last = 0
             rate = (n - last) / 3
             last = n
             q = self.iq_q.qsize()
@@ -418,8 +502,10 @@ class Hub:
 
     def cfg_msg(self):
         e = self.engine
+        lic = {'lic': (self.lic or {}).get('testo'), 'donor': bool((self.lic or {}).get('donor')),
+               'trial': self.trial_left(), 'locked': self.locked, 'url_key': URL_RICHIESTA_CHIAVE}
         if e is None:
-            return {'type': 'cfg', 'ready': False, 'status': self.status}
+            return {'type': 'cfg', 'ready': False, 'status': self.status, **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
                 'nbins': e.nbins_out, 'bw': e.binhz * e.pool,
                 'f0': (-e.nfft / 2 + (e.pool - 1) / 2) * e.binhz,
@@ -431,7 +517,7 @@ class Hub:
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
                 'offset': float(self.cfg.get('audio_offset', 600)),
-                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS)}
+                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), **lic}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -503,6 +589,12 @@ class Hub:
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
+                elif k == 'register':
+                    ok, msg = self.register(c.get('call', ''), c.get('key', ''))
+                    await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
+                elif k == 'register_online':
+                    ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
+                    await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'quit':
                     self.shutdown()
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
@@ -551,6 +643,8 @@ class Hub:
         self.loop = asyncio.get_running_loop()
         threading.Thread(target=self.dsp_thread, daemon=True).start()
         threading.Thread(target=self.diag_thread, daemon=True).start()
+        threading.Thread(target=self.trial_thread, daemon=True).start()
+        log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         try:
             self.start_source()

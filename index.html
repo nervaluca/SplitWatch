@@ -48,6 +48,22 @@ button.audio[aria-pressed="true"]{background:#1d5a37;border-color:var(--dx)}
 .chip.old{opacity:.55}
 input[type=number]{width:7.2em;font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 input.short{width:4.6em}
+.licbox{display:flex;align-items:center;gap:8px}
+.lic{font:600 .85rem var(--f-mono);color:var(--dim)}
+.lic.ok{color:#e9b949}
+.lic.trial{color:var(--hot)}
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.dlg{background:var(--panel);border:1px solid #2f4152;border-radius:10px;padding:22px 24px;width:min(520px,100%);display:flex;flex-direction:column;gap:8px;box-shadow:0 20px 60px #000c}
+.dlglogo{width:72px;height:72px;border-radius:50%;align-self:center}
+.dlg h2{margin:0;text-align:center;font-size:1.3rem}
+.dlg p{margin:0 0 6px;color:#9fb0c4;text-align:center;line-height:1.45;font-size:.92rem}
+.dlg label{font-size:.8rem;color:var(--dim)}
+.dlg input,.dlg textarea{font:500 .95rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px;width:100%;resize:vertical}
+.dlgbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.dlgbtns .ok{background:#1f7a4d;border-color:#2a9a63;color:#fff}
+.btnlink{font:600 .92rem var(--f-ui);color:var(--fg);background:#2a3442;border:1px solid var(--line);border-radius:5px;padding:6px 11px;text-decoration:none}
+.regmsg{min-height:1.2em;font-size:.88rem}
+.regmsg.err{color:var(--bad)}.regmsg.ok{color:var(--dx)}
 .rng{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--dim);letter-spacing:.05em;text-transform:uppercase}
 .rng input{width:90px;accent-color:var(--accent)}
 select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
@@ -83,13 +99,17 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.6</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.7</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
       <div class="hot"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
     </dl>
-    <button id="bQuit" title="Ferma il ricevitore e chiude FZR Skimmer" style="margin-left:auto">Esci</button>
+    <div class="licbox" style="margin-left:auto">
+      <span id="licTxt" class="lic"></span>
+      <button id="bReg" hidden>Registra</button>
+      <button id="bQuit" title="Ferma il ricevitore e chiude FZR Skimmer">Esci</button>
+    </div>
   </header>
 
   <div class="ctrl" id="bandRow">
@@ -146,6 +166,25 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <label for="chkSwap" id="swapBox"><input type="checkbox" id="chkSwap"> Inverti I/Q</label>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
+  </div>
+</div>
+
+<div class="modal" id="regBox" hidden>
+  <div class="dlg" role="dialog" aria-labelledby="regTitle">
+    <img src="/logo.png" alt="" class="dlglogo">
+    <h2 id="regTitle">Registra FZR Skimmer</h2>
+    <p id="regText"></p>
+    <label for="regCall">Nominativo</label>
+    <input id="regCall" autocomplete="off" spellcheck="false">
+    <label for="regKey">Chiave di registrazione <small>(la stessa di ADIF FZR, da incollare)</small></label>
+    <textarea id="regKey" rows="3" spellcheck="false"></textarea>
+    <div id="regMsg" class="regmsg"></div>
+    <div class="dlgbtns">
+      <button id="regOk" class="ok">Registra</button>
+      <button id="regOnline">Verifica online</button>
+      <a id="regLink" class="btnlink" href="https://www.iw1fzr.it/?p=38#registrazione" target="_blank" rel="noopener">Richiedi una chiave</a>
+      <button id="regClose">Continua la prova</button>
+    </div>
   </div>
 </div>
 
@@ -252,6 +291,7 @@ function connect(){
       if(m.type==='cfg'){onCfg(m)}
       else if(m.type==='ev'){addEv(m)}
       else if(m.type==='status'){setStatus(m.text)}
+      else if(m.type==='reg'){const r=$('#regMsg');r.textContent=(m.ok?'✓ ':'✗ ')+m.msg;r.className='regmsg '+(m.ok?'ok':'err');if(m.ok)setTimeout(()=>{$('#regBox').hidden=true},1500)}
       return;
     }
     const dv=new DataView(e.data),k=dv.getUint8(0);
@@ -261,7 +301,33 @@ function connect(){
 }
 const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
 function setStatus(t,err){const s=$('#status');s.lastChild.nodeValue=' '+t;s.classList.toggle('err',!!err||/errore|non trovo|fallit|non risponde/i.test(t))}
+let trialEnd=null,LIC=null,regOpenedOnLock=false;
+function onLic(m){
+  LIC=m;
+  if(m.url_key)$('#regLink').href=m.url_key;
+  if(m.lic){$('#licTxt').textContent=m.lic;$('#licTxt').className='lic ok';$('#bReg').hidden=true;trialEnd=null;return}
+  $('#bReg').hidden=false;
+  trialEnd=(m.trial==null)?null:Date.now()+m.trial*1000;
+  if(m.locked){$('#licTxt').textContent='Prova terminata';$('#licTxt').className='lic trial';
+    if(!regOpenedOnLock){regOpenedOnLock=true;openReg(true)}}
+  else if(trialEnd==null){$('#licTxt').textContent='Non registrato · riproduzione libera';$('#licTxt').className='lic'}
+}
+function openReg(locked){
+  $('#regTitle').textContent=locked?'⏳ Prova di 5 minuti terminata':'Registra FZR Skimmer';
+  $('#regText').textContent=locked
+    ?'Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.'
+    :'Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.';
+  $('#regClose').textContent=locked?'Esci':'Continua la prova';
+  $('#regMsg').textContent='';$('#regBox').hidden=false;$('#regCall').focus();
+}
+$('#bReg').onclick=()=>openReg(LIC&&LIC.locked);
+$('#regClose').onclick=()=>{if(LIC&&LIC.locked){quitting=true;send({cmd:'quit'});setStatus('FZR Skimmer chiuso');$('#regBox').hidden=true;setTimeout(()=>{try{window.close()}catch(e){}},800)}else $('#regBox').hidden=true};
+$('#regOk').onclick=()=>{$('#regMsg').textContent='Verifico…';$('#regMsg').className='regmsg';send({cmd:'register',call:$('#regCall').value,key:$('#regKey').value})};
+$('#regOnline').onclick=()=>{$('#regMsg').textContent='Verifico online…';$('#regMsg').className='regmsg';send({cmd:'register_online',call:$('#regCall').value})};
+setInterval(()=>{if(trialEnd==null||(LIC&&LIC.lic))return;const s=Math.max(0,Math.round((trialEnd-Date.now())/1000));
+  if(!(LIC&&LIC.locked)){$('#licTxt').textContent=`Prova: ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;$('#licTxt').className='lic trial'}},1000);
 function onCfg(m){
+  onLic(m);
   if(m.status)setStatus(m.status);
   if(!m.ready)return;
   const reset=!CFG||CFG.nbins!==m.nbins||CFG.center!==m.center||CFG.fs!==m.fs;
