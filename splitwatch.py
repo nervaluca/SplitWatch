@@ -30,7 +30,7 @@ import dsp
 from dsp import Engine
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.4'
+VERSION = '1.5'
 APP = 'FZR Skimmer'
 
 
@@ -50,9 +50,18 @@ OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni del
 LOG_PATH = os.path.join(app_dir(), 'fzrskimmer.log')
 
 
+if sys.stdout is None:                      # eseguibile senza finestra nera
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
+
+
 def log(msg):
     line = time.strftime('%H:%M:%S ') + str(msg)
-    print(line, flush=True)
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass
     try:
         with open(LOG_PATH, 'a', encoding='utf-8') as f:
             f.write(line + '\n')
@@ -494,6 +503,8 @@ class Hub:
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
+                elif k == 'quit':
+                    self.shutdown()
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
                     self.switch_source(c['kind'], c.get('dev'))
                 elif k == 'audiodev':
@@ -550,10 +561,67 @@ class Hub:
                                     max_size=2 ** 20, compression=None):
             url = f'http://localhost:{port}/'
             ip = local_ip()
-            print(f'{APP} {VERSION}: apri {url}' + (f'  (dal tablet: http://{ip}:{port}/)' if ip else ''), flush=True)
-            if not self.args.no_browser:
+            log(f'{APP} {VERSION}: interfaccia su {url}' + (f'  (dal tablet: http://{ip}:{port}/)' if ip else ''))
+            if self.args.browser:
                 webbrowser.open(url)
+            elif not self.args.no_browser:
+                proc = open_app_window(url)
+                if proc is not None:
+                    def watch():
+                        proc.wait()
+                        log('Finestra chiusa: esco')
+                        self.shutdown()
+                    threading.Thread(target=watch, daemon=True).start()
             await asyncio.Future()
+
+    def shutdown(self):
+        """Ferma il ricevitore (libera il Perseus) ed esce."""
+        def run():
+            src, self.src = self.src, None
+            if src:
+                try:
+                    src.stop()
+                    ev = getattr(src, 'stopped', None)
+                    if ev is not None:
+                        ev.wait(3)
+                    else:
+                        time.sleep(0.5)
+                except Exception:
+                    pass
+            log('Uscita')
+            os._exit(0)
+        threading.Thread(target=run, daemon=True).start()
+
+
+def find_app_browser():
+    """Edge o Chrome per aprire l'interfaccia in una finestra propria (modalità app)."""
+    cands = []
+    for pf in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LOCALAPPDATA')):
+        if pf:
+            cands += [os.path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+                      os.path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe')]
+    return next((c for c in cands if os.path.exists(c)), None)
+
+
+def open_app_window(url):
+    """Apre la finestra e restituisce il processo da sorvegliare (None = browser normale)."""
+    import subprocess
+    exe = find_app_browser()
+    if not exe:
+        webbrowser.open(url)
+        return None
+    profile = os.path.join(app_dir(), 'finestra')      # profilo separato: il processo resta legato alla finestra
+    os.makedirs(profile, exist_ok=True)
+    return subprocess.Popen([exe, f'--app={url}', f'--user-data-dir={profile}', '--window-size=1400,920',
+                             '--no-first-run', '--no-default-browser-check', '--disable-features=Translate'])
+
+
+def port_in_use(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+    finally:
+        s.close()
 
 
 def local_ip():
@@ -576,10 +644,15 @@ def main():
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
     p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
-    p.add_argument('--no-browser', action='store_true')
+    p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
+    p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')
     args = p.parse_args()
-    if os.name == 'nt':
-        os.system(f'title {APP} {VERSION}')
+    if port_in_use(args.porta):
+        # già acceso: riapro solo la finestra
+        if not args.no_browser:
+            url = f'http://localhost:{args.porta}/'
+            (webbrowser.open(url) if args.browser else open_app_window(url))
+        return
     if args.file and not args.centro and sys.stdin and sys.stdin.isatty():
         # file trascinato sull'eseguibile: CW Skimmer non salva la frequenza, la chiedo
         try:

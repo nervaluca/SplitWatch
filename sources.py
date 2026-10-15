@@ -364,6 +364,7 @@ class PerseusDirect:
         self.fs = None
         self.center = float(lo_hz)
         self._cb = None
+        self.stopped = threading.Event()
 
     # API pubblica
     def start(self):
@@ -515,8 +516,11 @@ class PerseusDirect:
                         t0 = time.time() + 1e9
                     continue
                 if c[0] == 'stop':
-                    stop_stream()
-                    u.Close()
+                    try:
+                        stop_stream()
+                        u.Close()
+                    finally:
+                        self.stopped.set()
                     break
                 elif c[0] == 'lo':
                     fid = tune(c[1])

@@ -81,12 +81,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.4</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.5</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
       <div class="hot"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
     </dl>
+    <button id="bQuit" title="Ferma il ricevitore e chiude FZR Skimmer" style="margin-left:auto">Esci</button>
   </header>
 
   <div class="ctrl" id="bandRow">
@@ -207,11 +208,11 @@ const toDx=()=>setLow(dxOff()-view.span*0.2);
 const centerOn=o=>setLow(o-view.span/2);
 
 /* ---------------- websocket ---------------- */
-let ws=null,firstCfg=true;
+let ws=null,firstCfg=true,quitting=false;
 function connect(){
   ws=new WebSocket(`ws://${location.host}/ws`);ws.binaryType='arraybuffer';
   ws.onopen=()=>{$('#dot').classList.add('on')};
-  ws.onclose=()=>{$('#dot').classList.remove('on');setStatus('Connessione persa: riprovo…',true);setTimeout(connect,1500)};
+  ws.onclose=()=>{$('#dot').classList.remove('on');if(quitting){setStatus('FZR Skimmer chiuso');return}setStatus('Connessione persa: riprovo…',true);setTimeout(connect,1500)};
   ws.onmessage=e=>{
     if(typeof e.data==='string'){
       const m=JSON.parse(e.data);
@@ -274,6 +275,7 @@ $('#iDx').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'dx',
 $('#iUpLo').onchange=$('#iUpHi').onchange=()=>send({cmd:'up',lo:parseFloat($('#iUpLo').value)||0,hi:parseFloat($('#iUpHi').value)||10});
 $('#iLo').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'lo',hz:Math.round(v*1000)})};
 $('#bGui').onclick=()=>send({cmd:'gui'});
+$('#bQuit').onclick=()=>{quitting=true;send({cmd:'quit'});setStatus('FZR Skimmer chiuso: puoi chiudere questa finestra');setTimeout(()=>{try{window.close()}catch(e){}},800)};
 $('#bSave').onclick=()=>send({cmd:'save'});
 $('#selSrc').onchange=e=>{send({cmd:'source',kind:e.target.value});setStatus('Cambio ricevitore…')};
 $('#selDev').onchange=e=>send({cmd:'audiodev',dev:e.target.value||null});

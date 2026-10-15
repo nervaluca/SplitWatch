@@ -1,4 +1,4 @@
-# FZR Skimmer 1.3
+# FZR Skimmer 1.5
 
 IW1FZR
 
@@ -17,8 +17,13 @@ il DX sta ascoltando.
    Se non lo fai, FZR Skimmer cerca comunque quei file nella cartella di CW Skimmer.
 3. **Chiudi CW Skimmer, HDSDR e il software Perseus**: il Perseus lo può usare
    un solo programma per volta.
-4. Avvia `FZRSkimmer.exe`: si apre il browser su http://localhost:8073
-   (dal tablet in stazione: l'indirizzo che compare nella finestra nera).
+4. Avvia `FZRSkimmer.exe`: si apre la finestra di FZR Skimmer (usa Edge in modalità app,
+   senza barra degli indirizzi). **Chiudendo la finestra, o con il pulsante Esci, si ferma
+   anche il Perseus** e il programma esce.
+   Dal tablet in stazione: apri nel browser l'indirizzo scritto in `fzrskimmer.log`
+   (tipo `http://192.168.x.x:8073`). Dal tablet chiudere il browser non spegne nulla:
+   per spegnere usa **Esci**.
+   Opzioni: `--browser` apre nel browser normale; `--no-browser` non apre finestre.
 
 I file del Perseus (`perseususb.dll`, `.sbs`) sono di Microtelecom: non vanno caricati
 nel repository pubblico, si copiano solo sul PC della stazione.
