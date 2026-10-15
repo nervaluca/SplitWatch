@@ -4,3 +4,14 @@ dist/
 *.spec
 splitwatch.json
 *.wav
+
+# file Microtelecom: non nel repository pubblico
+*.dll
+*.sbs
+fzrskimmer.json
+fzrskimmer.log
+splitwatch.log
+
+# chiave privata e licenze personali: MAI nel repository
+keygen*.py
+licenza.json
