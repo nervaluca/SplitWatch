@@ -99,7 +99,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.8</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.10</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -226,8 +226,9 @@ function repaintRing(){
 }
 let wfTimer=null;
 let uiTimer=null;
-function saveUI(){clearTimeout(uiTimer);uiTimer=setTimeout(()=>{if(!CFG)return;
-  send({cmd:'ui',v:{span:view.span,win:WIN,pal:WFS.pal,lum:WFS.lum,con:WFS.con,low_rel:+(view.low-dxOff()).toFixed(3)}})},600)}
+function flushUI(){clearTimeout(uiTimer);if(!CFG||firstCfg)return;
+  send({cmd:'ui',v:{span:view.span,win:WIN,pal:WFS.pal,lum:WFS.lum,con:WFS.con,low_rel:+(view.low-dxOff()).toFixed(3)}})}
+function saveUI(){clearTimeout(uiTimer);uiTimer=setTimeout(flushUI,600)}
 function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}saveUI();
   clearTimeout(wfTimer);wfTimer=setTimeout(repaintRing,120)}
 function resetRing(){
@@ -284,7 +285,7 @@ const toDx=()=>setLow(dxOff()-view.span*0.2);
 const centerOn=o=>setLow(o-view.span/2);
 
 /* ---------------- websocket ---------------- */
-let ws=null,firstCfg=true,quitting=false;
+let ws=null,firstCfg=true,quitting=false,wantDx=false;
 function connect(){
   ws=new WebSocket(`ws://${location.host}/ws`);ws.binaryType='arraybuffer';
   ws.onopen=()=>{$('#dot').classList.add('on')};
@@ -344,7 +345,7 @@ function onCfg(m){
     if(u.pal){WFS.pal=u.pal;$('#selPal').value=u.pal}if(u.lum!=null){WFS.lum=+u.lum;$('#rLum').value=u.lum}
     if(u.con!=null){WFS.con=+u.con;$('#rCon').value=u.con}buildLUT();
     firstCfg=false;if(u.low_rel!=null)setLow((m.dx-m.center)/1000+(+u.low_rel));else toDx();}
-  else if(firstCfg||reset||dxMoved){firstCfg=false;toDx()}
+  else if(firstCfg||reset||dxMoved||wantDx){firstCfg=false;wantDx=false;toDx()}
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(m.dx/1000).toFixed(2);
   if(document.activeElement!==$('#iUpLo'))$('#iUpLo').value=m.up[0];
   if(document.activeElement!==$('#iUpHi'))$('#iUpHi').value=m.up[1];
@@ -375,7 +376,7 @@ function renderBands(m){
     const el=document.createElement('button');el.className='band'+(mem.pred?' pred':'');el.textContent=b;
     el.title=`${b} m · centro ${(mem.centro/1000).toFixed(1)} · DX ${(mem.dx/1000).toFixed(2)} kHz`+(mem.pred?' (predefinita)':'');
     el.setAttribute('aria-pressed',String(m.band===b));
-    el.onclick=()=>{send({cmd:'band',band:b});firstCfg=true};
+    el.onclick=()=>{flushUI();send({cmd:'band',band:b});wantDx=true};
     box.appendChild(el);
   }
 }
@@ -515,8 +516,8 @@ function updateUI(){
 /* ---------------- comandi ---------------- */
 $('#bUp').onclick=()=>setLow(view.low+5);$('#bDn').onclick=()=>setLow(view.low-5);$('#bDx').onclick=toDx;
 document.querySelectorAll('#spans button').forEach(b=>b.onclick=()=>{if(!CFG)return;const DX=dxOff(),dxIn=DX>view.low&&DX<view.low+view.span,mid=view.low+view.span/2;
-  view.span=Math.min(+b.dataset.s||CFG.fs/1000,CFG.fs/1000);if(view.span>=CFG.fs/1000)setLow(-half());else if(dxIn)toDx();else setLow(mid-view.span/2)});
-document.querySelectorAll('#wins button').forEach(b=>b.onclick=()=>{WIN=+b.dataset.w;saveUI()});
+  view.span=Math.min(+b.dataset.s||CFG.fs/1000,CFG.fs/1000);if(view.span>=CFG.fs/1000)setLow(-half());else if(dxIn)toDx();else setLow(mid-view.span/2);flushUI()});
+document.querySelectorAll('#wins button').forEach(b=>b.onclick=()=>{WIN=+b.dataset.w;flushUI()});
 document.querySelectorAll('#bws button').forEach(b=>b.onclick=()=>send({cmd:'bw',hz:+b.dataset.bw}));
 document.querySelectorAll('#snrs button').forEach(b=>b.onclick=()=>send({cmd:'snr',v:+b.dataset.v}));
 $('#offTop').onclick=$('#offBot').onclick=()=>{const l=LISTEN[LISTEN.length-1];if(l)centerOn(l.f/1000)};
@@ -552,6 +553,7 @@ document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;con
   else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu()});
 
 function frame(){if(W&&H){drawWF();drawTX()}updateUI();requestAnimationFrame(frame)}
+window.addEventListener('pagehide',flushUI);
 resize();connect();requestAnimationFrame(frame);
 })();
 </script>

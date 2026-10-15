@@ -31,7 +31,7 @@ import licenza
 from dsp import Engine
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
 
-VERSION = '1.8'
+VERSION = '1.10'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -715,6 +715,7 @@ class Hub:
                 webbrowser.open(url)
             elif not self.args.no_browser:
                 proc = open_app_window(url)
+                self.app_proc = proc
                 if proc is not None:
                     def watch():
                         proc.wait()
@@ -737,6 +738,21 @@ class Hub:
                         time.sleep(0.5)
                 except Exception:
                     pass
+            # chiude la finestra dell'applicazione (Edge non lascia che la pagina si chiuda da sola)
+            proc = getattr(self, 'app_proc', None)
+            if proc is not None and proc.poll() is None:
+                try:
+                    import subprocess
+                    if os.name == 'nt':
+                        subprocess.run(['taskkill', '/PID', str(proc.pid), '/T', '/F'],
+                                       creationflags=0x08000000, capture_output=True, timeout=5)
+                    else:
+                        proc.terminate()
+                except Exception:
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
             log('Uscita')
             os._exit(0)
         threading.Thread(target=run, daemon=True).start()
