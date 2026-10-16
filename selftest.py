@@ -60,7 +60,10 @@ def main():
     print('python', sys.version.split()[0], struct.calcsize('P') * 8, 'bit, numpy', np.__version__)
     print('parole:', txt)
     print('ascolti:', listen)
-    ok = '5NN' in txt and 'DL1ABC' in txt and any(abs(l['f'] - 2300) < 120 for l in listen)
+    # Regressione: il transitorio iniziale non deve trasformare K1ZZ in EK1ZZ.
+    ok = ('5NN' in txt and 'DL1ABC' in txt and 'K1ZZ' in txt and
+          'EK1ZZ' not in txt and
+          any(abs(l['f'] - 2300) < 120 for l in listen))
     print('OK' if ok else 'FALLITO')
     return 0 if ok else 1
 
