@@ -372,23 +372,15 @@ class Engine:
                 mk = t - ch.edge
                 ch.on = False
                 ch.edge = t
-                u = ch.u
-                # Scarta impulsi troppo brevi rispetto al ritmo appreso: spesso sono
-                # transitori/rumore e non un vero elemento Morse.
-                if mk < max(0.010, 0.38 * u):
+                if mk < 0.012:
                     continue
-                # La soglia fra punto e linea tollera variazioni di keying; aggiorna
-                # il ritmo solo con durate plausibili, per evitare che un falso impulso
-                # trascini la stima e faccia classificare male i segni successivi.
-                if mk < 2.05 * u:
+                u = ch.u
+                if mk < 2 * u:
                     ch.sym += '.'
-                    if 0.50 * u <= mk <= 1.75 * u:
-                        ch.u = 0.90 * u + 0.10 * mk
+                    ch.u = 0.8 * u + 0.2 * mk
                 else:
                     ch.sym += '-'
-                    unit = mk / 3.0
-                    if 2.0 * u <= mk <= 4.5 * u:
-                        ch.u = 0.92 * u + 0.08 * unit
+                    ch.u = 0.85 * u + 0.15 * (mk / 3)
                 ch.u = min(0.12, max(0.025, ch.u))
                 ch.last = t
                 if len(ch.sym) > 7:
