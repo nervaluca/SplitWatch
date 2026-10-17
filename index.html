@@ -18,7 +18,8 @@ html{height:100%;box-sizing:border-box}
 *,*::before,*::after{box-sizing:inherit}
 [hidden]{display:none!important}
 body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px}
-.app{height:100%;display:grid;grid-template-rows:auto auto auto minmax(260px,1fr) auto auto;gap:10px;padding-inline:16px;padding-block:12px}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-inline:16px;padding-block:12px}
+.app>*{flex:none}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px}
 .brandbox{display:flex;align-items:center;gap:12px}
 .brandbox img{width:56px;height:56px;border-radius:50%;box-shadow:0 0 0 1px #3a2c12,0 4px 18px #0009;flex:none}
@@ -67,7 +68,7 @@ input.short{width:4.6em}
 .rng{display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--dim);letter-spacing:.05em;text-transform:uppercase}
 .rng input{width:90px;accent-color:var(--accent)}
 select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
-.scope{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,34%);min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#05080c}
+.scope{flex:1 1 0;min-height:260px;display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,34%);min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#05080c}
 .cell{position:relative;min-width:0;min-height:0}
 .cell+.cell{border-left:1px solid var(--line);background:#0a1016}
 canvas{display:block;width:100%;height:100%;touch-action:none}
@@ -92,6 +93,15 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #status.err{color:var(--bad)}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--bad);display:inline-block;margin-right:6px;vertical-align:middle}
 .dot.on{background:var(--dx)}
+.recgrp{margin-left:auto}
+button.rec[aria-pressed="true"]{background:#4a1214;border-color:var(--bad);color:#ffe0e0}
+button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
+#bufTxt,#recTxt{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.player{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:#11161d;border:1px solid #2c3a48;border-left:3px solid var(--accent);border-radius:6px;padding:7px 10px}
+.player input[type=range]{flex:1 1 220px;min-width:140px;accent-color:var(--accent)}
+#pTime{font:500 .9rem var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+#pFile{max-width:min(420px,100%)}
+#pPlay{min-width:3.2em}
 @media (max-width:560px){.stats{gap:6px 16px}.stats dd{font-size:.84rem}.scope{grid-template-columns:minmax(0,1fr) minmax(130px,42%)}}
 </style>
 </head>
@@ -99,7 +109,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.10</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.11</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -115,6 +125,22 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <div class="ctrl" id="bandRow">
     <div class="grp" id="bands"><span class="lbl">Banda</span></div>
     <button id="bSave" title="Memorizza centro e DX attuali per questa banda">Salva memoria</button>
+    <div class="grp recgrp" id="recGrp">
+      <button id="bSaveLast" title="Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)">💾 Salva ultimi <span id="bufTxt">0:00</span></button>
+      <button id="bRec" class="rec" aria-pressed="false" title="Registra su disco da adesso finché non premi di nuovo">⏺ Registra<span id="recTxt"></span></button>
+      <button id="bFolder" title="Apri la cartella delle registrazioni" aria-label="Apri la cartella delle registrazioni">📂</button>
+    </div>
+  </div>
+
+  <div class="player" id="player" hidden>
+    <span class="lbl">Riproduzione</span>
+    <button id="pPlay" class="big" title="Pausa / riprendi (barra spaziatrice)">⏸</button>
+    <button id="pBack" title="Indietro di 15 secondi">−15 s</button>
+    <input type="range" id="pSeek" min="0" max="1000" value="0" aria-label="Posizione nella registrazione">
+    <span id="pTime">0:00 / 0:00</span>
+    <select id="pFile" aria-label="Registrazione"></select>
+    <button id="pBrowse" title="Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)">Sfoglia…</button>
+    <button id="pLive">Torna al ricevitore</button>
   </div>
 
   <div class="ctrl">
@@ -144,8 +170,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <button id="offTop" class="off top" hidden></button>
       <button id="offBot" class="off bot" hidden></button>
       <div class="menu" id="menu" hidden>
-        <button id="mDx">Imposta il DX qui</button>
+        <button id="mDx">Imposta il DX qui <small style="color:var(--dim)">Ctrl+clic</small></button>
         <button id="mMark">Segnaposto qui</button>
+        <button id="mClear" hidden>Togli tutti i segnaposti</button>
         <button id="mCenter">Centra la vista qui</button>
       </div>
     </div>
@@ -158,12 +185,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <label for="iDx">DX kHz <input type="number" id="iDx" step="0.01"></label>
     <label for="iUpLo">Zona UP da <input class="short" type="number" id="iUpLo" step="0.5" min="0"></label>
     <label for="iUpHi">a <input class="short" type="number" id="iUpHi" step="0.5" min="0"> kHz</label>
-    <label for="selSrc">Ricevitore <select id="selSrc"><option value="perseus">Perseus</option><option value="audio">Audio della radio</option><option value="iq">IQ da scheda audio</option></select></label>
+    <label for="selSrc">Ricevitore <select id="selSrc"><option value="perseus">Perseus</option><option value="audio">Audio della radio</option><option value="iq">IQ da scheda audio</option><option value="file">Registrazione (WAV)</option></select></label>
     <label for="selDev" id="devBox" hidden>Ingresso <select id="selDev"></select></label>
     <label for="iOff" id="offBox" hidden title="Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB">Offset Hz <input class="short" type="number" id="iOff" step="10"></label>
     <label for="iLo" id="loBox"><span id="loLbl">Centro Perseus kHz</span> <input type="number" id="iLo" step="0.01"></label>
     <label for="selRate" id="rateBox">Campionamento <select id="selRate"><option value="48000">48 kHz</option><option value="96000">96 kHz</option><option value="192000">192 kHz</option></select></label>
     <label for="chkSwap" id="swapBox"><input type="checkbox" id="chkSwap"> Inverti I/Q</label>
+    <label for="selMem" title="Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio">Memoria <select id="selMem"><option value="0">spenta</option><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option></select></label>
     <button id="bRestart" title="Riavvia il ricevitore senza chiudere il programma">Riavvia ricevitore</button>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
@@ -288,7 +316,7 @@ const centerOn=o=>setLow(o-view.span/2);
 let ws=null,firstCfg=true,quitting=false,wantDx=false;
 function connect(){
   ws=new WebSocket(`ws://${location.host}/ws`);ws.binaryType='arraybuffer';
-  ws.onopen=()=>{$('#dot').classList.add('on')};
+  ws.onopen=()=>{$('#dot').classList.add('on');send({cmd:'files'})};
   ws.onclose=()=>{$('#dot').classList.remove('on');if(quitting){setStatus('FZR Skimmer chiuso');return}setStatus('Connessione persa: riprovo…',true);setTimeout(connect,1500)};
   ws.onmessage=e=>{
     if(typeof e.data==='string'){
@@ -296,6 +324,9 @@ function connect(){
       if(m.type==='cfg'){onCfg(m)}
       else if(m.type==='ev'){addEv(m)}
       else if(m.type==='status'){setStatus(m.text)}
+      else if(m.type==='play'){onPlay(m)}
+      else if(m.type==='rec'){onRec(m)}
+      else if(m.type==='files'){onFiles(m.files)}
       else if(m.type==='reg'){const r=$('#regMsg');r.textContent=(m.ok?'✓ ':'✗ ')+m.msg;r.className='regmsg '+(m.ok?'ok':'err');if(m.ok)setTimeout(()=>{$('#regBox').hidden=true},1500)}
       return;
     }
@@ -351,13 +382,15 @@ function onCfg(m){
   if(document.activeElement!==$('#iUpHi'))$('#iUpHi').value=m.up[1];
   if(document.activeElement!==$('#iLo'))$('#iLo').value=(m.center/1000).toFixed(0);
   const live=m.src!=='file', pers=m.src==='perseus', aud=m.src==='audio', iq=m.src==='iq';
-  $('#bGui').hidden=true;$('#iLo').disabled=!live;
+  $('#bGui').hidden=true;$('#iLo').disabled=false;
+  $('#player').hidden=live;if(!live&&m.file)onPlay(m.file);LIVE=m.live_src||'perseus';
+  $('#bRec').disabled=!live;if(live)PLAY=null;
+  if(document.activeElement!==$('#selMem'))$('#selMem').value=String(m.mem_min);
   $('#tag').textContent=(pers?'Perseus dal vivo':aud?'audio della radio':iq?'IQ da scheda audio':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   $('#rateBox').hidden=!(pers||iq);$('#swapBox').hidden=!(pers||iq);
   $('#devBox').hidden=!(aud||iq);$('#offBox').hidden=!aud;
   $('#loLbl').textContent=pers?'Centro Perseus kHz':aud?'Frequenza radio kHz':iq?'LO kHz':'Centro kHz';
-  if(document.activeElement!==$('#selSrc'))$('#selSrc').value=pers?'perseus':aud?'audio':iq?'iq':'perseus';
-  $('#selSrc').disabled=m.src==='file';
+  if(document.activeElement!==$('#selSrc'))$('#selSrc').value=pers?'perseus':aud?'audio':iq?'iq':'file';
   const sd=$('#selDev');if(sd.dataset.list!==JSON.stringify(m.audio_devs||[])){sd.dataset.list=JSON.stringify(m.audio_devs||[]);
     sd.innerHTML='<option value="">Predefinito di Windows</option>'+(m.audio_devs||[]).map(n=>`<option>${n.replace(/[<>&]/g,'')}</option>`).join('')}
   if(document.activeElement!==sd)sd.value=m.audio_dev||'';
@@ -398,6 +431,42 @@ $('#selDev').onchange=e=>send({cmd:'audiodev',dev:e.target.value||null});
 $('#iOff').onchange=e=>send({cmd:'offset',hz:parseFloat(e.target.value)||0});
 $('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
 $('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
+$('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
+
+/* ---------------- registrazione e riproduzione ---------------- */
+let LIVE='perseus',PLAY=null,seeking=false;
+const mmss=s=>{s=Math.max(0,Math.round(s||0));const h=Math.floor(s/3600),m=Math.floor(s/60)%60,ss=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${ss}`:`${m}:${ss}`};
+function onRec(m){
+  setT($('#bufTxt'),m.saving?'… salvo':mmss(m.buf));
+  $('#bSaveLast').disabled=!m.buf||m.saving;
+  $('#bSaveLast').title=`Salva su disco gli ultimi ${mmss(m.buf)} (memoria: ${m.mem_min} min, ${m.mb} MB). Il ricevitore non si ferma.`;
+  $('#recGrp').hidden=false;
+  $('#bRec').setAttribute('aria-pressed',String(!!m.rec));setT($('#recTxt'),m.rec?` ${mmss(m.rec.s)} · ${m.rec.mb} MB`:'');
+}
+function onPlay(f){PLAY=f;
+  setT($('#pPlay'),f.paused?'▶':'⏸');
+  if(!seeking){$('#pSeek').value=f.dur?Math.round(f.pos/f.dur*1000):0;setT($('#pTime'),`${mmss(f.pos)} / ${mmss(f.dur)}`)}
+  const sel=$('#pFile');if(sel.value!==f.path&&document.activeElement!==sel){
+    if(![...sel.options].some(o=>o.value===f.path)){const o=document.createElement('option');o.value=f.path;o.textContent=f.name;sel.prepend(o)}
+    sel.value=f.path}
+}
+function onFiles(list){const sel=$('#pFile'),cur=PLAY&&PLAY.path;
+  sel.innerHTML=list.length?'':'<option value="">nessuna registrazione</option>';
+  for(const f of list){const o=document.createElement('option');o.value=f.path;
+    o.textContent=`${f.name.replace(/\.wav$/i,'')} · ${mmss(f.dur)}`+(f.centro?'':' · centro ?');sel.appendChild(o)}
+  if(cur){if(![...sel.options].some(o=>o.value===cur)){const o=document.createElement('option');o.value=cur;o.textContent=PLAY.name;sel.prepend(o)}sel.value=cur}
+}
+$('#bSaveLast').onclick=()=>{send({cmd:'save_last'});setT($('#bufTxt'),'… salvo')};
+$('#bRec').onclick=()=>send({cmd:'rec',on:$('#bRec').getAttribute('aria-pressed')!=='true'});
+$('#bFolder').onclick=()=>send({cmd:'opendir'});
+$('#pPlay').onclick=()=>{if(PLAY)send({cmd:'pause',on:!PLAY.paused})};
+$('#pBack').onclick=()=>{if(PLAY)send({cmd:'seek',s:Math.max(0,PLAY.pos-15)})};
+$('#pSeek').oninput=e=>{seeking=true;if(PLAY)setT($('#pTime'),`${mmss(e.target.value/1000*PLAY.dur)} / ${mmss(PLAY.dur)}`)};
+$('#pSeek').onchange=e=>{seeking=false;if(PLAY)send({cmd:'seek',s:e.target.value/1000*PLAY.dur})};
+$('#pFile').onfocus=()=>send({cmd:'files'});
+$('#pFile').onchange=e=>{if(e.target.value){send({cmd:'play',path:e.target.value});setStatus('Apro la registrazione…')}};
+$('#pBrowse').onclick=()=>{send({cmd:'browse'});setStatus('Scegli il file nella finestra che si è aperta sul PC…')};
+$('#pLive').onclick=()=>{send({cmd:'source',kind:LIVE});setStatus('Riaccendo il ricevitore…')};
 
 /* ---------------- disegno ---------------- */
 const wf=$('#wf'),tx=$('#tx'),wc=wf.getContext('2d'),tc=tx.getContext('2d');
@@ -536,21 +605,30 @@ wf.addEventListener('wheel',e=>{e.preventDefault();
   setLow(view.low+(e.deltaY<0?1:-1)*view.span/20*(e.shiftKey?.25:1))},{passive:false});
 let drag=null,menuAt=null,lpTimer=null;
 const offAt=cy=>{const r=wf.getBoundingClientRect();return view.low+view.span-(cy-r.top)/r.height*view.span};
+const markNear=o=>marks.findIndex(m=>Math.abs(m-o)<view.span/40);
 function openMenu(cx,cy){const r=wf.getBoundingClientRect(),m=$('#menu');menuAt=offAt(cy);m.hidden=false;
-  m.style.left=Math.min(cx-r.left,r.width-190)+'px';m.style.top=Math.min(cy-r.top,r.height-110)+'px'}
+  $('#mMark').textContent=markNear(menuAt)>=0?'Togli questo segnaposto':'Segnaposto qui';
+  $('#mClear').hidden=!marks.length;$('#mClear').textContent=`Togli tutti i segnaposti (${marks.length})`;
+  m.style.left=Math.max(0,Math.min(cx-r.left,r.width-210))+'px';m.style.top=Math.max(0,Math.min(cy-r.top,r.height-150))+'px'}
+// Ctrl + clic: DX esattamente lì (passo 10 Hz); la vista resta ferma
+function dxAt(cy){if(!CFG)return;const hz=Math.round((CFG.center+offAt(cy)*1000)/10)*10;
+  CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);
+  if(document.activeElement!==$('#iDx'))$('#iDx').value=(hz/1000).toFixed(2);clearTimeout(dxTimer);send({cmd:'dx',hz})}
 const closeMenu=()=>{$('#menu').hidden=true};
 wf.addEventListener('contextmenu',e=>{e.preventDefault();openMenu(e.clientX,e.clientY)});
-wf.addEventListener('pointerdown',e=>{closeMenu();if(e.button!==0)return;wf.setPointerCapture(e.pointerId);drag={y:e.clientY,x:e.clientX,low:view.low,moved:false};
+wf.addEventListener('pointerdown',e=>{closeMenu();if(e.button!==0)return;if(e.ctrlKey||e.metaKey){e.preventDefault();dxAt(e.clientY);return}wf.setPointerCapture(e.pointerId);drag={y:e.clientY,x:e.clientX,low:view.low,moved:false};
   lpTimer=setTimeout(()=>{if(drag&&!drag.moved){openMenu(drag.x,drag.y);drag=null}},600)});
 wf.addEventListener('pointermove',e=>{if(!drag)return;const dy=e.clientY-drag.y;if(Math.abs(dy)>5){drag.moved=true;clearTimeout(lpTimer)}if(drag.moved)setLow(drag.low+dy*view.span/(H/dpr))});
 wf.addEventListener('pointerup',()=>{clearTimeout(lpTimer);drag=null});
 wf.addEventListener('pointercancel',()=>{clearTimeout(lpTimer);drag=null});
-$('#mDx').onclick=()=>{if(CFG&&menuAt!=null)send({cmd:'dx',hz:CFG.center+menuAt*1000});closeMenu()};
-$('#mMark').onclick=()=>{const i=marks.findIndex(m=>Math.abs(m-menuAt)<view.span/60);if(i>=0)marks.splice(i,1);else marks.push(menuAt);closeMenu()};
+$('#mDx').onclick=()=>{if(CFG&&menuAt!=null)send({cmd:'dx',hz:Math.round((CFG.center+menuAt*1000)/10)*10});closeMenu()};
+$('#mMark').onclick=()=>{const i=markNear(menuAt);if(i>=0)marks.splice(i,1);else marks.push(menuAt);closeMenu()};
+$('#mClear').onclick=()=>{marks.length=0;closeMenu()};
 $('#mCenter').onclick=()=>{centerOn(menuAt);closeMenu()};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const m={PageUp:5,PageDown:-5,ArrowUp:view.span/10,ArrowDown:-view.span/10}[e.key];
   if(m!=null){e.preventDefault();setLow(view.low+m)}else if(e.key==='Home'){e.preventDefault();toDx()}
-  else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu()});
+  else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu();
+  else if(e.key===' '&&PLAY&&!$('#player').hidden&&e.target.tagName!=='SELECT'&&e.target.tagName!=='BUTTON'){e.preventDefault();send({cmd:'pause',on:!PLAY.paused})}});
 
 function frame(){if(W&&H){drawWF();drawTX()}updateUI();requestAnimationFrame(frame)}
 window.addEventListener('pagehide',flushUI);

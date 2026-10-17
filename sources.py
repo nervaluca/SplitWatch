@@ -6,8 +6,10 @@ WavFile      : riproduzione in tempo reale di una registrazione IQ (CW Skimmer, 
 Ogni sorgente chiama on_iq(numpy.complex64) da un suo thread e
 on_status(testo) per messaggi da mostrare nell'interfaccia.
 """
+import json
 import os
 import queue
+import re
 import struct
 import sys
 import threading
@@ -41,20 +43,47 @@ def to_complex(raw, fmt):
 
 
 # ---------------------------------------------------------------------------- file
-class WavFile:
-    """Riproduce un WAV IQ a velocità reale (in loop)."""
+def wav_info(path):
+    """Durata, campionamento, centro e DX di un WAV IQ (solo intestazione)."""
+    w = WavFile(path, 0, None, None)
+    return {'path': path, 'name': os.path.basename(path), 'dur': w.duration, 'fs': w.fs,
+            'centro': w.center or None, 'dx': w.dx}
 
-    def __init__(self, path, center_hz, on_iq, on_status, loop=True, speed=1.0):
+
+class WavFile:
+    """Riproduce un WAV IQ a velocità reale, con pausa e salto avanti/indietro."""
+
+    def __init__(self, path, center_hz, on_iq, on_status, loop=True, speed=1.0, on_rate=None, on_pos=None):
         self.path = path
-        self.center = float(center_hz)
         self.on_iq = on_iq
         self.on_status = on_status
+        self.on_rate = on_rate
+        self.on_pos = on_pos
         self.loop = loop
         self.speed = speed
+        self.paused = False
+        self._seek = None
+        self.pos = 0.0
         self._stop = threading.Event()
+        self.stopped = threading.Event()
+        self.dx = None
         self.fs, self.fmt, self.data_off, self.data_len, self.bpf = self._parse()
-        self.center = self._auxi_center() or self.center
+        self.center = self._fzrx() or self._auxi_center() or self._name_center() or float(center_hz or 0)
         self.duration = self.data_len / self.bpf / self.fs
+        self.nsamp = 0
+
+    def _chunks(self):
+        with open(self.path, 'rb') as f:
+            f.seek(12)
+            while True:
+                ch = f.read(8)
+                if len(ch) < 8:
+                    return
+                cid, sz = ch[:4], struct.unpack('<I', ch[4:])[0]
+                if cid == b'data':
+                    return
+                yield cid, f.read(min(sz, 4096))
+                f.seek(f.tell() - min(sz, 4096) + sz + (sz & 1))
 
     def _parse(self):
         with open(self.path, 'rb') as f:
@@ -62,6 +91,8 @@ class WavFile:
             if hdr[:4] != b'RIFF' or hdr[8:12] != b'WAVE':
                 raise ValueError('Il file non è un WAV')
             fmt = None
+            bpf = 0
+            fs = 0
             while True:
                 ch = f.read(8)
                 if len(ch) < 8:
@@ -81,28 +112,51 @@ class WavFile:
                     if sz & 1:
                         f.read(1)
                 elif cid == b'data':
-                    return fs, fmt, f.tell(), sz, bpf
+                    if fmt is None:
+                        raise ValueError('WAV senza formato')
+                    size = os.path.getsize(self.path) - f.tell()
+                    if sz == 0 or sz > size:            # registrazione interrotta: uso quello che c'è
+                        sz = size
+                    return fs, fmt, f.tell(), sz - sz % bpf, bpf
                 else:
                     f.seek(sz + (sz & 1), 1)
 
-    def _auxi_center(self):
-        """Frequenza centrale dal blocco 'auxi' (HDSDR/SpectraVue), se c'è."""
+    def _fzrx(self):
+        """Blocco scritto da FZR Skimmer: centro e DX."""
         try:
-            with open(self.path, 'rb') as f:
-                f.seek(12)
-                while True:
-                    ch = f.read(8)
-                    if len(ch) < 8:
-                        return None
-                    cid, sz = ch[:4], struct.unpack('<I', ch[4:])[0]
-                    if cid == b'auxi':
-                        d = f.read(sz)
-                        if len(d) >= 40:
-                            return float(struct.unpack('<I', d[36:40])[0]) or None
-                        return None
-                    f.seek(sz + (sz & 1), 1)
+            for cid, d in self._chunks():
+                if cid == b'fzrx':
+                    j = json.loads(d.decode('utf-8', 'replace'))
+                    self.dx = float(j['dx']) if j.get('dx') else None
+                    return float(j.get('centro') or 0) or None
         except Exception:
-            return None
+            pass
+        return None
+
+    def _auxi_center(self):
+        """Frequenza centrale dal blocco 'auxi' (HDSDR/SpectraVue: dopo le due SYSTEMTIME)."""
+        try:
+            for cid, d in self._chunks():
+                if cid == b'auxi' and len(d) >= 36:
+                    v = float(struct.unpack('<I', d[32:36])[0])
+                    return v if v > 10000 else None
+        except Exception:
+            pass
+        return None
+
+    def _name_center(self):
+        """Frequenza dal nome del file (HDSDR: ..._18085kHz_RF.wav, SDR Console: ..._18.085MHz...)."""
+        n = os.path.basename(self.path)
+        m = re.search(r'(\d+(?:[.,]\d+)?)\s*kHz', n, re.I)
+        if m:
+            return float(m.group(1).replace(',', '.')) * 1000
+        m = re.search(r'(\d+(?:[.,]\d+)?)\s*MHz', n, re.I)
+        if m:
+            return float(m.group(1).replace(',', '.')) * 1e6
+        m = re.search(r'_(\d{6,9})Hz', n, re.I)
+        if m:
+            return float(m.group(1))
+        return None
 
     def start(self):
         threading.Thread(target=self._run, daemon=True).start()
@@ -111,32 +165,81 @@ class WavFile:
         self._stop.set()
 
     def set_lo(self, hz):
-        self.on_status('In riproduzione la frequenza centrale non si cambia')
+        """Centro della registrazione scritto a mano (CW Skimmer non lo salva)."""
+        self.center = float(hz)
+        if self.on_rate:
+            self.on_rate(self.fs, self.center)
+
+    def set_pause(self, on):
+        self.paused = bool(on)
+
+    def seek(self, s):
+        self._seek = max(0.0, min(float(s), self.duration))
 
     def _run(self):
         block = 2048
         nbytes = block * self.bpf
-        with open(self.path, 'rb') as f:
-            while not self._stop.is_set():
-                f.seek(self.data_off)
-                left = self.data_len
-                t0 = time.perf_counter()
-                sent = 0
-                while left > 0 and not self._stop.is_set():
-                    raw = f.read(min(nbytes, left))
-                    if not raw:
+        last_pos = 0
+        try:
+            with open(self.path, 'rb') as f:
+                start = 0
+                while not self._stop.is_set():
+                    f.seek(self.data_off + start)
+                    left = self.data_len - start
+                    t0 = time.perf_counter()
+                    sent = 0
+                    while left > 0 and not self._stop.is_set():
+                        if self._seek is not None:
+                            break
+                        if self.paused:
+                            time.sleep(0.05)
+                            t0 = time.perf_counter() - sent / self.fs / self.speed
+                            now = time.perf_counter()
+                            if self.on_pos and now - last_pos > 0.3:
+                                last_pos = now
+                                self.on_pos(self)
+                            continue
+                        raw = f.read(min(nbytes, left))
+                        if not raw:
+                            break
+                        left -= len(raw)
+                        iq = to_complex(raw, self.fmt)
+                        self.on_iq(iq)
+                        sent += len(iq)
+                        self.nsamp += len(iq)
+                        self.pos = (self.data_len - left) / self.bpf / self.fs
+                        now = time.perf_counter()
+                        if self.on_pos and now - last_pos > 0.3:
+                            last_pos = now
+                            self.on_pos(self)
+                        ahead = sent / self.fs / self.speed - (now - t0)
+                        if ahead > 0:
+                            time.sleep(ahead)
+                    if self._seek is not None:
+                        start = int(self._seek * self.fs) * self.bpf
+                        self.pos = self._seek
+                        self._seek = None
+                        continue
+                    start = 0
+                    if self._stop.is_set():
                         break
-                    left -= len(raw)
-                    iq = to_complex(raw, self.fmt)
-                    self.on_iq(iq)
-                    sent += len(iq)
-                    ahead = sent / self.fs / self.speed - (time.perf_counter() - t0)
-                    if ahead > 0:
-                        time.sleep(ahead)
-                if not self.loop:
-                    self.on_status('Fine della registrazione')
-                    return
-                self.on_status('Registrazione: ricomincio da capo')
+                    if not self.loop:
+                        self.paused = True
+                        self.pos = self.duration
+                        if self.on_pos:
+                            self.on_pos(self)
+                        self.on_status('Fine della registrazione')
+                        while self.paused and self._seek is None and not self._stop.is_set():
+                            time.sleep(0.05)
+                        if self._seek is None:
+                            self._seek = 0.0
+                        start = int(self._seek * self.fs) * self.bpf
+                        self.pos = self._seek
+                        self._seek = None
+                        continue
+                    self.on_status('Registrazione: ricomincio da capo')
+        finally:
+            self.stopped.set()
 
 
 # ---------------------------------------------------------------------------- Perseus

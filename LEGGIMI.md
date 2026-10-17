@@ -1,4 +1,4 @@
-# FZR Skimmer 1.8
+# FZR Skimmer 1.11
 
 IW1FZR
 
@@ -76,8 +76,11 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
 
 - **Audio DX**: avvia l'audio (il browser lo richiede con un clic).
 - **▲ / ▼ 5 kHz**, rotellina o trascinamento: scorri il waterfall. L'audio resta sul DX.
+- **Ctrl + clic** sul waterfall: il DX va esattamente lì (passo 10 Hz). La vista resta ferma.
 - **Tasto destro** (o pressione lunga sul tablet) sul waterfall:
-  *Imposta il DX qui*, *Segnaposto*, *Centra la vista*.
+  *Imposta il DX qui*, *Segnaposto qui*, *Centra la vista*.
+  Per togliere un segnaposto: tasto destro sopra la sua linea → *Togli questo segnaposto*;
+  *Togli tutti i segnaposti* li cancella tutti.
 - **Zona UP**: dove cercare l'ascolto, in kHz sopra il DX (es. 1–5 se il DX dice "UP 1-5").
   Serve anche a escludere FT8 e altri segnali digitali.
 - **Centro Perseus**: frequenza centrale del ricevitore in kHz.
@@ -90,13 +93,41 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   luminosità e contrasto. Doppio clic su un cursore = valore iniziale. Restano memorizzati.
 - Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX.
 
+## Registrare
+
+In alto a destra:
+
+- **💾 Salva ultimi m:ss** – FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti
+  (5 min di base, si cambia in basso alla voce **Memoria**). Il pulsante li scrive su disco
+  senza fermare il ricevitore: utile per controllare con calma se il DX ti ha messo a log.
+  Occupa RAM: a 96 kHz circa 23 MB al minuto (5 min ≈ 115 MB), a 192 kHz il doppio.
+  **Memoria: spenta** se non ti serve.
+- **⏺ Registra** – registra su disco da adesso finché non lo premi di nuovo
+  (a 96 kHz circa 35 MB al minuto). Cambiando banda il file si chiude e ne parte un altro.
+- **📂** apre la cartella `registrazioni` (accanto all'exe).
+
+I file sono WAV IQ a 24 bit con nome tipo `FZR_20261017_121500Z_18085.000kHz_DX18080.00.wav`
+e dentro hanno centro e DX: si aprono anche con HDSDR, SDR Console e CW Skimmer.
+
 ## Riprodurre una registrazione
 
-Trascina un WAV IQ (CW Skimmer, HDSDR, SDR Console) sopra `FZRSkimmer.exe`.
-CW Skimmer non salva la frequenza: il programma te la chiede.
+**Ricevitore → Registrazione (WAV)**: il Perseus si ferma (si libera) e compare la barra
+di riproduzione con ▶/⏸ (anche barra spaziatrice), **−15 s**, cursore della posizione,
+elenco delle registrazioni e **Sfoglia…** per aprire un WAV qualsiasi (CW Skimmer, HDSDR,
+SDR Console; la finestra si apre sul PC). **Torna al ricevitore** riaccende il Perseus.
+
+Il waterfall, il testo decodificato e la ricerca dell'ascolto funzionano come dal vivo.
+Centro e DX si leggono dal file (FZR Skimmer, HDSDR, nome del file); CW Skimmer non salva
+la frequenza: scrivila in **Centro kHz**, viene ricordata per quel file.
+La riproduzione è libera anche senza registrazione del programma.
+
 Da riga di comando:
 
     FZRSkimmer.exe registrazione.wav --centro 18085 --dx 18085.04
+
+**Riavvia ricevitore**: chiude e riapre il Perseus (o la scheda audio) senza chiudere il
+programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
+il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
 
 ## Limiti attuali
 

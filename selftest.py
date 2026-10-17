@@ -61,8 +61,36 @@ def main():
     print('parole:', txt)
     print('ascolti:', listen)
     ok = '5NN' in txt and 'DL1ABC' in txt and any(abs(l['f'] - 2300) < 120 for l in listen)
+    ok = ok and test_wav(x[:FS])
     print('OK' if ok else 'FALLITO')
     return 0 if ok else 1
+
+
+def test_wav(x):
+    """Memoria degli ultimi minuti -> WAV -> rilettura: centro, DX e campioni devono tornare."""
+    import tempfile
+    import time
+    from recorder import Recorder
+    from sources import WavFile, to_complex
+    d = tempfile.mkdtemp()
+    r = Recorder(d, minutes=1)
+    r.set_format(FS, 18085000)
+    r.set_dx(18080000)
+    t = time.time()
+    for i in range(0, len(x), 4096):
+        t += 4096 / FS
+        r.push(x[i:i + 4096], t)
+    got = []
+    r.save_last(got.append)
+    while not got:
+        time.sleep(0.05)
+    w = WavFile(got[0][0], 0, None, None)
+    with open(got[0][0], 'rb') as f:
+        f.seek(w.data_off)
+        y = to_complex(f.read(w.data_len), w.fmt)
+    err = float(np.abs(y - x[:len(y)]).max())
+    print('wav:', len(y), 'campioni, centro', w.center, 'dx', w.dx, 'errore', err)
+    return len(y) == len(x) and w.center == 18085000 and w.dx == 18080000 and err < 1e-3
 
 
 if __name__ == '__main__':

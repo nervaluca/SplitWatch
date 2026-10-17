@@ -1,4 +1,4 @@
-"""FZR Skimmer - dai punti alle parole. Ricevitore per pile-up in split con il Perseus.
+"""FZR Skimmer - ricevitore per pile-up in split con il Perseus.
 
 Uso:
   FZRSkimmer.exe                         Perseus dal vivo (ExtIO_perseus.dll nella stessa cartella)
@@ -29,9 +29,10 @@ import websockets
 import dsp
 import licenza
 from dsp import Engine
-from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs
+from recorder import Recorder
+from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.10'
+VERSION = '1.11'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -237,6 +238,10 @@ class Hub:
         dsp.KNOWN_CALLS.update(calls)
         dsp.build_index()
         self.calls_files = files
+        self.rec_dir = os.path.join(DATA_DIR, 'registrazioni')
+        self.rec = Recorder(self.rec_dir, float(self.cfg.get('memoria_min', 5)), self.on_status)
+        if args.file:
+            self.cfg['file_path'] = os.path.abspath(args.file)
 
     # -------------------------------------------------------------- sorgente
     def on_iq(self, iq):
@@ -255,17 +260,36 @@ class Hub:
 
     def start_source(self):
         a = self.args
-        if a.file:
+        kind = 'file' if (a.file or self.src_kind == 'file') else (a.sorgente or self.cfg.get('sorgente', 'perseus'))
+        if kind == 'file':
             self.src_kind = 'file'
-            center = (a.centro * 1000) if a.centro else self.cfg.get('file_center', 0.0)
-            self.src = WavFile(a.file, center, self.on_iq, self.on_status)
-            if not a.centro and not self.src.center:
-                self.on_status('Frequenza centrale sconosciuta: usa --centro (kHz). Mostro gli scostamenti dal centro.')
-            self.on_rate(self.src.fs, self.src.center)
-            self.src.start()
-            self.on_status(f'Riproduzione: {os.path.basename(a.file)} · {self.src.fs/1000:.1f} kHz · {self.src.duration:.0f} s')
+            path = self.cfg.get('file_path')
+            if not path or not os.path.isfile(path):
+                files = self.list_files()
+                path = files[0]['path'] if files else None
+            if not path:
+                raise RuntimeError('Nessuna registrazione: usa «Sfoglia…» o salva prima gli ultimi minuti')
+            known = self.cfg.get('file_centri', {}).get(path)
+            center = (a.centro * 1000) if a.centro else (known or 0.0)
+            src = WavFile(path, center, self.on_iq, self.on_status, loop=False, on_rate=self.on_rate, on_pos=self.on_pos)
+            if a.centro:
+                src.center = a.centro * 1000
+            self.src = src
+            self.cfg['file_path'] = path
+            rec = [path] + [x for x in self.cfg.get('file_recenti', []) if x != path]
+            self.cfg['file_recenti'] = rec[:12]
+            save_cfg(self.cfg)
+            self.on_rate(src.fs, src.center)
+            dx = (a.dx * 1000 if a.dx else None) or src.dx or self.cfg.get('file_dx', {}).get(path)
+            if not dx or abs(dx - src.center) > src.fs / 2:
+                dx = src.center
+            self.cmd_q.put(('dx', float(dx)))
+            src.start()
+            msg = f'Riproduzione: {os.path.basename(path)} · {src.fs/1000:.1f} kHz · {src.duration/60:.1f} min'
+            if not src.center:
+                msg += ' · centro sconosciuto: scrivilo in «Centro kHz»'
+            self.on_status(msg)
             return
-        kind = a.sorgente or self.cfg.get('sorgente', 'perseus')
         self.src_kind = kind
         if self.locked:
             return
@@ -324,6 +348,7 @@ class Hub:
                 continue
             if left <= 0:
                 self.locked = True
+                self.rec.stop_rec()
                 src, self.src = self.src, None
                 if src:
                     try:
@@ -365,11 +390,17 @@ class Hub:
 
     def switch_source(self, kind, dev=None):
         """Cambia ricevitore senza riavviare il programma."""
-        if self.locked:
+        if self.locked and kind != 'file':
             self.on_status('Prova terminata: registra FZR Skimmer per riattivare il ricevitore')
             return
 
         def run():
+            if kind == 'file':
+                self.rec.stop_rec()
+            elif self.src_kind == 'file':
+                d = self.cfg.get('dx')                    # torno al ricevitore: riprendo il DX di prima
+                if d:
+                    self.dx_abs = float(d)
             old, self.src = self.src, None
             if old:
                 try:
@@ -377,11 +408,14 @@ class Hub:
                 except Exception:
                     pass
                 time.sleep(0.8)
-            self.cfg['sorgente'] = kind
+            if kind != 'file':
+                self.cfg['sorgente'] = kind
+                self.args.sorgente = kind
+            self.args.file = None
+            self.src_kind = kind
             if dev is not None:
                 self.cfg['audio_dev'] = dev
             save_cfg(self.cfg)
-            self.args.sorgente = kind
             with self.iq_q.mutex:
                 self.iq_q.queue.clear()
             try:
@@ -390,6 +424,74 @@ class Hub:
                 self.on_status(f'Errore: {e}')
             self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
+
+    # -------------------------------------------------------------- registrazioni
+    def on_pos(self, src):
+        self.post_json({'type': 'play', **self.file_state(src)})
+
+    def file_state(self, src=None):
+        src = src or self.src
+        if not isinstance(src, WavFile):
+            return None
+        return {'name': os.path.basename(src.path), 'path': src.path, 'pos': round(src.pos, 2),
+                'dur': round(src.duration, 2), 'paused': src.paused, 'centro_ok': bool(src.center)}
+
+    def post_rec(self):
+        self.post_json({'type': 'rec', 'buf': round(self.rec.buffered_s(), 1), 'mem_min': self.rec.minutes,
+                        'mb': round(self.rec.mem_mb()), 'rec': self.rec.rec_info(), 'saving': self.rec.saving})
+
+    def rec_thread(self):
+        while True:
+            time.sleep(1)
+            try:
+                self.post_rec()
+            except Exception:
+                pass
+
+    def list_files(self):
+        paths = []
+        try:
+            for n in os.listdir(self.rec_dir):
+                if n.lower().endswith('.wav'):
+                    paths.append(os.path.join(self.rec_dir, n))
+        except Exception:
+            pass
+        for x in self.cfg.get('file_recenti', []):
+            if x not in paths and os.path.isfile(x):
+                paths.append(x)
+        out = []
+        for x in sorted(set(paths), key=lambda q: os.path.getmtime(q) if os.path.exists(q) else 0, reverse=True)[:40]:
+            if self.rec.writer and os.path.abspath(x) == os.path.abspath(self.rec.writer.path):
+                continue                               # quella che sto ancora scrivendo
+            try:
+                i = wav_info(x)
+                i['centro'] = i['centro'] or self.cfg.get('file_centri', {}).get(x)
+                i['mtime'] = os.path.getmtime(x)
+                out.append(i)
+            except Exception:
+                pass
+        return out
+
+    def pick_file(self):
+        """Finestra di Windows per scegliere un WAV (si apre sul PC, non sul tablet)."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception:
+            self.on_status(f'Metti i file .wav in {self.rec_dir} e sceglili dall\'elenco')
+            return None
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            start = os.path.dirname(self.cfg.get('file_path') or '') or self.rec_dir
+            p = filedialog.askopenfilename(parent=root, title='Apri una registrazione IQ', initialdir=start,
+                                           filetypes=[('Registrazioni IQ', '*.wav'), ('Tutti i file', '*.*')])
+            root.destroy()
+            return os.path.abspath(p) if p else None
+        except Exception as e:
+            self.on_status(f'Impossibile aprire la finestra dei file: {e}')
+            return None
 
     # -------------------------------------------------------------- DSP
     def dsp_thread(self):
@@ -442,7 +544,10 @@ class Hub:
                         chunks.append(self.iq_q.get_nowait())
                 except queue.Empty:
                     pass
-                self.engine.feed(np.concatenate(chunks))
+                blk = np.concatenate(chunks)
+                if self.src_kind != 'file':
+                    self.rec.push(blk)
+                self.engine.feed(blk)
                 r, au, w, l = self.engine.take()
                 pend_rows += r
                 pend_audio += au
@@ -500,6 +605,10 @@ class Hub:
                 self.dx_abs = float(d) if d else center
             changed = (self.fs != fs)
             self.fs, self.center = fs, center
+            if self.src_kind != 'file':
+                self.rec.set_format(fs, center)
+            elif isinstance(self.src, WavFile) and center:
+                self.cfg.setdefault('file_centri', {})[self.src.path] = center
             if changed or self.engine is None:
                 self.engine = Engine(fs, self.dx_abs - center)
                 up = self.cfg.get('up', [0.15, 10.0])
@@ -523,7 +632,15 @@ class Hub:
             self.dx_abs = float(c[1])
             if self.engine:
                 self.engine.set_dx(self.dx_abs - self.center)
-            self.cfg['dx'] = self.dx_abs
+            if self.src_kind == 'file':
+                if isinstance(self.src, WavFile):
+                    fd = self.cfg.setdefault('file_dx', {})
+                    fd[self.src.path] = self.dx_abs
+                    if len(fd) > 40:
+                        fd.pop(next(iter(fd)))
+            else:
+                self.cfg['dx'] = self.dx_abs
+                self.rec.set_dx(self.dx_abs)
             save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
         elif c[0] == 'bw':
@@ -563,7 +680,8 @@ class Hub:
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
                 'offset': float(self.cfg.get('audio_offset', 600)),
-                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR, **lic}
+                'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR,
+                'mem_min': self.rec.minutes, 'live_src': self.cfg.get('sorgente', 'perseus'), 'rec_dir': self.rec_dir, 'file': self.file_state(), **lic}
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
@@ -642,7 +760,7 @@ class Hub:
                     ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
-                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq') else 'perseus')
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
                     for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel'):
@@ -651,6 +769,50 @@ class Hub:
                     save_cfg(self.cfg)
                 elif k == 'quit':
                     self.shutdown()
+                elif k == 'save_last':
+                    self.rec.save_last(lambda paths: self.post_json({'type': 'files', 'files': self.list_files()}))
+                elif k == 'rec':
+                    if c.get('on'):
+                        if self.src_kind == 'file' or not self.src:
+                            self.on_status('Per registrare serve il ricevitore acceso (non la riproduzione)')
+                        elif self.rec.start_rec():
+                            self.on_status(f'Registrazione in corso in {self.rec_dir}')
+                    else:
+                        self.rec.stop_rec()
+                        self.post_json({'type': 'files', 'files': self.list_files()})
+                    self.post_rec()
+                elif k == 'memory':
+                    m = max(0.0, min(10.0, float(c.get('min', 5))))
+                    self.cfg['memoria_min'] = m
+                    save_cfg(self.cfg)
+                    self.rec.set_minutes(m)
+                    self.post_json(self.cfg_msg())
+                elif k == 'files':
+                    await ws.send(json.dumps({'type': 'files', 'files': self.list_files()}))
+                elif k == 'play':
+                    path = c.get('path')
+                    if path and os.path.isfile(path):
+                        self.cfg['file_path'] = path
+                    self.switch_source('file')
+                elif k == 'browse':
+                    path = await asyncio.get_running_loop().run_in_executor(None, self.pick_file)
+                    if path:
+                        self.cfg['file_path'] = path
+                        self.switch_source('file')
+                elif k == 'pause' and isinstance(self.src, WavFile):
+                    self.src.set_pause(bool(c.get('on')))
+                    self.on_pos(self.src)
+                elif k == 'seek' and isinstance(self.src, WavFile):
+                    self.src.seek(float(c.get('s', 0)))
+                    self.on_pos(self.src)
+                elif k == 'opendir':
+                    try:
+                        os.makedirs(self.rec_dir, exist_ok=True)
+                        os.startfile(self.rec_dir)
+                    except Exception:
+                        self.on_status(f'Le registrazioni sono in {self.rec_dir}')
+                elif k == 'source' and c.get('kind') == 'file':
+                    self.switch_source('file')
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
                     self.switch_source(c['kind'], c.get('dev'))
                 elif k == 'audiodev':
@@ -698,6 +860,7 @@ class Hub:
         threading.Thread(target=self.dsp_thread, daemon=True).start()
         threading.Thread(target=self.diag_thread, daemon=True).start()
         threading.Thread(target=self.trial_thread, daemon=True).start()
+        threading.Thread(target=self.rec_thread, daemon=True).start()
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
@@ -727,6 +890,10 @@ class Hub:
     def shutdown(self):
         """Ferma il ricevitore (libera il Perseus) ed esce."""
         def run():
+            try:
+                self.rec.stop_rec()                     # chiude bene il WAV in corso
+            except Exception:
+                pass
             src, self.src = self.src, None
             if src:
                 try:
