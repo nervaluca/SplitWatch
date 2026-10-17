@@ -33,7 +33,7 @@ from rbn import RBN
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.16'
+VERSION = '1.17'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1079,7 +1079,7 @@ class Hub:
         self._closing = True
         log('Chiusura in corso…')
         # rete di sicurezza: qualunque cosa si blocchi (driver, browser), fra 8 s il processo esce comunque
-        t = threading.Timer(8.0, lambda: (log('Chiusura forzata'), os._exit(0)))
+        t = threading.Timer(8.0, lambda: (log('Chiusura forzata'), hard_exit()))
         t.daemon = True
         t.start()
 
@@ -1115,8 +1115,23 @@ class Hub:
                     except Exception:
                         pass
             log('Uscita')
-            os._exit(0)
+            hard_exit()
         threading.Thread(target=run, daemon=True).start()
+
+
+def hard_exit(code=0):
+    """Termina subito il processo.
+    Su Windows os._exit passa dalla chiusura delle DLL caricate: perseususb.dll in quel momento
+    aspetta il suo thread USB e il processo resta appeso (si vede in Gestione attività).
+    TerminateProcess invece chiude e basta, come «Termina attività»."""
+    if os.name == 'nt':
+        try:
+            import ctypes
+            k = ctypes.windll.kernel32
+            k.TerminateProcess(k.GetCurrentProcess(), code)
+        except Exception:
+            pass
+    os._exit(code)
 
 
 def find_app_browser():
