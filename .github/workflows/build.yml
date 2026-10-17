@@ -32,10 +32,15 @@ jobs:
         run: python selftest.py
 
       - name: Crea l'eseguibile
-        run: pyinstaller --onefile --console --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
+        run: pyinstaller --onefile --noconsole --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
 
-      - name: Prova l'eseguibile
-        run: dist\FZRSkimmer.exe --help
+      - name: Prova l'eseguibile (avvio e uscita)
+        run: |
+          Start-Process -FilePath dist\FZRSkimmer.exe -ArgumentList '--no-browser','--sorgente','audio' -PassThru | Set-Variable p
+          Start-Sleep -Seconds 8
+          try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8073/ | Out-Null; Write-Host 'interfaccia OK' } catch { Write-Host 'interfaccia non raggiungibile'; Get-Content fzrskimmer.log -ErrorAction SilentlyContinue; exit 1 }
+          Stop-Process -Id $p.Id -Force
+        shell: pwsh
 
       - name: Prepara la cartella FZRSkimmer
         run: |
