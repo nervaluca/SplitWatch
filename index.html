@@ -71,6 +71,20 @@ select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1p
 .scope{flex:1 1 0;min-height:260px;display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,34%);min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#05080c}
 .cell{position:relative;min-width:0;min-height:0}
 .cell+.cell{border-left:1px solid var(--line);background:#0a1016}
+.scope.withlist{grid-template-columns:minmax(0,1fr) minmax(150px,28%) minmax(190px,240px)}
+.slist{overflow-y:auto;font-family:var(--f-mono);font-size:.84rem}
+.slist .hd{position:sticky;top:0;background:#0d141b;color:var(--dim);font:600 .7rem var(--f-ui);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.srow{display:grid;grid-template-columns:1fr auto;gap:0 8px;width:100%;text-align:left;border:0;border-bottom:1px solid #121b24;border-radius:0;background:transparent;padding:5px 8px;font:inherit;color:var(--fg)}
+.srow:hover{background:#13202b}
+.srow .c{font-weight:700;color:#e8f0f6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .c small{font-weight:600;color:#1a1205;background:var(--hot);border-radius:3px;padding:0 3px;margin-left:5px;font-size:.72rem}
+.srow .fq{color:#9fb1c0;text-align:right}
+.srow .meta{grid-column:1/3;color:var(--dim);font-size:.74rem}
+.srow.ok .c{color:#9ff0c4}
+.srow.rbn .c{color:#e4b8ff}
+.srow.old{opacity:.5}
+.srow.cur{background:#14301f;box-shadow:inset 3px 0 0 var(--dx)}
+@media (max-width:900px){.scope.withlist{grid-template-columns:minmax(0,1fr) minmax(120px,30%) 170px}}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 #wf{cursor:ns-resize}
 .off{position:absolute;left:10px;font:600 .9rem var(--f-mono);color:#1a1205;background:var(--hot);border:0;padding:5px 10px;box-shadow:0 2px 10px #0008}
@@ -109,7 +123,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.13</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.14</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -160,6 +174,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
       <label class="rng" for="rLum">Luce <input type="range" id="rLum" min="-40" max="40" step="1"></label>
       <label class="rng" for="rCon">Contrasto <input type="range" id="rCon" min="50" max="300" step="5"></label>
     </div>
+    <button id="bList" aria-pressed="false" title="Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione">☰ Elenco</button>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
     <div class="grp" id="chips"><span class="lbl">Ascolti</span></div>
   </div>
@@ -177,6 +192,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
       </div>
     </div>
     <div class="cell"><canvas id="tx" aria-label="Testo decodificato"></canvas></div>
+    <div class="cell slist" id="slist" hidden aria-label="Elenco stazioni"></div>
   </main>
 
   <div class="dxline"><span class="who">DX ›</span><span id="dxText"></span></div>
@@ -258,7 +274,7 @@ function repaintRing(){
 let wfTimer=null;
 let uiTimer=null;
 function flushUI(){clearTimeout(uiTimer);if(!CFG||firstCfg)return;
-  send({cmd:'ui',v:{span:view.span,win:WIN,pal:WFS.pal,lum:WFS.lum,con:WFS.con,low_rel:+(view.low-dxOff()).toFixed(3)}})}
+  send({cmd:'ui',v:{span:view.span,win:WIN,pal:WFS.pal,lum:WFS.lum,con:WFS.con,low_rel:+(view.low-dxOff()).toFixed(3),list:LISTON}})}
 function saveUI(){clearTimeout(uiTimer);uiTimer=setTimeout(flushUI,600)}
 function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}saveUI();
   clearTimeout(wfTimer);wfTimer=setTimeout(repaintRing,120)}
@@ -332,8 +348,17 @@ function playAudio(i16){
 
 /* ---------------- eventi ---------------- */
 let WORDS=[],LISTEN=[];
+function lev(a,b){const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;
+  for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+((a[i-1]===b[j-1]||a[i-1]==='·')?0:1));p=t}}return d[b.length]}
+function close(w,c){if(w===c)return true;if(w.length>=3&&(c.endsWith(w)||c.startsWith(w))&&c.length-w.length<=3)return true;
+  const lim=c.length<=4?1:2;return Math.abs(w.length-c.length)<=lim&&lev(w,c)<=lim}
 function addEv(m){
-  for(const w of m.words)WORDS.push(w);
+  for(const w of m.words){
+    if(w.cc){if(w.w===w.cc)w.v=w.v||1;
+      // nominativo confermato: correggo anche le letture storpiate già arrivate su quel canale
+      for(let i=WORDS.length-1,n=0;i>=0&&n<300;i--,n++){const p=WORDS[i];if(w.t-p.t>90)break;
+        if(p.ch===w.ch&&!p.v&&!p.s&&p.w!==w.cc&&close(p.w,w.cc)){p.s=w.cc;dxDirty=true}}}
+    WORDS.push(w)}
   for(const l of m.listen)LISTEN.push(l);
   if(WORDS.length>4000)WORDS=WORDS.slice(-3000);
   if(LISTEN.length>300)LISTEN=LISTEN.slice(-200);
@@ -363,6 +388,7 @@ function connect(){
       else if(m.type==='play'){onPlay(m)}
       else if(m.type==='rec'){onRec(m)}
       else if(m.type==='files'){onFiles(m.files)}
+      else if(m.type==='stations'){STATIONS=m.list;listDirty=true}
       else if(m.type==='spots'){SPOTS=m.spots||[];setT($('#rbnState'),rbnTxt(m.state))}
       else if(m.type==='reg'){const r=$('#regMsg');r.textContent=(m.ok?'✓ ':'✗ ')+m.msg;r.className='regmsg '+(m.ok?'ok':'err');if(m.ok)setTimeout(()=>{$('#regBox').hidden=true},1500)}
       return;
@@ -412,7 +438,7 @@ function onCfg(m){
   if(firstCfg&&m.ui){const u=m.ui;
     if(u.span)view.span=Math.min(+u.span,m.fs/1000);if(u.win)WIN=+u.win;
     if(u.pal){WFS.pal=u.pal;$('#selPal').value=u.pal}if(u.lum!=null){WFS.lum=+u.lum;$('#rLum').value=u.lum}
-    if(u.con!=null){WFS.con=+u.con;$('#rCon').value=u.con}buildLUT();
+    if(u.con!=null){WFS.con=+u.con;$('#rCon').value=u.con}buildLUT();if(u.list)setList(true);
     firstCfg=false;if(u.low_rel!=null)setLow((m.dx-m.center)/1000+(+u.low_rel));else toDx();}
   else if(firstCfg||reset||dxMoved||wantDx){firstCfg=false;wantDx=false;toDx()}
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(m.dx/1000).toFixed(2);
@@ -472,7 +498,20 @@ $('#iOff').onchange=e=>send({cmd:'offset',hz:parseFloat(e.target.value)||0});
 $('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
 $('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
-let SPOTS=[];
+let SPOTS=[],STATIONS=[],LISTON=false,listDirty=true;
+function setList(on){LISTON=on;$('#slist').hidden=!on;$('.scope').classList.toggle('withlist',on);$('#bList').setAttribute('aria-pressed',String(on));listDirty=true;resize()}
+$('#bList').onclick=()=>{setList(!LISTON);flushUI()};
+function renderList(){
+  if(!LISTON||!listDirty||!CFG)return;listDirty=false;
+  const box=$('#slist'),dx=CFG.dx;
+  const rows=STATIONS.map(s=>{const cur=Math.abs(s.fa-dx)<60,cls='srow'+(s.ok?' ok':'')+(s.src==='rbn'?' rbn':'')+(s.age>90?' old':'')+(cur?' cur':'');
+    const call=s.call.replace(/[<>&]/g,'');
+    return `<button class="${cls}" data-f="${s.fa}"><span class="c">${call}${s.cq?'<small>CQ</small>':''}</span><span class="fq">${(s.fa/1000).toFixed(2)}</span>`+
+      `<span class="meta">${s.db!=null?s.db+' dB · ':''}${s.wpm?s.wpm+' wpm · ':''}${s.src==='rbn'?'RBN':s.rbn?'RX+RBN':'RX'} · ${s.age<60?s.age+' s':Math.round(s.age/60)+' min'}</span></button>`}).join('');
+  box.innerHTML=`<div class="hd"><span>Stazioni</span><span>${STATIONS.length}</span></div>`+(rows||'<div class="hd" style="position:static;border:0;text-transform:none;letter-spacing:0">Nessuna stazione ancora</div>');
+}
+$('#slist').addEventListener('click',e=>{const b=e.target.closest('.srow');if(!b||!CFG)return;const hz=Math.round(+b.dataset.f/10)*10;
+  CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);send({cmd:'dx',hz});centerOn((hz-CFG.center)/1000);listDirty=true});
 const rbnTxt=s=>!s||s==='spento'?'':s==='collegato'?`RBN: ${SPOTS.length} spot in banda`:'RBN: '+s;
 $('#chkRbn').onchange=e=>send({cmd:'rbn',on:e.target.checked});
 $('#iCall').onchange=e=>send({cmd:'rbn',call:e.target.value});
@@ -681,7 +720,7 @@ document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;con
   else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu();
   else if(e.key===' '&&PLAY&&!$('#player').hidden&&e.target.tagName!=='SELECT'&&e.target.tagName!=='BUTTON'){e.preventDefault();send({cmd:'pause',on:!PLAY.paused})}});
 
-function frame(){if(W&&H){drawWF();drawTX()}updateUI();requestAnimationFrame(frame)}
+function frame(){if(W&&H){drawWF();drawTX()}updateUI();renderList();requestAnimationFrame(frame)}
 window.addEventListener('pagehide',flushUI);
 resize();connect();requestAnimationFrame(frame);
 })();

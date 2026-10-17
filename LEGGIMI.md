@@ -1,4 +1,4 @@
-# FZR Skimmer 1.13
+# FZR Skimmer 1.14
 
 IW1FZR
 
@@ -128,6 +128,20 @@ Da riga di comando:
 **Riavvia ricevitore**: chiude e riapre il Perseus (o la scheda audio) senza chiudere il
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
+
+## Elenco stazioni (contest, S&P)
+
+Pulsante **☰ Elenco**: a destra del testo compare l'elenco delle stazioni, ordinate per frequenza:
+nominativo, **CQ** se stanno chiamando CQ/TEST, frequenza, dB, velocità e da quanto sono state sentite.
+Ci finiscono i nominativi confermati (decodificati uguali almeno due volte sullo stesso segnale,
+oppure subito dopo CQ/TEST) e gli spot RBN della banda ricevuta (in viola).
+**Clic su una riga**: l'audio va su quella stazione e il waterfall si centra lì.
+
+## Nominativi: conferma per ripetizione
+
+Chi chiama ripete il proprio nominativo. Quando su un segnale lo stesso call viene decodificato
+due volte, diventa **confermato**; le letture storpiate dello stesso segnale (una lettera diversa,
+l'inizio perso) vengono mostrate corrette con il **?**, anche quelle arrivate prima.
 
 ## Reverse Beacon Network (RBN)
 

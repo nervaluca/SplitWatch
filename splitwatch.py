@@ -33,7 +33,7 @@ from rbn import RBN
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.13'
+VERSION = '1.14'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -245,6 +245,7 @@ class Hub:
             self.cfg['file_path'] = os.path.abspath(args.file)
         self.rbn = None
         self.rbn_band = []
+        self.stations = {}
 
     # -------------------------------------------------------------- sorgente
     def on_iq(self, iq):
@@ -431,6 +432,61 @@ class Hub:
                 self.on_status(f'Errore: {e}')
             self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
+
+    # -------------------------------------------------------------- elenco stazioni (contest)
+    def update_stations(self, words):
+        now = time.time()
+        for w in words:
+            ch = w.get('ch')
+            if ch is None:
+                continue
+            st = self.stations.get(ch)
+            word = w.get('s') or w['w']
+            if word in ('CQ', 'TEST') or (st is None and word == 'CQ'):
+                st = self.stations.setdefault(ch, {'call': None, 'n': 0})
+                st['cq_t'] = now
+            elif dsp.CALL_RE.match(word) and (w.get('v') or w.get('cc') or w.get('rbn') or w.get('s')
+                                              or (st is not None and now - st.get('cq_t', -1e9) < 6)):
+                st = self.stations.setdefault(ch, {'call': None, 'n': 0})
+                if st['call'] == word:
+                    st['n'] += 1
+                else:
+                    st['call'], st['n'] = word, 1
+            if st is not None:
+                st.update({'fa': w['fa'], 't': now, 'wpm': w.get('wpm'), 'db': w.get('db'), 'dx': w.get('dx', False),
+                           'ok': bool(w.get('v') or w.get('rbn'))})
+        for k in [k for k, v in self.stations.items() if now - v.get('t', now) > 180]:
+            del self.stations[k]
+
+    def stations_msg(self):
+        now = time.time()
+        out = []
+        for k, v in self.stations.items():
+            if not v.get('call'):
+                continue
+            out.append({'call': v['call'], 'fa': v['fa'], 'age': round(now - v['t']), 'wpm': v.get('wpm'), 'db': v.get('db'),
+                        'cq': now - v.get('cq_t', -1e9) < 120, 'n': v['n'], 'ok': v.get('ok', False), 'src': 'rx'})
+        have = {o['call'] for o in out}
+        for sp in self.rbn_band:
+            if sp['call'] not in have:
+                out.append({'call': sp['call'], 'fa': round(sp['f'], 1), 'age': sp['age'], 'wpm': sp['wpm'], 'db': sp['snr'],
+                            'cq': sp.get('tipo') == 'CQ', 'n': sp['n'], 'ok': True, 'src': 'rbn'})
+            else:
+                for o in out:
+                    if o['call'] == sp['call']:
+                        o['ok'] = True
+                        o['rbn'] = True
+        out.sort(key=lambda o: o['fa'])
+        return {'type': 'stations', 'list': out}
+
+    def stations_thread(self):
+        while True:
+            time.sleep(1)
+            try:
+                if self.clients:
+                    self.post_json(self.stations_msg())
+            except Exception:
+                pass
 
     # -------------------------------------------------------------- Reverse Beacon Network
     def rbn_match(self, word, fa, band):
@@ -630,6 +686,10 @@ class Hub:
                             else:
                                 w['s'] = hit[0]
                             continue
+                        if w.get('s') or ('cc' in w and w['w'] == w['cc']):
+                            if dsp.is_known(w['w']):
+                                w['v'] = 1
+                            continue                    # già deciso dal consenso sul canale
                         word, kind = dsp.classify(w['w'])
                         if kind == 'v':
                             if word != w['w']:
@@ -642,6 +702,7 @@ class Hub:
                         l['fa'] = round(self.center + l['f'], 1)
                         l['t'] = float(l['t'])
                         l['f'] = float(l['f'])
+                    self.update_stations(pend_words)
                     self.words_hist.extend(pend_words)
                     self.listen_hist.extend(pend_listen)
                     self.post_json({'type': 'ev', 'words': pend_words, 'listen': pend_listen})
@@ -684,6 +745,7 @@ class Hub:
             with self.lock:
                 self.rows_hist.clear()
             self.words_hist.clear()
+            self.stations.clear()
             self.listen_hist.clear()
             if self.src_kind == 'perseus':
                 self.cfg['lo'] = int(center)
@@ -828,7 +890,7 @@ class Hub:
                     self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
-                    for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel'):
+                    for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list'):
                         if key in c['v']:
                             ui[key] = c['v'][key]
                     save_cfg(self.cfg)
@@ -935,6 +997,7 @@ class Hub:
         threading.Thread(target=self.trial_thread, daemon=True).start()
         threading.Thread(target=self.rec_thread, daemon=True).start()
         threading.Thread(target=self.rbn_thread, daemon=True).start()
+        threading.Thread(target=self.stations_thread, daemon=True).start()
         self.rbn_apply()
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))

@@ -17,13 +17,16 @@ MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
 THR_ON, THR_OFF = 0.6, 0.5   # soglie del canale: frazione (logaritmica) tra rumore e segnale
 S_DECAY = 0.9              # discesa del livello del segnale ogni 0,1 s
 CHAR_G, WORD_G = 2.0, 4.5   # spazi tra lettere e tra parole, in unità
+TIMING_ROBUST = 0
+SMOOTH = 1                  # frame della media mobile sull'inviluppo
+REPLAY_S = 3.0               # secondi ridecodificati quando si apre un canale nuovo
 ENV_LEN = 1                 # finestra dell'inviluppo dei canali, in multipli di nfft
 OPEN = 4                    # righe (10 ms l'una) dell'apertura che toglie i click dal waterfall
 
 HOT = re.compile(r'^(5NN|599|5NNTU|TU5NN|ENN|5N|NN|R5NN)$')
 JUNK = set('EIST')
 NOISE = set('EISHT5·')                      # lettere che il rumore genera facilmente
-KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'EE', 'QRZ', 'UP', 'CQ', 'TEST',
+KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'QRZ', 'UP', 'CQ', 'TEST',
         # parole e abbreviazioni dei QSO in CW: non vanno mai scartate
         'DE', 'ES', 'HI', 'ST', 'TNX', 'TKS', 'TX', 'RX', 'RST', 'UR', 'FB', 'OM', 'OP', 'QTH', 'QSL', 'QSO',
         'QRL', 'QRM', 'QRN', 'QRP', 'QRO', 'QRQ', 'QRS', 'QRT', 'QRV', 'QSB', 'QSY', 'QRU', 'NAME', 'AGN', 'PSE',
@@ -107,6 +110,45 @@ def is_junk(w):
     return sum(c in NOISE for c in w) / len(w) >= 0.6
 
 
+def _lev(a, b):
+    d = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        p, d[0] = d[0], i
+        for j, cb in enumerate(b, 1):
+            p, d[j] = d[j], min(d[j] + 1, d[j - 1] + 1, p + (0 if ca == cb or ca == '·' else 1))
+    return d[-1]
+
+
+def _kmeans2(v):
+    """Due gruppi di durate (punti, linee). None se i segni sono tutti simili o troppo pochi."""
+    if len(v) < 4:
+        return None
+    a = sorted(v)
+    lo, hi = a[0], a[-1]
+    if hi < 1.8 * lo:
+        return None
+    for _ in range(6):
+        m = math.sqrt(lo * hi)
+        g1 = [x for x in a if x < m]
+        g2 = [x for x in a if x >= m]
+        if not g1 or not g2:
+            return None
+        lo, hi = sum(g1) / len(g1), sum(g2) / len(g2)
+    if hi < 2.0 * lo or hi > 5.0 * lo or not 0.02 <= lo <= 0.15:
+        return None
+    return lo, hi
+
+
+def _close(w, call):
+    """w è una lettura storpiata di call? (una o due lettere sbagliate/in più, oppure l'inizio o la fine persi)"""
+    if w == call:
+        return True
+    if len(w) >= 3 and (call.endswith(w) or call.startswith(w)) and len(call) - len(w) <= 3:
+        return True
+    lim = 1 if len(call) <= 4 else 2
+    return abs(len(w) - len(call)) <= lim and _lev(w, call) <= lim
+
+
 def _nextpow2(v):
     return 1 << int(math.ceil(math.log2(v)))
 
@@ -114,7 +156,7 @@ def _nextpow2(v):
 class Channel:
     """Decoder CW di un singolo segnale, a una frequenza precisa (non legata ai bin FFT)."""
     __slots__ = ('gh', 'id', 'f', 'on', 't_on', 't_off', 'pend', 'pend_start', 'dot', 'dash', 'ge', 'sym', 'word',
-                 't0', 'last', 'is_dx', 'last_good', 'n', 's', 'seen', 'k')
+                 't0', 'last', 'is_dx', 'last_good', 'n', 's', 'seen', 'k', 'calls', 'mks', 'tail')
 
     def __init__(self, cid, f, t, is_dx=False):
         self.id = cid
@@ -137,6 +179,9 @@ class Channel:
         self.last_good = -99.0  # ultima parola "vera" (non fatta solo di punti)
         self.n = None           # rumore (ampiezza) sul canale
         self.s = 0.0            # livello del segnale (picco che scende piano)
+        self.mks = []           # durate degli ultimi segni
+        self.tail = None        # ultimi frame (media mobile)
+        self.calls = []         # ultimi nominativi decodificati (per il consenso)
         self.gh = 0.0           # quanto i suoi segni coincidono con quelli di un vicino più forte (fantasma)
 
     def unit(self):
@@ -195,7 +240,7 @@ class Engine:
         self.wf_f0 = (-self.L / 2 + (self.pool - 1) / 2) * self.lbinhz
         self.buf = np.zeros(0, np.complex64)
         self.hist = np.zeros(0, np.complex64)              # campioni già consumati (per ridecodificare i canali nuovi)
-        self.hist_keep = int(1.7 * self.fs) + self.L
+        self.hist_keep = int(REPLAY_S * self.fs + 0.2 * self.fs) + self.L
         self.n_in = 0                                      # campioni consumati (tempo)
         self.frame_no = 0
         # stato per bin (finestra corta): serve alla ricerca dell'ascolto
@@ -390,8 +435,10 @@ class Engine:
         mx = E.max(0)
         for j, c in enumerate(chs):
             if c.n is None or init:
-                c.n = float(np.percentile(E[:, j], 30)) + 1e-12
-                c.s = float(np.percentile(E[:, j], 99))
+                # rumore: quello già misurato su quel bin (il blocco può essere tutto segnale)
+                nb = float(self.nf[c.k]) if self.nf is not None else float(np.percentile(E[:, j], 30))
+                c.n = min(nb, float(np.percentile(E[:, j], 30))) + 1e-12 if init else nb + 1e-12
+                c.s = float(np.percentile(E[:, j], 99)) if init else float(mx[j])
             else:
                 p = float(p25[j])
                 c.n = c.n * 0.8 + p * 0.2 if p < c.n else c.n * 0.985 + p * 0.015
@@ -406,6 +453,17 @@ class Engine:
         return on, off
 
     def _decode_block(self, chs, E, tA, dt, init=False):
+        if SMOOTH > 1:
+            # media mobile (in potenza) lungo il tempo, con la coda del blocco precedente: meno rumore sui segni
+            P = E.astype(np.float64) ** 2
+            tail = np.array([c.tail if c.tail is not None and len(c.tail) == SMOOTH - 1 else np.repeat(P[:1, j], SMOOTH - 1)
+                             for j, c in enumerate(chs)]).T if not init else np.repeat(P[:1], SMOOTH - 1, axis=0)
+            PP = np.vstack([tail, P])
+            cs = np.cumsum(np.vstack([np.zeros((1, PP.shape[1])), PP]), axis=0)
+            E = np.sqrt((cs[SMOOTH:] - cs[:-SMOOTH]) / SMOOTH).astype(np.float32)
+            for j, c in enumerate(chs):
+                c.tail = PP[-(SMOOTH - 1):, j].copy()
+            tA = tA - (SMOOTH - 1) / 2 * dt
         on, off = self._levels(chs, E, init)
         prev = np.array([1 if c.on else 0 for c in chs], np.int8)
         S = _hyst(E, on, off, prev)
@@ -448,14 +506,14 @@ class Engine:
 
     def _replay(self, ch):
         """Canale appena aperto: decodifica l'ultimo secondo e mezzo, così non si perde l'inizio."""
-        R = int(1.5 * FRAMES_PER_S)
+        R = int(REPLAY_S * FRAMES_PER_S)
         j0 = max(0, self.frame_no - R)
         nfr = self.frame_no - j0
         base = self.n_in - len(self.hist)
         s0 = j0 * self.hop - base
         if nfr < 20 or s0 < 0:
             return
-        data = np.concatenate([self.hist, self.buf[:self.nfft + self.L]])
+        data = np.concatenate([self.hist, self.buf])
         idx = s0 + np.arange(self.elen)[None, :] + self.hop * np.arange(nfr)[:, None]
         if idx[-1, -1] >= len(data):
             return
@@ -468,11 +526,11 @@ class Engine:
             d = np.diff(np.concatenate([[0], s, [0]]))
             st, en = np.nonzero(d > 0)[0], np.nonzero(d < 0)[0]
             mk = (en - st) / FRAMES_PER_S
-            mk = mk[mk > 0.012]
-            if len(mk) >= 3:
-                dot = float(np.clip(np.percentile(mk, 25), 0.022, 0.13))
-                ch.dot, ch.ge = dot, dot
-                ch.dash = float(np.clip(np.percentile(mk, 85), 2.2 * dot, 4.0 * dot)) if mk.max() > 2 * dot else 3 * dot
+            mk = mk[mk > 0.015]
+            km = _kmeans2(mk.tolist())
+            if km:
+                ch.dot, ch.dash = km
+                ch.ge = ch.dot
         t0 = self._ftime(j0)
         ch.on = False
         ch.t_on = ch.t_off = t0 - 1.0
@@ -618,13 +676,23 @@ class Engine:
         self._gap(ch, gap)
 
     def _commit(self, ch, mk):
+        ch.mks.append(mk)
+        if len(ch.mks) > 24:
+            del ch.mks[0]
+        if len(ch.mks) >= 6 and len(ch.mks) % 3 == 0:
+            km = _kmeans2(ch.mks)                       # punti e linee dagli ultimi segni: corregge stime sbagliate
+            if km:
+                ch.dot = 0.5 * ch.dot + 0.5 * km[0]
+                ch.dash = 0.5 * ch.dash + 0.5 * km[1]
         b = math.sqrt(ch.dot * ch.dash)
         if mk < b:
             ch.sym += '.'
-            ch.dot = 0.8 * ch.dot + 0.2 * mk
+            if TIMING_ROBUST == 0 or 0.5 * ch.dot < mk < 1.7 * ch.dot:        # solo punti plausibili: i disturbi non accorciano la velocità
+                ch.dot = 0.8 * ch.dot + 0.2 * mk
         else:
             ch.sym += '-'
-            ch.dash = 0.85 * ch.dash + 0.15 * mk
+            if mk < 5.0 * ch.dot:
+                ch.dash = 0.85 * ch.dash + 0.15 * mk
         ch.dot = min(0.15, max(0.02, ch.dot))
         ch.dash = min(4.5 * ch.dot, max(2.0 * ch.dot, ch.dash))
         if len(ch.sym) > 7:
@@ -642,6 +710,12 @@ class Engine:
 
     def _emit_word(self, ch, w):
         t = ch.t0 if ch.t0 is not None else self.t
+        if not CALL_RE.match(w) and w not in KEEP:
+            # E / I / S / T in testa al nominativo: quasi sempre un disturbo prima del primo segno
+            for k in (1, 2):
+                if len(w) - k >= 3 and all(c in 'EIST' for c in w[:k]) and CALL_RE.match(w[k:]):
+                    w = w[k:]
+                    break
         if len(w) < 3 and w not in KEEP:
             return                                       # 1-2 lettere fuori dal vocabolario CW: quasi sempre rumore
         if len(w) == 1 and t - ch.last_good > 4.0:
@@ -659,9 +733,36 @@ class Engine:
             if wr == w and abs(fr - ch.f) < 150:
                 return
         self.recent.append((t, ch.f, w))
-        self.out_words.append({'t': round(t, 2), 'f': round(ch.f, 1), 'w': w, 'dx': ch.is_dx, 'ch': ch.id})
+        ev = {'t': round(t, 2), 'f': round(ch.f, 1), 'w': w, 'dx': ch.is_dx, 'ch': ch.id,
+              'wpm': int(round(1.2 / ch.dot)), 'db': int(round(20 * math.log10(max(ch.s, 1e-12) / max(ch.n or 1e-12, 1e-12))))}
+        cons = self._consensus(ch, w, t)
+        if cons:
+            ev['cc'] = cons[0]                          # nominativo confermato su questo canale
+            if cons[1] == 's':
+                ev['s'] = cons[0]
+        self.out_words.append(ev)
         if ch.is_dx and self.over is not None:
             self.over[2].append(w)
+
+    def _consensus(self, ch, w, t):
+        """Chi chiama ripete il nominativo: due decodifiche uguali sullo stesso canale lo confermano.
+        Una decodifica storpiata (una lettera diversa, l'inizio mancante) viene ricondotta a quello."""
+        h = [x for x in ch.calls if t - x[0] < 90]
+        if CALL_RE.match(w) or '·' in w:
+            h.append((t, w))
+        ch.calls = h[-12:]
+        cnt = {}
+        for _, x in ch.calls:
+            if '·' not in x and CALL_RE.match(x):
+                cnt[x] = cnt.get(x, 0) + 1
+        best = max(cnt.items(), key=lambda kv: (kv[1], len(kv[0])))[0] if cnt else None
+        if best is None or cnt[best] < 2:
+            return None
+        if w == best:
+            return best, 'v'
+        if len(w) >= 3 and _close(w, best):
+            return best, 's'
+        return None
 
     def _off(self, k):
         k = k if k < self.nfft // 2 else k - self.nfft
