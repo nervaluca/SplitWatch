@@ -109,7 +109,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.11</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.12</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -276,21 +276,54 @@ function addRows(t0,n,nb,bytes){
   tNewest=t0+(n-1)*CFG.rowdt;
 }
 
-/* ---------------- audio ---------------- */
-let ac=null,audioOn=false,nextT=0;
+/* ---------------- audio ----------------
+   AudioWorklet con buffer ad anello: suono continuo, niente clic tra un pacchetto e l'altro.
+   Se il browser non lo permette (http da tablet), si usa il vecchio metodo con dissolvenze. */
+let ac=null,audioOn=false,nextT=0,node=null,acRate=0;
+const WORKLET=`class R extends AudioWorkletProcessor{
+  constructor(){super();this.b=new Float32Array(1<<16);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;
+    this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.run=false;return}
+      for(let i=0;i<d.length;i++){this.b[this.w]=d[i];this.w=(this.w+1)&65535}this.n=Math.min(65535,this.n+d.length)}}
+  process(_,out){const o=out[0][0],T=sampleRate*0.12;
+    if(!this.run&&this.n>=T)this.run=true;
+    for(let i=0;i<o.length;i++){
+      let v=0;
+      if(this.run&&this.n>0){v=this.b[this.r];this.r=(this.r+1)&65535;this.n--;
+        // troppo pieno (orologi diversi): salta un campione ogni tanto
+        if(this.n>T*3&&(i&63)===0){this.r=(this.r+1)&65535;this.n--}
+        this.g=Math.min(1,this.g+0.004)}
+      else{this.run=false;this.g=Math.max(0,this.g-0.004);v=0}
+      o[i]=v*this.g}
+    return true}}
+registerProcessor('fzr-rx',R);`;
+async function startAudio(){
+  const rate=CFG?Math.round(CFG.arate):8000;
+  if(ac&&acRate!==rate){try{await ac.close()}catch(e){}ac=null;node=null}
+  if(!ac){
+    try{ac=new (window.AudioContext||window.webkitAudioContext)({sampleRate:rate})}catch(e){ac=new (window.AudioContext||window.webkitAudioContext)()}
+    acRate=rate;node=null;
+    if(ac.audioWorklet&&window.isSecureContext){
+      try{const url=URL.createObjectURL(new Blob([WORKLET],{type:'application/javascript'}));
+        await ac.audioWorklet.addModule(url);node=new AudioWorkletNode(ac,'fzr-rx',{outputChannelCount:[1]});node.connect(ac.destination)}
+      catch(e){node=null}
+    }
+  }
+  await ac.resume();nextT=0;if(node)node.port.postMessage('flush');
+}
 $('#bAudio').onclick=async()=>{
-  if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)()}
   audioOn=!audioOn;
-  if(audioOn){await ac.resume();nextT=0}else{await ac.suspend()}
+  if(audioOn){await startAudio()}else if(ac){await ac.suspend()}
   $('#bAudio').setAttribute('aria-pressed',audioOn);$('#bAudio').textContent=audioOn?'🔊 Audio DX':'🔈 Audio DX';
 };
 function playAudio(i16){
   if(!audioOn||!ac||!CFG)return;
   const n=i16.length;if(!n)return;
-  const buf=ac.createBuffer(1,n,CFG.arate),d=buf.getChannelData(0);
-  for(let i=0;i<n;i++)d[i]=i16[i]/32768;
+  const f=new Float32Array(n);for(let i=0;i<n;i++)f[i]=i16[i]/32768;
+  if(node){node.port.postMessage(f,[f.buffer]);return}
+  const buf=ac.createBuffer(1,n,CFG.arate),d=buf.getChannelData(0);d.set(f);
   const now=ac.currentTime;
-  if(nextT<now+0.05||nextT>now+0.6)nextT=now+0.15;   // risincronizza
+  if(nextT<now+0.03||nextT>now+0.8){           // risincronizza con una breve dissolvenza (niente clic)
+    nextT=now+0.25;const k=Math.min(n,Math.round(CFG.arate*0.004));for(let i=0;i<k;i++)d[i]*=i/k}
   const s=ac.createBufferSource();s.buffer=buf;s.connect(ac.destination);s.start(nextT);nextT+=n/CFG.arate;
 }
 
@@ -370,6 +403,7 @@ function onCfg(m){
   const dxMoved=!!CFG&&CFG.dx!==m.dx&&m.dx!==localDx;
   if(m.dx===localDx)localDx=null;
   CFG=m;
+  if(audioOn&&ac&&Math.round(m.arate)!==acRate)startAudio();
   if(reset){resetRing();WORDS=[];LISTEN=[];dxDirty=chipsDirty=true}
   if(firstCfg&&m.ui){const u=m.ui;
     if(u.span)view.span=Math.min(+u.span,m.fs/1000);if(u.win)WIN=+u.win;
@@ -536,7 +570,7 @@ function drawTX(){
   const cw=c.measureText('M').width,maxC=Math.max(6,Math.floor((TW-padL-6*dpr)/cw));
   const t=tNewest,bw=CFG.bw,groups=new Map();
   for(let i=WORDS.length-1;i>=0;i--){const w=WORDS[i];if(t-w.t>40)break;
-    const key=w.dx?'dx':Math.round(w.f/(bw*1.5));let g=groups.get(key);if(!g){g={f:w.f,dx:w.dx,ws:[]};groups.set(key,g)}g.ws.unshift(w)}
+    const key=w.dx?'dx':(w.ch!=null?'c'+w.ch:Math.round(w.f/(bw*1.5)));let g=groups.get(key);if(!g){g={f:w.f,dx:w.dx,ws:[]};groups.set(key,g)}g.ws.unshift(w)}
   const cand=[];
   for(const g of groups.values()){const y=yOf(g.f/1000);if(y<-lh||y>H+lh)continue;const lastT=g.ws[g.ws.length-1].t;
     const hi=g.ws.some(w=>HOT.test(w.w)&&t-w.t<8);cand.push({g,y,lastT,hi,pr:(g.dx?20:0)+(hi?10:0)-(t-lastT)/5})}

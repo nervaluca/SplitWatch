@@ -1,4 +1,4 @@
-# FZR Skimmer 1.11
+# FZR Skimmer 1.12
 
 IW1FZR
 
@@ -128,6 +128,18 @@ Da riga di comando:
 **Riavvia ricevitore**: chiude e riapre il Perseus (o la scheda audio) senza chiudere il
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
+
+## Novità 1.12
+
+- **Decodifica nuova**: ogni segnale CW viene agganciato alla sua frequenza esatta (non più al
+  "gradino" FFT più vicino), con soglie a isteresi, filtro dei disturbi brevi e stima della
+  velocità dai segni già passati. Le eco dei segnali forti (bande laterali, click) non
+  aprono più canali fasulli. Sul banco di prova con pile-up simulato: errori dal 45% al 17%.
+- **Waterfall pulito**: finestra Blackman-Harris lunga il doppio (risoluzione 23 Hz invece di 47)
+  e filtro che toglie i "baffi" verticali dei click: punti e linee restano netti, come in CW Skimmer.
+- **Audio senza clic**: buffer continuo nel browser e AGC campione per campione.
+  Dal tablet (indirizzo http della rete) il browser non permette il buffer continuo:
+  lì resta il metodo vecchio, migliorato.
 
 ## Limiti attuali
 

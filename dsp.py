@@ -1,4 +1,4 @@
-"""Split Watch - motore DSP in streaming.
+"""FZR Skimmer - motore DSP in streaming.
 
 Riceve blocchi IQ complessi (numpy complex64) e produce:
   - righe di waterfall (uint8, una ogni 10 ms)
@@ -14,6 +14,11 @@ import numpy as np
 FRAMES_PER_S = 400          # STFT del decoder: 2,5 ms
 ROW_EVERY = 4               # 1 riga di waterfall ogni 4 frame = 100 righe/s
 MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
+THR_ON, THR_OFF = 0.6, 0.5   # soglie del canale: frazione (logaritmica) tra rumore e segnale
+S_DECAY = 0.9              # discesa del livello del segnale ogni 0,1 s
+CHAR_G, WORD_G = 2.0, 4.5   # spazi tra lettere e tra parole, in unità
+ENV_LEN = 1                 # finestra dell'inviluppo dei canali, in multipli di nfft
+OPEN = 4                    # righe (10 ms l'una) dell'apertura che toglie i click dal waterfall
 
 HOT = re.compile(r'^(5NN|599|5NNTU|TU5NN|ENN|5N|NN|R5NN)$')
 JUNK = set('EIST')
@@ -107,20 +112,41 @@ def _nextpow2(v):
 
 
 class Channel:
-    """Decoder CW di un singolo canale (bin FFT)."""
-    __slots__ = ('k', 'on', 'edge', 'u', 'sym', 'word', 't0', 'last', 'is_dx', 'last_good')
+    """Decoder CW di un singolo segnale, a una frequenza precisa (non legata ai bin FFT)."""
+    __slots__ = ('gh', 'id', 'f', 'on', 't_on', 't_off', 'pend', 'pend_start', 'dot', 'dash', 'ge', 'sym', 'word',
+                 't0', 'last', 'is_dx', 'last_good', 'n', 's', 'seen', 'k')
 
-    def __init__(self, k, t, is_dx=False):
-        self.k = k
+    def __init__(self, cid, f, t, is_dx=False):
+        self.id = cid
+        self.f = float(f)       # Hz dal centro
+        self.k = 0              # bin più vicino (per il rumore e la deduplica)
         self.on = False
-        self.edge = t
-        self.u = 0.045          # durata del punto (s), si adatta
+        self.t_on = t
+        self.t_off = t
+        self.pend = None        # ultimo segno, in attesa di sapere se è un buco nel segnale
+        self.pend_start = t
+        self.dot = 0.045        # durata del punto (s), si adatta
+        self.dash = 0.135
+        self.ge = 0.045         # spazio tra i segni
         self.sym = ''
         self.word = ''
         self.t0 = None
         self.last = t           # ultima attività
+        self.seen = t           # ultima volta che il segnale è stato visto nello spettro
         self.is_dx = is_dx
         self.last_good = -99.0  # ultima parola "vera" (non fatta solo di punti)
+        self.n = None           # rumore (ampiezza) sul canale
+        self.s = 0.0            # livello del segnale (picco che scende piano)
+        self.gh = 0.0           # quanto i suoi segni coincidono con quelli di un vicino più forte (fantasma)
+
+    def unit(self):
+        return 0.5 * (self.dot + self.ge)
+
+    def mmin(self):
+        return max(0.010, 0.3 * self.dot)
+
+    def gmin(self):
+        return max(0.008, 0.3 * self.dot)
 
 
 MORSE = {'.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E', '..-.': 'F', '--.': 'G', '....': 'H',
@@ -131,32 +157,62 @@ MORSE = {'.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E', '..-.': 'F',
          '-...-': '=', '.-.-.': '+', '.-.-': '·'}
 
 
+def blackman_harris(n):
+    k = 2 * np.pi * np.arange(n) / (n - 1)
+    return (0.35875 - 0.48829 * np.cos(k) + 0.14128 * np.cos(2 * k) - 0.01168 * np.cos(3 * k)).astype(np.float32)
+
+
+def _hyst(E, on, off, prev):
+    """Soglia con isteresi, vettoriale: 1 sopra 'on', 0 sotto 'off', altrimenti resta com'era."""
+    m, n = E.shape
+    st = np.full((m, n), -1, np.int8)
+    st[E < off[None, :]] = 0
+    st[E > on[None, :]] = 1
+    idx = np.where(st >= 0, np.arange(m)[:, None], -1)
+    idx = np.maximum.accumulate(idx, axis=0)
+    cols = np.broadcast_to(np.arange(n)[None, :], (m, n))
+    return np.where(idx >= 0, st[np.maximum(idx, 0), cols], prev[None, :]).astype(np.int8)
+
+
 class Engine:
     def __init__(self, fs, dx_off_hz=0.0, bfo=650.0):
         self.fs = float(fs)
-        self.nfft = _nextpow2(self.fs / 47.0)             # ~47 Hz per bin
+        self.nfft = _nextpow2(self.fs / 47.0)             # ~47 Hz per bin (decoder: 21 ms a 96 kHz)
         self.nfft = max(1024, self.nfft)
         self.hop = int(round(self.fs / FRAMES_PER_S))
         self.binhz = self.fs / self.nfft
         self.win = np.hanning(self.nfft).astype(np.float32)
+        # inviluppo dei canali: finestra di Blackman lunga ELEN campioni (più selettiva verso i vicini)
+        self.elen = int(ENV_LEN * self.nfft)
+        self.ewin = np.blackman(self.elen).astype(np.float32) if ENV_LEN != 1 else self.win
+        # waterfall e ricerca dei segnali: finestra lunga il doppio, Blackman-Harris (niente "baffi" laterali)
+        self.L = 2 * self.nfft
+        self.wwin = blackman_harris(self.L)
+        self.lbinhz = self.fs / self.L
+        self.pool = max(1, self.L // MAX_BINS)
+        self.nbins_out = self.L // self.pool
+        self.wf_bw = self.lbinhz * self.pool
+        self.wf_f0 = (-self.L / 2 + (self.pool - 1) / 2) * self.lbinhz
         self.buf = np.zeros(0, np.complex64)
+        self.hist = np.zeros(0, np.complex64)              # campioni già consumati (per ridecodificare i canali nuovi)
+        self.hist_keep = int(1.7 * self.fs) + self.L
         self.n_in = 0                                      # campioni consumati (tempo)
         self.frame_no = 0
-        self.pool = max(1, self.nfft // MAX_BINS)          # riduzione righe per fs alte
-        self.nbins_out = self.nfft // self.pool
-        # stato per bin
+        # stato per bin (finestra corta): serve alla ricerca dell'ascolto
         nb = self.nfft
-        self.nf = None                                     # rumore per bin (ampiezza)
+        self.nf = None
         self.pk = np.zeros(nb, np.float32)
-        self.avg = np.zeros(nb, np.float32)                # media lenta (scelta canali)
         self.duty = np.zeros(nb, np.float32)               # frazione di tempo attivo (30 s)
         self.duty_f = np.zeros(nb, np.float32)             # idem, veloce (5 s)
-        self.row_acc = np.zeros(nb, np.float32)
-        self.row_n = 0
+        # stato per bin (finestra lunga): ricerca dei segnali
+        self.lnf = None
+        self.lduty = np.zeros(self.L, np.float32)
+        self.lavg = np.zeros(self.L, np.float32)
         self.row_floor = None
+        self.wf_hist = []
         self.channels = {}
-        self.act_hist = []                                 # ultimi ~1,5 s di attività (inizio, matrice)
-        self.recent = []                                   # (t, k, testo) per deduplica
+        self.next_id = 1
+        self.recent = []                                   # (t, f, testo) per deduplica
         self.out_words = []
         self.out_rows = []
         self.out_listen = []
@@ -167,7 +223,7 @@ class Engine:
         self.up_lo, self.up_hi = 150.0, 10000.0             # zona UP dove cercare l'ascolto (Hz dal DX)
         self.set_dx(dx_off_hz)
         self.over = None                                   # [t_inizio, t_ultima_attività, parole]
-        self.pending_listen = []                           # (t_fine_over, accumulatore attività)
+        self.pending_listen = []
         self.ring = []                                     # ultimi ~2 s di frame 'strong' (tempo, matrice)
         # audio
         self.adec = max(1, int(round(self.fs / 8000.0)))
@@ -183,7 +239,6 @@ class Engine:
     def _design_filter(self):
         """Filtro audio del DX: passa-basso complesso = banda passante larga bw (Hz)."""
         half = max(30.0, self.bw / 2)
-        # più stretto il filtro, più coefficienti (fronti ripidi): transizione ~ 0,6 x mezza banda
         taps = int(5.5 * self.arate / max(40.0, 0.6 * half)) | 1
         taps = max(129, min(1201, taps))
         n = np.arange(taps) - (taps - 1) / 2
@@ -211,19 +266,31 @@ class Engine:
     def feed(self, iq):
         self.buf = np.concatenate([self.buf, iq.astype(np.complex64, copy=False)])
         self._audio(iq)
-        nfr = (len(self.buf) - self.nfft) // self.hop + 1
+        nfr = (len(self.buf) - self.L) // self.hop + 1
         if nfr < FRAMES_PER_S // 10:          # elabora a blocchi di almeno 0,1 s
             return
-        # massimo 0,1 s di frame per volta, così le soglie si aggiornano spesso
         step = FRAMES_PER_S // 10
         done = 0
+        ar = np.arange(self.nfft)
         while done < nfr:
             m = min(step, nfr - done)
-            idx = (np.arange(self.nfft)[None, :] + self.hop * (done + np.arange(m))[:, None])
-            X = np.fft.fft(self.buf[idx] * self.win, axis=1)
-            self._frames(np.abs(X).astype(np.float32), m)
+            idx = ar[None, :] + self.hop * (done + np.arange(m))[:, None]
+            Fw = self.buf[idx] * self.win
+            A = np.abs(np.fft.fft(Fw, axis=1)).astype(np.float32)
+            # righe del waterfall: una ogni ROW_EVERY frame, finestra lunga
+            ri = [i for i in range(m) if (self.frame_no + i) % ROW_EVERY == 0]
+            rows = None
+            if ri:
+                idx2 = np.arange(self.L)[None, :] + self.hop * (done + np.array(ri))[:, None]
+                rows = (ri, (np.abs(np.fft.fft(self.buf[idx2] * self.wwin, axis=1)) ** 2).astype(np.float32))
+            if self.elen == self.nfft:
+                Fe = Fw
+            else:
+                Fe = self.buf[np.arange(self.elen)[None, :] + self.hop * (done + np.arange(m))[:, None]] * self.ewin
+            self._frames(A, Fe, m, rows, done)
             done += m
         cut = nfr * self.hop
+        self.hist = np.concatenate([self.hist, self.buf[:cut]])[-self.hist_keep:]
         self.buf = self.buf[cut:]
         self.n_in += cut
 
@@ -240,27 +307,36 @@ class Engine:
             return
         z = y[:m * self.adec].reshape(m, self.adec).mean(1)          # boxcar + decimazione
         zz = np.concatenate([self.afir_state, z])
-        f = np.convolve(zz, self.alp, mode='valid')                     # filtro CW ~±260 Hz
+        f = np.convolve(zz, self.alp, mode='valid')
         self.afir_state = zz[-(len(self.alp) - 1):]
-        env = np.abs(f)
-        pk = env.max() if len(env) else 0
-        self.agc = max(pk, self.agc * 0.97, 1e-7)
+        # AGC campione per campione: attacco rapido (2 ms), discesa lenta (~1 s), nessun gradino tra i blocchi
+        env = np.abs(f).astype(np.float64)
+        g = np.empty(len(env))
+        ag = self.agc
+        att = math.exp(-1.0 / (0.002 * self.arate))
+        dec = math.exp(-1.0 / (1.0 * self.arate))
+        for i, v in enumerate(env.tolist()):
+            ag = v + (ag - v) * att if v > ag else ag * dec
+            if ag < 1e-7:
+                ag = 1e-7
+            g[i] = ag
+        self.agc = ag
         tt = self.bfo_ph + 2 * np.pi * self.bfo / self.arate * np.arange(len(f))
         self.bfo_ph = float((tt[-1] + 2 * np.pi * self.bfo / self.arate) % (2 * np.pi))
-        a = np.real(f * np.exp(1j * tt)) / (self.agc * 1.6)
-        self.out_audio.append((np.clip(a, -1, 1) * 30000).astype('<i2'))
+        a = np.real(f * np.exp(1j * tt)) / (g * 1.6)
+        self.out_audio.append((np.tanh(a * 1.2) / 1.2 * 30000).astype('<i2'))
 
     # ------------------------------------------------------------------ frame STFT
-    def _frames(self, A, m):
+    def _ftime(self, j):
+        return j * self.hop / self.fs + self.nfft / 2 / self.fs
+
+    def _frames(self, A, Fw, m, rows, done):
         fr_dt = 1.0 / FRAMES_PER_S
-        # tempo del primo frame del blocco
-        tA = self.frame_no * self.hop / self.fs + self.nfft / 2 / self.fs
+        tA = self._ftime(self.frame_no)
         if self.nf is None:
             self.nf = np.percentile(A, 30, axis=0).astype(np.float32) + 1e-9
-        # rumore per bin: inseguimento lento del 25° percentile
-        p25 = np.percentile(A, 25, axis=0)
+        p25 = np.partition(A, m // 4, axis=0)[m // 4]
         self.nf = np.where(p25 < self.nf, self.nf * 0.8 + p25 * 0.2, self.nf * 0.985 + p25 * 0.015).astype(np.float32)
-        # picco con decadimento (~0,4 s di emivita)
         cm = A.max(0)
         self.pk = np.maximum(self.pk * 0.85, cm)
         snr_ok = self.pk > self.min_snr * self.nf
@@ -270,158 +346,330 @@ class Engine:
         sm_ = strong.mean(0)
         self.duty = self.duty * 0.997 + sm_ * 0.003
         self.duty_f = self.duty_f * 0.98 + sm_ * 0.02
-        self.avg = self.avg * 0.97 + (A.mean(0) / self.nf) * 0.03
 
-        # waterfall
-        P = A * A
-        for i in range(m):
-            self.row_acc += P[i]
-            self.row_n += 1
-            if self.row_n == ROW_EVERY:
-                self._emit_row(tA + i * fr_dt)
-                self.row_acc[:] = 0
-                self.row_n = 0
+        # waterfall e statistiche dei segnali (finestra lunga)
+        if rows is not None:
+            ri, P = rows
+            # rumore = potenza media del rumore (il 25° percentile di una esponenziale è 0,29 x la media)
+            if self.lnf is None:
+                self.lnf = np.percentile(P, 30, axis=0).astype(np.float32) / 0.357 + 1e-20
+            kq = len(P) // 4
+            q25 = np.partition(P, kq, axis=0)[kq] / (0.2877 if kq else 0.1)
+            self.lnf = np.where(q25 < self.lnf, self.lnf * 0.8 + q25 * 0.2, self.lnf * 0.985 + q25 * 0.015).astype(np.float32)
+            R = P / self.lnf[None, :]
+            self.lduty = self.lduty * 0.98 + (R > 8.0).mean(0) * 0.02
+            self.lavg = self.lavg * 0.97 + R.mean(0) * 0.03
+            for i, p in zip(ri, P):
+                self._emit_row(tA + i * fr_dt, p)
 
-        # canali attivi
-        self.new_channels = []
-        self._update_channels(tA + m * fr_dt)
-        if self.new_channels and self.act_hist:
-            # canale appena aperto: ridecodifica l'ultimo secondo e mezzo, così non si perde la prima lettera
-            H = np.vstack([a for _, a in self.act_hist])
-            tH = self.act_hist[0][0]
-            for k in self.new_channels:
-                ch = self.channels[k]
-                ch.on = False
-                ch.edge = tH
-                col = H[:, k].astype(np.int8)
-                d = np.diff(np.concatenate([[0], col]))
-                idx = np.nonzero(d)[0]
-                if len(idx):
-                    self._decode_edges(ch, idx, d[idx], tH, fr_dt)
-                if ch.on is False and (ch.sym or ch.word):
-                    pass                                   # il resto lo chiude il blocco corrente
-        chs = list(self.channels.values())
-        ks = np.array([c.k for c in chs], dtype=np.int64)
-        prev = np.array([c.on for c in chs], dtype=np.int8)
-        sub = act[:, ks].astype(np.int8)
-        D = np.diff(np.vstack([prev[None, :], sub]), axis=0)
-        fi, ci = np.nonzero(D.T)                 # ordinati per canale, poi per frame
-        starts = np.searchsorted(fi, np.arange(len(chs) + 1))
         tend = tA + m * fr_dt
-        for j, ch in enumerate(chs):
-            a, b = starts[j], starts[j + 1]
-            if b > a:
-                self._decode_edges(ch, ci[a:b], D[ci[a:b], j], tA, fr_dt)
-            if not ch.on and (ch.sym or ch.word):
-                self._gap(ch, tend - ch.edge, ch.edge)
+        self.new_channels = []
+        self._update_channels(tend)
+        for ch in self.new_channels:
+            self._replay(ch)
 
-        self.act_hist.append((tA, act))
-        while self.act_hist and self.act_hist[0][0] < tA - 1.5:
-            self.act_hist.pop(0)
+        # inviluppo di ogni canale alla sua frequenza esatta (DFT mirata sui frame già finestrati)
+        chs = list(self.channels.values())
+        if chs:
+            fr = np.array([c.f for c in chs])
+            W = np.exp(-2j * np.pi * np.arange(self.elen)[:, None] * fr[None, :] / self.fs).astype(np.complex64)
+            E = np.abs(Fw @ W).astype(np.float32)
+            self._decode_block(chs, E, tA, fr_dt)
 
         # DX: over e ascolto
         self._dx_track(strong[:, self.dx_k] & act[:, self.dx_k], tA, fr_dt)
         self._listen_accumulate(strong, act, tA, fr_dt, m)
         self.frame_no += m
 
-    def _emit_row(self, t):
-        p = np.fft.fftshift(self.row_acc / ROW_EVERY)
+    def _levels(self, chs, E, init=False):
+        """Rumore e livello del segnale di ogni canale; restituisce le soglie (accensione, spegnimento)."""
+        on = np.empty(len(chs), np.float32)
+        off = np.empty(len(chs), np.float32)
+        kq = len(E) // 4
+        p25 = np.partition(E, kq, axis=0)[kq]
+        mx = E.max(0)
+        for j, c in enumerate(chs):
+            if c.n is None or init:
+                c.n = float(np.percentile(E[:, j], 30)) + 1e-12
+                c.s = float(np.percentile(E[:, j], 99))
+            else:
+                p = float(p25[j])
+                c.n = c.n * 0.8 + p * 0.2 if p < c.n else c.n * 0.985 + p * 0.015
+                c.s = max(c.s * S_DECAY, float(mx[j]))
+            r = c.s / c.n
+            if r < self.min_snr:
+                on[j] = off[j] = np.inf                      # niente segnale: non decodifico il rumore
+            else:
+                lr = math.log(r)
+                on[j] = c.n * math.exp(THR_ON * lr)
+                off[j] = c.n * math.exp(THR_OFF * lr)
+        return on, off
+
+    def _decode_block(self, chs, E, tA, dt, init=False):
+        on, off = self._levels(chs, E, init)
+        prev = np.array([1 if c.on else 0 for c in chs], np.int8)
+        S = _hyst(E, on, off, prev)
+        if not init and len(chs) > 1:
+            self._ghosts(chs, S)
+        D = np.diff(np.vstack([prev[None, :], S]), axis=0)
+        fi, ci = np.nonzero(D.T)
+        starts = np.searchsorted(fi, np.arange(len(chs) + 1))
+        tend = tA + len(E) * dt
+        for j, ch in enumerate(chs):
+            a, b = starts[j], starts[j + 1]
+            for i, dv in zip(ci[a:b].tolist(), D[ci[a:b], j].tolist()):
+                t = tA + i * dt
+                if dv > 0:
+                    self._rise(ch, t)
+                else:
+                    self._fall(ch, t)
+            if not ch.on:
+                self._flush(ch, tend)
+
+    def _ghosts(self, chs, S):
+        """Un canale i cui segni coincidono sempre con quelli di un vicino molto più forte (entro 220 Hz)
+        è un'eco del vicino (bande laterali di manipolazione, click): le sue parole non si mostrano."""
+        fr = np.array([c.f for c in chs])
+        sv = np.array([c.s for c in chs])
+        on = S.sum(0)
+        order = np.argsort(fr)
+        fs_ = fr[order]
+        for j in range(len(chs)):
+            if on[j] < 4:
+                continue
+            lo, hi = np.searchsorted(fs_, [fr[j] - 220, fr[j] + 220])
+            best = 0.0
+            for a in order[lo:hi].tolist():
+                if a != j and sv[a] > 2.0 * sv[j]:
+                    ov = float((S[:, j] & S[:, a]).sum()) / max(1.0, float((S[:, j] | S[:, a]).sum()))
+                    best = max(best, ov)
+            c = chs[j]
+            c.gh = 0.8 * c.gh + 0.2 * best
+
+    def _replay(self, ch):
+        """Canale appena aperto: decodifica l'ultimo secondo e mezzo, così non si perde l'inizio."""
+        R = int(1.5 * FRAMES_PER_S)
+        j0 = max(0, self.frame_no - R)
+        nfr = self.frame_no - j0
+        base = self.n_in - len(self.hist)
+        s0 = j0 * self.hop - base
+        if nfr < 20 or s0 < 0:
+            return
+        data = np.concatenate([self.hist, self.buf[:self.nfft + self.L]])
+        idx = s0 + np.arange(self.elen)[None, :] + self.hop * np.arange(nfr)[:, None]
+        if idx[-1, -1] >= len(data):
+            return
+        w = np.exp(-2j * np.pi * np.arange(self.elen) * ch.f / self.fs).astype(np.complex64)
+        e = np.abs((data[idx] * self.ewin) @ w).astype(np.float32)[:, None]
+        # durata del punto stimata dai segni già passati
+        c_on, c_off = self._levels([ch], e, init=True)
+        if np.isfinite(c_on[0]):
+            s = _hyst(e, c_on, c_off, np.zeros(1, np.int8))[:, 0]
+            d = np.diff(np.concatenate([[0], s, [0]]))
+            st, en = np.nonzero(d > 0)[0], np.nonzero(d < 0)[0]
+            mk = (en - st) / FRAMES_PER_S
+            mk = mk[mk > 0.012]
+            if len(mk) >= 3:
+                dot = float(np.clip(np.percentile(mk, 25), 0.022, 0.13))
+                ch.dot, ch.ge = dot, dot
+                ch.dash = float(np.clip(np.percentile(mk, 85), 2.2 * dot, 4.0 * dot)) if mk.max() > 2 * dot else 3 * dot
+        t0 = self._ftime(j0)
+        ch.on = False
+        ch.t_on = ch.t_off = t0 - 1.0
+        self._decode_block([ch], e, t0, 1.0 / FRAMES_PER_S, init=True)
+
+    def _emit_row(self, t, p):
+        # "apertura" nel tempo (minimo e poi massimo su OPEN righe): toglie i click e i baffi
+        # verticali che durano meno di un punto, lascia intatti punti e linee
+        self.wf_hist.append((t, p))
+        if len(self.wf_hist) > 2 * OPEN - 1:
+            self.wf_hist.pop(0)
+        if len(self.wf_hist) < 2 * OPEN - 1:
+            return
+        H = np.array([q for _, q in self.wf_hist])
+        n = len(H)
+        ero = np.array([H[i:i + OPEN].min(0) for i in range(n - OPEN + 1)])
+        p = ero.max(0)
+        t = self.wf_hist[OPEN - 1][0]
+        p = np.fft.fftshift(p)
         if self.pool > 1:
             p = p.reshape(-1, self.pool).max(1)
         db = 10 * np.log10(p + 1e-20)
         nb = len(db)
-        fl = float(np.median(db[nb // 4: 3 * nb // 4]))   # rumore dalla metà centrale (i bordi possono essere vuoti)
-        self.row_floor = fl if self.row_floor is None else self.row_floor * 0.95 + fl * 0.05
-        q = np.clip((db - self.row_floor - 1.0) / 30.0, 0, 1) ** 0.8
+        self.row_n = getattr(self, 'row_n', 0) + 1
+        if self.row_floor is None or self.row_n % 5 == 0:
+            c = db[nb // 4: 3 * nb // 4]
+            fl = float(np.partition(c, len(c) // 2)[len(c) // 2])   # rumore dalla metà centrale
+            self.row_floor = fl if self.row_floor is None else self.row_floor * 0.8 + fl * 0.2
+        q = np.clip((db - self.row_floor - 2.0) / 32.0, 0, 1) ** 0.8
         self.out_rows.append((t, (q * 255).astype(np.uint8)))
 
+    def _sfreq(self, k):
+        L = self.L
+        return (k if k < L // 2 else k - L) * self.lbinhz
+
     def _update_channels(self, t):
-        a = self.duty_f + self.avg * 1e-3
-        nb = self.nfft
-        # massimi locali dell'attività recente (segnali che "battono" sopra 6x il rumore)
-        loc = (a > np.roll(a, 1)) & (a >= np.roll(a, -1)) & (a > np.roll(a, 2)) & (a >= np.roll(a, -2))
-        cand = np.where(loc & (self.duty_f > 0.04))[0]
-        if len(cand) > 120:
-            cand = cand[np.argsort(a[cand])[::-1][:120]]
+        """Trova i segnali CW nello spettro lungo e mette un canale sulla loro frequenza esatta."""
+        L = self.L
+        a = self.lavg
+        d = self.lduty
+        # massimi locali (±2 bin = ±47 Hz) che battono (duty) e spiccano sul fondo vicino
+        loc = np.ones(L, bool)
+        for s in (1, 2):
+            loc &= (a > np.roll(a, s)) & (a >= np.roll(a, -s))
+        cand = np.nonzero(loc & (d > 0.03) & (a > 2.0))[0]
+        if len(cand):
+            # deve spiccare sui ±300 Hz attorno (scarta i "baffi" e i click dei segnali fortissimi)
+            w = int(round(300 / self.lbinhz))
+            ok = []
+            for k in cand.tolist():
+                nb = a[np.arange(k - w, k + w + 1) % L]
+                if a[k] > 1.5 * float(np.median(nb)):
+                    ok.append(k)
+            cand = ok
+        if len(cand) > 150:
+            cand = sorted(cand, key=lambda k: -a[k])[:150]
+        found = []
         for k in cand:
-            k = int(k)
-            if k in self.channels or (k - 1) % nb in self.channels or (k + 1) % nb in self.channels:
+            y0, y1, y2 = (math.log(a[(k - 1) % L] + 1e-9), math.log(a[k] + 1e-9), math.log(a[(k + 1) % L] + 1e-9))
+            den = y0 - 2 * y1 + y2
+            dl = 0.5 * (y0 - y2) / den if den < 0 else 0.0
+            found.append((self._sfreq(k) + max(-0.5, min(0.5, dl)) * self.lbinhz, float(a[k])))
+        # bande laterali di un segnale forte (entro 130 Hz e 13 dB sotto): non sono stazioni
+        found.sort()
+        keep = []
+        for i, (f, sa) in enumerate(found):
+            if any(abs(f2 - f) < 130 and s2 > 20 * sa for f2, s2 in found):
                 continue
-            if True:
-                self.channels[k] = Channel(k, t)
-                self.new_channels.append(k)
-        if self.dx_k not in self.channels:
-            self.channels[self.dx_k] = Channel(self.dx_k, t, is_dx=True)
+            keep.append((f, sa))
+        found = keep
+        chans = list(self.channels.values())
+        dxc = next((c for c in chans if c.is_dx), None)
+        # canale del DX: sulla frequenza impostata, agganciato al segnale vero se è entro 70 Hz
+        near = [f for f, s in found if abs(f - self.dx_off) < 70]
+        fdx = min(near, key=lambda f: abs(f - self.dx_off)) if near else self.dx_off
+        if dxc is None:
+            dxc = self._new_channel(fdx, t, True)
         else:
-            self.channels[self.dx_k].is_dx = True
-        # elimina canali inattivi da 20 s
-        for k in [k for k, c in self.channels.items() if not c.is_dx and t - c.last > 20 and not c.on]:
+            dxc.f = 0.7 * dxc.f + 0.3 * fdx
+            dxc.seen = t
+        for f, s in found:
+            if abs(f - dxc.f) < 45:
+                continue
+            best = None
+            for c in chans:
+                if not c.is_dx and abs(c.f - f) < 45 and (best is None or abs(c.f - f) < abs(best.f - f)):
+                    best = c
+            if best is not None:
+                if abs(best.f - f) < 30:
+                    best.f = 0.8 * best.f + 0.2 * f        # segue la deriva
+                best.seen = t
+            elif len(self.channels) < 160:
+                chans.append(self._new_channel(f, t))
+        # elimina canali spenti da 20 s o non più visti nello spettro da 30 s
+        for k in [k for k, c in self.channels.items()
+                  if not c.is_dx and not c.on and (t - c.last > 20 and t - c.seen > 6 or t - c.seen > 30)]:
             del self.channels[k]
 
-    def _decode_edges(self, ch, idx, dirs, tA, dt):
-        for i, dv in zip(idx.tolist(), dirs.tolist()):
-            t = tA + i * dt
-            if dv > 0:                         # inizio segno
-                gap = t - ch.edge
-                self._gap(ch, gap, ch.edge)
-                ch.on = True
-                ch.edge = t
-                if ch.t0 is None:
-                    ch.t0 = t
-            else:                                # fine segno
-                mk = t - ch.edge
-                ch.on = False
-                ch.edge = t
-                if mk < 0.012:
-                    continue
-                u = ch.u
-                if mk < 2 * u:
-                    ch.sym += '.'
-                    ch.u = 0.8 * u + 0.2 * mk
-                else:
-                    ch.sym += '-'
-                    ch.u = 0.85 * u + 0.15 * (mk / 3)
-                ch.u = min(0.12, max(0.025, ch.u))
-                ch.last = t
-                if len(ch.sym) > 7:
-                    ch.sym = ''
+    def _new_channel(self, f, t, is_dx=False):
+        c = Channel(self.next_id, f, t, is_dx)
+        c.k = int(round(f / self.binhz)) % self.nfft
+        self.next_id += 1
+        self.channels[c.id] = c
+        self.new_channels.append(c)
+        return c
 
-    def _gap(self, ch, gap, tedge, final=False):
-        u = ch.u
-        if ch.sym and gap > 2.0 * u:
+    # ------------------------------------------------------------------ decodifica dei tempi
+    def _rise(self, ch, t):
+        gap = t - ch.t_off
+        if ch.pend is not None and gap < ch.gmin():
+            ch.t_on = ch.pend_start                      # buco nel segno (QSB, QRM): il segno continua
+            ch.pend = None
+            ch.on = True
+            return
+        if ch.pend is not None:
+            self._commit(ch, ch.pend)
+            ch.pend = None
+        if ch.sym and gap < 2.0 * ch.unit():
+            ch.ge = min(2.0 * ch.dot, max(0.5 * ch.dot, 0.85 * ch.ge + 0.15 * gap))
+        self._gap(ch, gap)
+        ch.on = True
+        ch.t_on = t
+        if ch.t0 is None:
+            ch.t0 = t
+
+    def _fall(self, ch, t):
+        mk = t - ch.t_on
+        ch.on = False
+        first = not ch.sym and not ch.word and ch.pend is None
+        if mk < (max(ch.mmin(), 0.6 * ch.dot) if first else ch.mmin()):   # impulso di rumore: lo ignoro
+            if not ch.sym and not ch.word and ch.pend is None:
+                ch.t0 = None
+            return
+        ch.pend = mk
+        ch.pend_start = ch.t_on
+        ch.t_off = t
+        ch.last = t
+
+    def _flush(self, ch, now):
+        gap = now - ch.t_off
+        if ch.pend is not None:
+            if gap < ch.gmin():
+                return
+            self._commit(ch, ch.pend)
+            ch.pend = None
+        self._gap(ch, gap)
+
+    def _commit(self, ch, mk):
+        b = math.sqrt(ch.dot * ch.dash)
+        if mk < b:
+            ch.sym += '.'
+            ch.dot = 0.8 * ch.dot + 0.2 * mk
+        else:
+            ch.sym += '-'
+            ch.dash = 0.85 * ch.dash + 0.15 * mk
+        ch.dot = min(0.15, max(0.02, ch.dot))
+        ch.dash = min(4.5 * ch.dot, max(2.0 * ch.dot, ch.dash))
+        if len(ch.sym) > 7:
+            ch.sym = '-------'                           # diventa '·'
+
+    def _gap(self, ch, gap):
+        u = ch.unit()
+        if ch.sym and gap > CHAR_G * u:
             ch.word += MORSE.get(ch.sym, '·')
             ch.sym = ''
-        if ch.word and gap > 5.0 * u:
+        if ch.word and gap > WORD_G * u:
             self._emit_word(ch, ch.word)
             ch.word = ''
             ch.t0 = None
 
     def _emit_word(self, ch, w):
         t = ch.t0 if ch.t0 is not None else self.t
-        if len(w) < 2 and w not in ('R', 'K'):
-            return
-        if w.count('·') > 1 or is_junk(w):
+        if len(w) < 3 and w not in KEEP:
+            return                                       # 1-2 lettere fuori dal vocabolario CW: quasi sempre rumore
+        if len(w) == 1 and t - ch.last_good > 4.0:
+            return                                       # R / K da soli: solo dopo una parola buona
+        if w.count('·') > 1 or is_junk(w) or (ch.gh > 0.6 and not ch.is_dx):
             return
         if set(w) <= NOISE:
             # EE, ES, HI, ST...: valide solo dentro una trasmissione già riconosciuta
             if t - ch.last_good > 2.5:
                 return
         else:
-            ch.last_good = ch.last          # fine dell'ultimo segno della parola buona
-        nb = self.nfft
+            ch.last_good = ch.last
         self.recent = [r for r in self.recent if t - r[0] < 1.5]
-        for (tr, kr, wr) in self.recent:
-            if wr == w and min((kr - ch.k) % nb, (ch.k - kr) % nb) <= 3:
+        for (tr, fr, wr) in self.recent:
+            if wr == w and abs(fr - ch.f) < 150:
                 return
-        self.recent.append((t, ch.k, w))
-        off = self._off(ch.k)
-        self.out_words.append({'t': round(t, 2), 'f': round(off, 1), 'w': w, 'dx': ch.is_dx})
+        self.recent.append((t, ch.f, w))
+        self.out_words.append({'t': round(t, 2), 'f': round(ch.f, 1), 'w': w, 'dx': ch.is_dx, 'ch': ch.id})
         if ch.is_dx and self.over is not None:
             self.over[2].append(w)
 
     def _off(self, k):
         k = k if k < self.nfft // 2 else k - self.nfft
         return k * self.binhz
+
 
     # ------------------------------------------------------------------ DX / ascolto
     def _dx_track(self, col, tA, dt):

@@ -32,7 +32,7 @@ from dsp import Engine
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.11'
+VERSION = '1.12'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -670,8 +670,7 @@ class Hub:
         if e is None:
             return {'type': 'cfg', 'ready': False, 'status': self.status, **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
-                'nbins': e.nbins_out, 'bw': e.binhz * e.pool,
-                'f0': (-e.nfft / 2 + (e.pool - 1) / 2) * e.binhz,
+                'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
                 'rowdt': 4.0 / 400.0, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
                 'src': self.src_kind, 'status': self.status, 'version': VERSION,
                 'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
