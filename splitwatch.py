@@ -33,7 +33,7 @@ from rbn import RBN
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.15'
+VERSION = '1.16'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -985,6 +985,23 @@ class Hub:
             pass
         finally:
             self.clients.discard(ws)
+            if self._is_local(ws) and getattr(self, 'app_proc', None) is not None:
+                asyncio.ensure_future(self._maybe_quit())
+
+    @staticmethod
+    def _is_local(ws):
+        try:
+            return ws.remote_address[0] in ('127.0.0.1', '::1', 'localhost')
+        except Exception:
+            return False
+
+    async def _maybe_quit(self):
+        """Finestra del programma chiusa: se entro 6 s non si riapre (non era un ricaricamento), esco.
+        Serve perché Edge a volte resta acceso in sottofondo e il processo della finestra non termina."""
+        await asyncio.sleep(6)
+        if not any(self._is_local(c) for c in self.clients):
+            log('Finestra chiusa (nessuna pagina locale collegata): esco')
+            self.shutdown()
 
     async def http(self, path, headers):
         if path in ('/', '/index.html'):
