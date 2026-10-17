@@ -109,7 +109,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.12</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.13</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -192,6 +192,9 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <label for="selRate" id="rateBox">Campionamento <select id="selRate"><option value="48000">48 kHz</option><option value="96000">96 kHz</option><option value="192000">192 kHz</option></select></label>
     <label for="chkSwap" id="swapBox"><input type="checkbox" id="chkSwap"> Inverti I/Q</label>
     <label for="selMem" title="Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio">Memoria <select id="selMem"><option value="0">spenta</option><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option></select></label>
+    <label for="chkRbn" title="Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati"><input type="checkbox" id="chkRbn"> RBN</label>
+    <label for="iCall" id="callBox" hidden title="Nominativo con cui collegarsi all'RBN">Nominativo <input class="short" id="iCall" style="width:6.5em" autocomplete="off" spellcheck="false"></label>
+    <span id="rbnState" class="lic" style="font-weight:500"></span>
     <button id="bRestart" title="Riavvia il ricevitore senza chiudere il programma">Riavvia ricevitore</button>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
@@ -360,6 +363,7 @@ function connect(){
       else if(m.type==='play'){onPlay(m)}
       else if(m.type==='rec'){onRec(m)}
       else if(m.type==='files'){onFiles(m.files)}
+      else if(m.type==='spots'){SPOTS=m.spots||[];setT($('#rbnState'),rbnTxt(m.state))}
       else if(m.type==='reg'){const r=$('#regMsg');r.textContent=(m.ok?'✓ ':'✗ ')+m.msg;r.className='regmsg '+(m.ok?'ok':'err');if(m.ok)setTimeout(()=>{$('#regBox').hidden=true},1500)}
       return;
     }
@@ -420,6 +424,8 @@ function onCfg(m){
   $('#player').hidden=live;if(!live&&m.file)onPlay(m.file);LIVE=m.live_src||'perseus';
   $('#bRec').disabled=!live;if(live)PLAY=null;
   if(document.activeElement!==$('#selMem'))$('#selMem').value=String(m.mem_min);
+  $('#chkRbn').checked=!!m.rbn_on;$('#callBox').hidden=!m.rbn_need_call||!m.rbn_on;
+  if(document.activeElement!==$('#iCall'))$('#iCall').value=m.rbn_call||'';setT($('#rbnState'),rbnTxt(m.rbn_state));
   $('#tag').textContent=(pers?'Perseus dal vivo':aud?'audio della radio':iq?'IQ da scheda audio':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   $('#rateBox').hidden=!(pers||iq);$('#swapBox').hidden=!(pers||iq);
   $('#devBox').hidden=!(aud||iq);$('#offBox').hidden=!aud;
@@ -466,6 +472,10 @@ $('#iOff').onchange=e=>send({cmd:'offset',hz:parseFloat(e.target.value)||0});
 $('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
 $('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
+let SPOTS=[];
+const rbnTxt=s=>!s||s==='spento'?'':s==='collegato'?`RBN: ${SPOTS.length} spot in banda`:'RBN: '+s;
+$('#chkRbn').onchange=e=>send({cmd:'rbn',on:e.target.checked});
+$('#iCall').onchange=e=>send({cmd:'rbn',call:e.target.value});
 
 /* ---------------- registrazione e riproduzione ---------------- */
 let LIVE='perseus',PLAY=null,seeking=false;
@@ -547,6 +557,13 @@ function drawWF(){
     if(nw){c.fillStyle='#ffb020';c.fillText(`ascolto ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
   c.globalAlpha=1;c.setLineDash([]);
   for(const o of marks){const y=yOf(o);if(y<0||y>H)continue;c.strokeStyle='#e6d3ff';c.lineWidth=1*dpr;c.setLineDash([8*dpr,3*dpr,2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);c.fillStyle='#e6d3ff';c.fillText(`segnaposto ${fmtOff(o-DX)}`,8*dpr,y-3*dpr)}
+  // spot RBN: etichetta a destra del waterfall, sulla frequenza spottata
+  c.font=`600 ${10.5*dpr}px Consolas,monospace`;c.textBaseline='middle';c.textAlign='right';
+  for(const sp of SPOTS){const y=yOf((sp.fa-CFG.center)/1000);if(y<6*dpr||y>H-6*dpr)continue;
+    c.globalAlpha=sp.age<300?1:sp.age<600?.7:.45;const lab=`${sp.call} ${sp.snr}dB`,tw=c.measureText(lab).width;
+    c.fillStyle='rgba(30,12,40,.85)';c.fillRect(plotW-tw-14*dpr,y-7*dpr,tw+10*dpr,14*dpr);
+    c.fillStyle='#e48cff';c.fillRect(plotW-4*dpr,y-.75*dpr,4*dpr,1.5*dpr);c.fillText(lab,plotW-9*dpr,y+.5*dpr)}
+  c.globalAlpha=1;c.textAlign='left';c.textBaseline='bottom';
   c.fillStyle='rgba(108,126,143,.8)';c.font=`400 ${9.5*dpr}px Consolas,monospace`;
   const ts=WIN<=5?1:WIN<=10?2:5;for(let s=0;s<=WIN;s+=ts){const x=plotW-s/WIN*plotW;c.fillRect(x-.5*dpr,H-5*dpr,1*dpr,5*dpr);if(s)c.fillText(`-${s}s`,x+3*dpr,H-2*dpr)}
   // scala

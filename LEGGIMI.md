@@ -1,4 +1,4 @@
-# FZR Skimmer 1.12
+# FZR Skimmer 1.13
 
 IW1FZR
 
@@ -128,6 +128,20 @@ Da riga di comando:
 **Riavvia ricevitore**: chiude e riapre il Perseus (o la scheda audio) senza chiudere il
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
+
+## Reverse Beacon Network (RBN)
+
+Casella **RBN** in basso (accesa di base): FZR Skimmer si collega a telnet.reversebeacon.net
+(solo CW) con il tuo nominativo (quello della registrazione; se non sei registrato compare
+il campo **Nominativo**). Serve Internet.
+
+- Sul waterfall, a destra, compaiono in viola i nominativi spottati nella banda ricevuta,
+  sulla loro frequenza, con il segnale in dB (più sbiaditi se lo spot è vecchio, fino a 15 minuti).
+- Un nominativo decodificato che coincide con uno spottato lì vicino (entro 600 Hz) viene
+  mostrato come **sicuro**; se differisce di una sola lettera da uno spottato entro 300 Hz,
+  viene corretto con il **?**.
+- Attenzione: l'RBN spotta chi chiama CQ (il DX, chi fa contest), quasi mai i chiamanti del
+  pile-up. Conferma il DX e le stazioni attorno, non chi risponde.
 
 ## Novità 1.12
 

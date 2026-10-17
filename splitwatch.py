@@ -29,10 +29,11 @@ import websockets
 import dsp
 import licenza
 from dsp import Engine
+from rbn import RBN
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.12'
+VERSION = '1.13'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -242,6 +243,8 @@ class Hub:
         self.rec = Recorder(self.rec_dir, float(self.cfg.get('memoria_min', 5)), self.on_status)
         if args.file:
             self.cfg['file_path'] = os.path.abspath(args.file)
+        self.rbn = None
+        self.rbn_band = []
 
     # -------------------------------------------------------------- sorgente
     def on_iq(self, iq):
@@ -365,6 +368,10 @@ class Hub:
             return False, info
         info['origine'] = DATA_DIR
         self.lic = info
+        try:
+            self.rbn_apply()
+        except Exception:
+            pass
         log(f"Registrazione: {info['testo']}")
         if self.locked:
             self.locked = False
@@ -424,6 +431,46 @@ class Hub:
                 self.on_status(f'Errore: {e}')
             self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
+
+    # -------------------------------------------------------------- Reverse Beacon Network
+    def rbn_match(self, word, fa, band):
+        r = self.rbn.match(word, fa, band) if self.rbn else None
+        return r
+
+    def rbn_call(self):
+        return ((self.lic or {}).get('call') or self.cfg.get('nominativo') or '').strip().upper()
+
+    def rbn_apply(self):
+        """Accende o spegne il collegamento all'RBN secondo le impostazioni."""
+        want = bool(self.cfg.get('rbn', True)) and bool(self.rbn_call())
+        if self.rbn and (not want or self.rbn.call != self.rbn_call()):
+            self.rbn.stop()
+            self.rbn = None
+        if want and not self.rbn:
+            self.rbn = RBN(self.rbn_call(), log)
+            self.rbn.start()
+
+    def rbn_state(self):
+        if not self.cfg.get('rbn', True):
+            return 'spento'
+        if not self.rbn_call():
+            return 'serve il nominativo'
+        return self.rbn.state if self.rbn else 'spento'
+
+    def rbn_thread(self):
+        while True:
+            time.sleep(3)
+            try:
+                if not self.rbn or not self.center or not self.fs:
+                    self.rbn_band = []
+                    continue
+                band = self.rbn.in_band(self.center - self.fs / 2, self.center + self.fs / 2)
+                self.rbn_band = band
+                self.post_json({'type': 'spots', 'state': self.rbn_state(),
+                                'spots': [{'call': x['call'], 'fa': round(x['f'], 1), 'snr': x['snr'], 'wpm': x['wpm'],
+                                           'n': x['n'], 'age': x['age'], 'tipo': x['tipo']} for x in band]})
+            except Exception:
+                pass
 
     # -------------------------------------------------------------- registrazioni
     def on_pos(self, src):
@@ -564,8 +611,25 @@ class Hub:
                     self.post_bin(b'\x02' + struct.pack('<d', 0.0) + a.tobytes())
                     pend_audio = []
                 if pend_words or pend_listen:
+                    band = self.rbn_band
                     for w in pend_words:
                         w['fa'] = round(self.center + w['f'], 1)
+                        hit = None
+                        if band:
+                            for v in dsp.variants(w['w']):
+                                hit = self.rbn_match(v, w['fa'], band)
+                                if hit:
+                                    break
+                        if hit:
+                            w['rbn'] = 1
+                            if hit[1] == 'v':
+                                if hit[0] != w['w']:
+                                    w['raw'] = w['w']
+                                    w['w'] = hit[0]
+                                w['v'] = 1
+                            else:
+                                w['s'] = hit[0]
+                            continue
                         word, kind = dsp.classify(w['w'])
                         if kind == 'v':
                             if word != w['w']:
@@ -671,7 +735,7 @@ class Hub:
             return {'type': 'cfg', 'ready': False, 'status': self.status, **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
                 'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
-                'rowdt': 4.0 / 400.0, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
+                'rowdt': dsp.ROW_EVERY / dsp.FRAMES_PER_S, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
                 'src': self.src_kind, 'status': self.status, 'version': VERSION,
                 'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
@@ -680,6 +744,8 @@ class Hub:
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
                 'offset': float(self.cfg.get('audio_offset', 600)),
                 'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR,
+                'rbn_on': bool(self.cfg.get('rbn', True)), 'rbn_state': self.rbn_state(), 'rbn_call': self.rbn_call(),
+                'rbn_need_call': not (self.lic or {}).get('call'),
                 'mem_min': self.rec.minutes, 'live_src': self.cfg.get('sorgente', 'perseus'), 'rec_dir': self.rec_dir, 'file': self.file_state(), **lic}
 
     # -------------------------------------------------------------- web
@@ -780,6 +846,14 @@ class Hub:
                         self.rec.stop_rec()
                         self.post_json({'type': 'files', 'files': self.list_files()})
                     self.post_rec()
+                elif k == 'rbn':
+                    if 'on' in c:
+                        self.cfg['rbn'] = bool(c['on'])
+                    if 'call' in c:
+                        self.cfg['nominativo'] = str(c['call']).strip().upper()[:12]
+                    save_cfg(self.cfg)
+                    self.rbn_apply()
+                    self.post_json(self.cfg_msg())
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))
                     self.cfg['memoria_min'] = m
@@ -860,6 +934,8 @@ class Hub:
         threading.Thread(target=self.diag_thread, daemon=True).start()
         threading.Thread(target=self.trial_thread, daemon=True).start()
         threading.Thread(target=self.rec_thread, daemon=True).start()
+        threading.Thread(target=self.rbn_thread, daemon=True).start()
+        self.rbn_apply()
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')

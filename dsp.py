@@ -11,8 +11,8 @@ import math
 import re
 import numpy as np
 
-FRAMES_PER_S = 400          # STFT del decoder: 2,5 ms
-ROW_EVERY = 4               # 1 riga di waterfall ogni 4 frame = 100 righe/s
+FRAMES_PER_S = 200          # STFT del decoder: un frame ogni 5 ms
+ROW_EVERY = 2               # 1 riga di waterfall ogni 2 frame = 100 righe/s
 MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
 THR_ON, THR_OFF = 0.6, 0.5   # soglie del canale: frazione (logaritmica) tra rumore e segnale
 S_DECAY = 0.9              # discesa del livello del segnale ogni 0,1 s
@@ -521,12 +521,9 @@ class Engine:
         if len(cand):
             # deve spiccare sui ±300 Hz attorno (scarta i "baffi" e i click dei segnali fortissimi)
             w = int(round(300 / self.lbinhz))
-            ok = []
-            for k in cand.tolist():
-                nb = a[np.arange(k - w, k + w + 1) % L]
-                if a[k] > 1.5 * float(np.median(nb)):
-                    ok.append(k)
-            cand = ok
+            nbm = a[(cand[:, None] + np.arange(-w, w + 1)[None, :]) % L]
+            med = np.partition(nbm, w, axis=1)[:, w]
+            cand = cand[a[cand] > 1.5 * med].tolist()
         if len(cand) > 150:
             cand = sorted(cand, key=lambda k: -a[k])[:150]
         found = []
