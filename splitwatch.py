@@ -1004,16 +1004,19 @@ class Hub:
             self.shutdown()
 
     async def http(self, path, headers):
+        path = path.split('?', 1)[0]
         if path in ('/', '/index.html'):
             with open(res_path('index.html'), 'rb') as f:
                 body = f.read()
+            # il logo con la versione nell'indirizzo: a ogni versione nuova il browser lo ricarica
+            body = body.replace(b'"/logo.png"', ('"/logo.png?v=' + VERSION + '"').encode())
             return (200, [('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store')], body)
         if path == '/ws':
             return None
         if path in ('/logo.png', '/favicon.ico'):
             try:
                 with open(res_path('logo.png'), 'rb') as f:
-                    return (200, [('Content-Type', 'image/png'), ('Cache-Control', 'max-age=86400')], f.read())
+                    return (200, [('Content-Type', 'image/png'), ('Cache-Control', 'no-cache')], f.read())
             except Exception:
                 return (204, [], b'')
         return (404, [('Content-Type', 'text/plain')], b'non trovato')
