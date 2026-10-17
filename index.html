@@ -108,6 +108,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--bad);display:inline-block;margin-right:6px;vertical-align:middle}
 .dot.on{background:var(--dx)}
 .recgrp{margin-left:auto}
+body.contest .dxonly{display:none!important}
+#modes button[aria-pressed="true"]{background:#2a2410;border-color:var(--hot);color:#ffe2a8}
 button.rec[aria-pressed="true"]{background:#4a1214;border-color:var(--bad);color:#ffe0e0}
 button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 #bufTxt,#recTxt{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
@@ -123,11 +125,11 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.14</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.15</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
-      <div><dt>RX fisso sul DX</dt><dd id="sDx">—</dd></div>
+      <div><dt id="sDxLbl">RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
-      <div class="hot"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
+      <div class="hot dxonly"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
     </dl>
     <div class="licbox" style="margin-left:auto">
       <span id="licTxt" class="lic"></span>
@@ -137,6 +139,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
   </header>
 
   <div class="ctrl" id="bandRow">
+    <div class="grp" id="modes"><span class="lbl">Modo</span><button data-m="dx" title="Pile-up in split: RX fermo sul DX, ricerca di dove ascolta">DXpedition</button><button data-m="contest" title="Contest / S&amp;P: elenco stazioni, niente ricerca dell'ascolto">Contest</button></div>
     <div class="grp" id="bands"><span class="lbl">Banda</span></div>
     <button id="bSave" title="Memorizza centro e DX attuali per questa banda">Salva memoria</button>
     <div class="grp recgrp" id="recGrp">
@@ -174,9 +177,11 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
       <label class="rng" for="rLum">Luce <input type="range" id="rLum" min="-40" max="40" step="1"></label>
       <label class="rng" for="rCon">Contrasto <input type="range" id="rCon" min="50" max="300" step="5"></label>
     </div>
+    <button id="bRbn" aria-pressed="false" title="Reverse Beacon Network: acceso/spento (collegamento e spot)">RBN</button>
+    <button id="bSpot" aria-pressed="true" title="Mostra o nasconde le etichette degli spot RBN sul waterfall">Spot</button>
     <button id="bList" aria-pressed="false" title="Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione">☰ Elenco</button>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
-    <div class="grp" id="chips"><span class="lbl">Ascolti</span></div>
+    <div class="grp dxonly" id="chips"><span class="lbl">Ascolti</span></div>
   </div>
 
   <main class="scope">
@@ -195,12 +200,12 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <div class="cell slist" id="slist" hidden aria-label="Elenco stazioni"></div>
   </main>
 
-  <div class="dxline"><span class="who">DX ›</span><span id="dxText"></span></div>
+  <div class="dxline"><span class="who" id="whoLbl">DX ›</span><span id="dxText"></span></div>
 
   <div class="set">
     <label for="iDx">DX kHz <input type="number" id="iDx" step="0.01"></label>
-    <label for="iUpLo">Zona UP da <input class="short" type="number" id="iUpLo" step="0.5" min="0"></label>
-    <label for="iUpHi">a <input class="short" type="number" id="iUpHi" step="0.5" min="0"> kHz</label>
+    <label for="iUpLo" class="dxonly">Zona UP da <input class="short" type="number" id="iUpLo" step="0.5" min="0"></label>
+    <label for="iUpHi" class="dxonly">a <input class="short" type="number" id="iUpHi" step="0.5" min="0"> kHz</label>
     <label for="selSrc">Ricevitore <select id="selSrc"><option value="perseus">Perseus</option><option value="audio">Audio della radio</option><option value="iq">IQ da scheda audio</option><option value="file">Registrazione (WAV)</option></select></label>
     <label for="selDev" id="devBox" hidden>Ingresso <select id="selDev"></select></label>
     <label for="iOff" id="offBox" hidden title="Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB">Offset Hz <input class="short" type="number" id="iOff" step="10"></label>
@@ -450,7 +455,8 @@ function onCfg(m){
   $('#player').hidden=live;if(!live&&m.file)onPlay(m.file);LIVE=m.live_src||'perseus';
   $('#bRec').disabled=!live;if(live)PLAY=null;
   if(document.activeElement!==$('#selMem'))$('#selMem').value=String(m.mem_min);
-  $('#chkRbn').checked=!!m.rbn_on;$('#callBox').hidden=!m.rbn_need_call||!m.rbn_on;
+  applyMode(m.modo||'dx',false);
+  $('#chkRbn').checked=!!m.rbn_on;$('#bRbn').setAttribute('aria-pressed',String(!!m.rbn_on));$('#bSpot').hidden=!m.rbn_on;if(!m.rbn_on)SPOTS=[];$('#callBox').hidden=!m.rbn_need_call||!m.rbn_on;
   if(document.activeElement!==$('#iCall'))$('#iCall').value=m.rbn_call||'';setT($('#rbnState'),rbnTxt(m.rbn_state));
   $('#tag').textContent=(pers?'Perseus dal vivo':aud?'audio della radio':iq?'IQ da scheda audio':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   $('#rateBox').hidden=!(pers||iq);$('#swapBox').hidden=!(pers||iq);
@@ -498,7 +504,21 @@ $('#iOff').onchange=e=>send({cmd:'offset',hz:parseFloat(e.target.value)||0});
 $('#selRate').onchange=e=>send({cmd:'rate',hz:+e.target.value});
 $('#chkSwap').onchange=e=>send({cmd:'swap',on:e.target.checked});
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
-let SPOTS=[],STATIONS=[],LISTON=false,listDirty=true;
+let MODE=null;
+function applyMode(md,user){
+  if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md==='contest';
+  document.body.classList.toggle('contest',ct);
+  document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===md)));
+  $('#sDxLbl').textContent=ct?'RX su':'RX fisso sul DX';$('#whoLbl').textContent=ct?'RX ›':'DX ›';
+  if(ct){$('#offTop').hidden=$('#offBot').hidden=true}
+  if(user&&!first){setList(ct);flushUI()}      // cambiando modo: elenco acceso in contest, spento in DXpedition
+}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{applyMode(b.dataset.m,true);send({cmd:'mode',v:b.dataset.m})});
+let SPOTS=[],STATIONS=[],LISTON=false,listDirty=true,SPOTSHOW=true;
+try{SPOTSHOW=localStorage.getItem('fzr_spot')!=='0'}catch(e){}
+$('#bSpot').setAttribute('aria-pressed',String(SPOTSHOW));
+$('#bSpot').onclick=()=>{SPOTSHOW=!SPOTSHOW;$('#bSpot').setAttribute('aria-pressed',String(SPOTSHOW));try{localStorage.setItem('fzr_spot',SPOTSHOW?'1':'0')}catch(e){}};
+$('#bRbn').onclick=()=>send({cmd:'rbn',on:$('#bRbn').getAttribute('aria-pressed')!=='true'});
 function setList(on){LISTON=on;$('#slist').hidden=!on;$('.scope').classList.toggle('withlist',on);$('#bList').setAttribute('aria-pressed',String(on));listDirty=true;resize()}
 $('#bList').onclick=()=>{setList(!LISTON);flushUI()};
 function renderList(){
@@ -586,23 +606,23 @@ function drawWF(){
   c.fillStyle='rgba(88,217,139,.10)';c.fillRect(0,yd-fh/2,plotW,fh);
   c.fillStyle='rgba(88,217,139,.55)';c.fillRect(plotW-6*dpr,yd-fh/2,6*dpr,fh);
   // zona UP
-  const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
-  c.fillStyle='rgba(255,176,32,.05)';c.fillRect(plotW-4*dpr,Math.min(u0,u1),4*dpr,Math.abs(u1-u0));
+  if(MODE!=='contest'){const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
+  c.fillStyle='rgba(255,176,32,.05)';c.fillRect(plotW-4*dpr,Math.min(u0,u1),4*dpr,Math.abs(u1-u0));}
   c.font=`600 ${11*dpr}px Consolas,monospace`;c.textBaseline='bottom';
   const last=LISTEN[LISTEN.length-1];
-  for(const e of LISTEN){const age=tNewest-e.t;if(age>180)continue;const y=yOf(e.f/1000);if(y<0||y>H)continue;const nw=e===last;
+  if(MODE!=='contest')for(const e of LISTEN){const age=tNewest-e.t;if(age>180)continue;const y=yOf(e.f/1000);if(y<0||y>H)continue;const nw=e===last;
     c.globalAlpha=nw?1:clamp(.55-age/400,.15,.55);c.strokeStyle='#ffb020';c.lineWidth=(nw?1.6:1)*dpr;c.setLineDash(nw?[]:[4*dpr,4*dpr]);
     c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();
     if(nw){c.fillStyle='#ffb020';c.fillText(`ascolto ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
   c.globalAlpha=1;c.setLineDash([]);
   for(const o of marks){const y=yOf(o);if(y<0||y>H)continue;c.strokeStyle='#e6d3ff';c.lineWidth=1*dpr;c.setLineDash([8*dpr,3*dpr,2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);c.fillStyle='#e6d3ff';c.fillText(`segnaposto ${fmtOff(o-DX)}`,8*dpr,y-3*dpr)}
-  // spot RBN: etichetta a destra del waterfall, sulla frequenza spottata
-  c.font=`600 ${10.5*dpr}px Consolas,monospace`;c.textBaseline='middle';c.textAlign='right';
+  // spot RBN: etichetta sul bordo SINISTRO (la parte vecchia del waterfall), così non copre i segnali appena arrivati
+  if(SPOTSHOW){c.font=`600 ${10.5*dpr}px Consolas,monospace`;c.textBaseline='middle';c.textAlign='left';
   for(const sp of SPOTS){const y=yOf((sp.fa-CFG.center)/1000);if(y<6*dpr||y>H-6*dpr)continue;
-    c.globalAlpha=sp.age<300?1:sp.age<600?.7:.45;const lab=`${sp.call} ${sp.snr}dB`,tw=c.measureText(lab).width;
-    c.fillStyle='rgba(30,12,40,.85)';c.fillRect(plotW-tw-14*dpr,y-7*dpr,tw+10*dpr,14*dpr);
-    c.fillStyle='#e48cff';c.fillRect(plotW-4*dpr,y-.75*dpr,4*dpr,1.5*dpr);c.fillText(lab,plotW-9*dpr,y+.5*dpr)}
-  c.globalAlpha=1;c.textAlign='left';c.textBaseline='bottom';
+    c.globalAlpha=sp.age<300?.95:sp.age<600?.65:.4;const lab=`${sp.call} ${sp.snr}dB`,tw=c.measureText(lab).width;
+    c.fillStyle='rgba(30,12,40,.8)';c.fillRect(2*dpr,y-7*dpr,tw+12*dpr,14*dpr);
+    c.fillStyle='#e48cff';c.fillRect(2*dpr,y-.75*dpr,4*dpr,1.5*dpr);c.fillText(lab,9*dpr,y+.5*dpr)}
+  c.globalAlpha=1;c.textBaseline='bottom';}
   c.fillStyle='rgba(108,126,143,.8)';c.font=`400 ${9.5*dpr}px Consolas,monospace`;
   const ts=WIN<=5?1:WIN<=10?2:5;for(let s=0;s<=WIN;s+=ts){const x=plotW-s/WIN*plotW;c.fillRect(x-.5*dpr,H-5*dpr,1*dpr,5*dpr);if(s)c.fillText(`-${s}s`,x+3*dpr,H-2*dpr)}
   // scala
@@ -660,7 +680,7 @@ function updateUI(){
   const last=LISTEN[LISTEN.length-1];
   setT($('#sLast'),last?`${fmtOff(last.f/1000-DX)} kHz dal DX · ${Math.max(0,Math.round(t-last.t))} s fa`:'—');
   const top=$('#offTop'),bot=$('#offBot');
-  if(last&&t-last.t<25){const y=yOf(last.f/1000),l=`ascolto a ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
+  if(MODE!=='contest'&&last&&t-last.t<25){const y=yOf(last.f/1000),l=`ascolto a ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
   if(chipsDirty){chipsDirty=false;const box=$('#chips');box.querySelectorAll('.chip').forEach(n=>n.remove());
     LISTEN.slice(-6).forEach((e,i,a)=>{const b=document.createElement('button');b.className='chip'+(i<a.length-1?' old':'');b.textContent=fmtOff(e.f/1000-DX);b.onclick=()=>centerOn(e.f/1000);box.appendChild(b)})}
   if(dxDirty){dxDirty=false;const dw=WORDS.filter(w=>w.dx).slice(-40);

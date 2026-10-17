@@ -1,4 +1,4 @@
-# FZR Skimmer 1.14
+# FZR Skimmer 1.15
 
 IW1FZR
 
@@ -129,6 +129,14 @@ Da riga di comando:
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
 
+## Modo: DXpedition o Contest
+
+In alto a sinistra, **Modo**:
+- **DXpedition** – pile-up in split: RX fermo sul DX, ricerca di dove ascolta (linee arancio,
+  Ascolti, Zona UP).
+- **Contest** – S&P: si accende l'elenco stazioni, la ricerca dell'ascolto si spegne e sparisce
+  dalla schermata. Il modo resta memorizzato.
+
 ## Elenco stazioni (contest, S&P)
 
 Pulsante **☰ Elenco**: a destra del testo compare l'elenco delle stazioni, ordinate per frequenza:
@@ -136,6 +144,9 @@ nominativo, **CQ** se stanno chiamando CQ/TEST, frequenza, dB, velocità e da qu
 Ci finiscono i nominativi confermati (decodificati uguali almeno due volte sullo stesso segnale,
 oppure subito dopo CQ/TEST) e gli spot RBN della banda ricevuta (in viola).
 **Clic su una riga**: l'audio va su quella stazione e il waterfall si centra lì.
+
+Le parole attaccate (spazio troppo corto tra una parola e l'altra: `CQCQDE`, `DL1EKOTEST`, `TU5NN203`)
+vengono separate quando i pezzi sono parole CW, nominativi o numeri di scambio.
 
 ## Nominativi: conferma per ripetizione
 
@@ -149,7 +160,9 @@ Casella **RBN** in basso (accesa di base): FZR Skimmer si collega a telnet.rever
 (solo CW) con il tuo nominativo (quello della registrazione; se non sei registrato compare
 il campo **Nominativo**). Serve Internet.
 
-- Sul waterfall, a destra, compaiono in viola i nominativi spottati nella banda ricevuta,
+- **RBN** (in alto, accanto a Elenco) accende/spegne il collegamento; **Spot** mostra o nasconde
+  le etichette sul waterfall.
+- Sul waterfall, sul bordo sinistro (la parte vecchia, così non coprono i segnali appena arrivati), compaiono in viola i nominativi spottati nella banda ricevuta,
   sulla loro frequenza, con il segnale in dB (più sbiaditi se lo spot è vecchio, fino a 15 minuti).
 - Un nominativo decodificato che coincide con uno spottato lì vicino (entro 600 Hz) viene
   mostrato come **sicuro**; se differisce di una sola lettera da uno spottato entro 300 Hz,

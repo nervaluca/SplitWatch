@@ -16,7 +16,7 @@ ROW_EVERY = 2               # 1 riga di waterfall ogni 2 frame = 100 righe/s
 MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
 THR_ON, THR_OFF = 0.6, 0.5   # soglie del canale: frazione (logaritmica) tra rumore e segnale
 S_DECAY = 0.9              # discesa del livello del segnale ogni 0,1 s
-CHAR_G, WORD_G = 2.0, 4.5   # spazi tra lettere e tra parole, in unità
+CHAR_G, WORD_G = 2.0, 4.0   # spazi tra lettere e tra parole, in unità
 TIMING_ROBUST = 0
 SMOOTH = 1                  # frame della media mobile sull'inviluppo
 REPLAY_S = 3.0               # secondi ridecodificati quando si apre un canale nuovo
@@ -32,7 +32,7 @@ KEEP = {'5NN', '599', 'TU', 'R', 'K', 'NN', '5N', 'R5NN', 'TU5NN', '5NNTU', 'QRZ
         'QRL', 'QRM', 'QRN', 'QRP', 'QRO', 'QRQ', 'QRS', 'QRT', 'QRV', 'QSB', 'QSY', 'QRU', 'NAME', 'AGN', 'PSE',
         'KN', 'BK', 'SK', 'AR', 'AS', 'RR', 'GM', 'GA', 'GE', 'GN', 'GL', 'WX', 'HR', 'HW', 'ANT', 'RIG', 'PWR',
         'FER', 'FOR', 'NR', 'NW', 'SRI', 'CFM', 'TIME', 'DR', 'TEMP', 'VY', 'GD', 'BEST', 'TEST', 'IS', 'HIS',
-        'SIG', '73', '88', '599', 'SSB', 'CW'}
+        'SIG', '73', '88', '599', 'SSB', 'CW', 'WAG', 'WPX', 'CQWW', 'IOTA', 'DX', 'POTA', 'SOTA', 'QRZ?', 'NR?', 'AGN?'}
 CALL_RE = re.compile(r'^(?:[A-Z]{1,2}|\d[A-Z]|[A-Z]\d)\d{1,2}[A-Z]{1,4}(?:/[A-Z0-9]+)?$')
 
 
@@ -137,6 +137,47 @@ def _kmeans2(v):
     if hi < 2.0 * lo or hi > 5.0 * lo or not 0.02 <= lo <= 0.15:
         return None
     return lo, hi
+
+
+NOISE_WORDS = {'EE', 'ES', 'HI', 'IS', 'ST', 'II', 'SS', 'IE', 'EI', 'TE', 'ET'}
+_EXCH = re.compile(r'^(?:\d{1,4}|[A-Z]\d{1,3}|\d{1,3}[A-Z])$')       # numeri e scambi da contest (001, E14, 15A)
+
+
+def segment(w):
+    """Divide una parola fatta di più parole attaccate. None se non si divide in pezzi tutti validi."""
+    n = len(w)
+    half = n // 2
+    if n % 2 == 0 and w[:half] == w[half:] and CALL_RE.match(w[:half]):
+        return [w[:half], w[half:]]
+    best = [None] * (n + 1)                      # best[i] = (punteggio, pezzi) per w[:i]
+    best[0] = (0.0, [])
+    for i in range(n):
+        if best[i] is None:
+            continue
+        sc, parts = best[i]
+        prev = parts[-1] if parts else ''
+        for j in range(i + 1, min(n, i + 10) + 1):
+            tok = w[i:j]
+            if tok in KEEP and tok not in NOISE_WORDS and (len(tok) >= 2 or tok in ('R', 'K')):
+                v = 2.0 if len(tok) >= 2 else 0.3
+            elif len(tok) >= 4 and CALL_RE.match(tok):
+                v = 3.0
+            elif _EXCH.match(tok) and prev in ('5NN', '599', 'NR', 'TU5NN', 'R5NN', 'ENN'):
+                v = 1.0
+            elif j - i <= 6:
+                v = -2.0                                 # pezzo illeggibile: si scarta (vale solo se il resto è buono)
+                tok = '\x00' + tok
+            else:
+                continue
+            cand = (sc + v - 0.5, parts + [tok])
+            if best[j] is None or cand[0] > best[j][0]:
+                best[j] = cand
+    if best[n] is None or len(best[n][1]) < 2 or best[n][0] <= 0:
+        return None
+    good = [p for p in best[n][1] if not p.startswith('\x00')]
+    if not good or (len(good) == 1 and len(good[0]) < 4):
+        return None
+    return good
 
 
 def _close(w, call):
@@ -265,7 +306,8 @@ class Engine:
         # DX e ascolto
         self.bfo = bfo
         self.min_snr = 5.0                                 # soglia minima del segnale (x rumore)
-        self.up_lo, self.up_hi = 150.0, 10000.0             # zona UP dove cercare l'ascolto (Hz dal DX)
+        self.up_lo, self.up_hi = 150.0, 10000.0
+        self.listen_on = True                              # ricerca dell'ascolto (spenta in modalità contest)             # zona UP dove cercare l'ascolto (Hz dal DX)
         self.set_dx(dx_off_hz)
         self.over = None                                   # [t_inizio, t_ultima_attività, parole]
         self.pending_listen = []
@@ -422,8 +464,9 @@ class Engine:
             self._decode_block(chs, E, tA, fr_dt)
 
         # DX: over e ascolto
-        self._dx_track(strong[:, self.dx_k] & act[:, self.dx_k], tA, fr_dt)
-        self._listen_accumulate(strong, act, tA, fr_dt, m)
+        if self.listen_on:
+            self._dx_track(strong[:, self.dx_k] & act[:, self.dx_k], tA, fr_dt)
+            self._listen_accumulate(strong, act, tA, fr_dt, m)
         self.frame_no += m
 
     def _levels(self, chs, E, init=False):
@@ -708,14 +751,23 @@ class Engine:
             ch.word = ''
             ch.t0 = None
 
-    def _emit_word(self, ch, w):
+    def _emit_word(self, ch, w, split=True):
         t = ch.t0 if ch.t0 is not None else self.t
         if not CALL_RE.match(w) and w not in KEEP:
-            # E / I / S / T in testa al nominativo: quasi sempre un disturbo prima del primo segno
+            # E / I / S / T in testa: quasi sempre un disturbo prima del primo segno
             for k in (1, 2):
-                if len(w) - k >= 3 and all(c in 'EIST' for c in w[:k]) and CALL_RE.match(w[k:]):
-                    w = w[k:]
+                core = w[k:]
+                if all(c in 'EIST' for c in w[:k]) and (len(core) >= 3 and CALL_RE.match(core)
+                                                        or len(core) >= 2 and core in KEEP and core not in NOISE_WORDS):
+                    w = core
                     break
+        if split and len(w) >= 5 and not CALL_RE.match(w) and w not in KEEP:
+            parts = segment(w)
+            if parts:
+                # parole attaccate (spazio troppo corto): CQCQDE, DL1ABCTEST, TU5NN203, IZ8XXEIZ8XXE
+                for p in parts:
+                    self._emit_word(ch, p, split=False)
+                return
         if len(w) < 3 and w not in KEEP:
             return                                       # 1-2 lettere fuori dal vocabolario CW: quasi sempre rumore
         if len(w) == 1 and t - ch.last_good > 4.0:

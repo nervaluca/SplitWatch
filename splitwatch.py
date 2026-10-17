@@ -33,7 +33,7 @@ from rbn import RBN
 from recorder import Recorder
 from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
 
-VERSION = '1.14'
+VERSION = '1.15'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -740,6 +740,7 @@ class Hub:
                 self.engine.up_lo, self.engine.up_hi = up[0] * 1000, up[1] * 1000
                 self.engine.set_bw(float(self.cfg.get('filtro', 500)))
                 self.engine.min_snr = float(self.cfg.get('sensibilita', 5.0))
+                self.engine.listen_on = self.cfg.get('modo', 'dx') != 'contest'
             else:
                 self.engine.set_dx(self.dx_abs - center)
             with self.lock:
@@ -808,6 +809,7 @@ class Hub:
                 'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR,
                 'rbn_on': bool(self.cfg.get('rbn', True)), 'rbn_state': self.rbn_state(), 'rbn_call': self.rbn_call(),
                 'rbn_need_call': not (self.lic or {}).get('call'),
+                'modo': self.cfg.get('modo', 'dx'),
                 'mem_min': self.rec.minutes, 'live_src': self.cfg.get('sorgente', 'perseus'), 'rec_dir': self.rec_dir, 'file': self.file_state(), **lic}
 
     # -------------------------------------------------------------- web
@@ -915,6 +917,15 @@ class Hub:
                         self.cfg['nominativo'] = str(c['call']).strip().upper()[:12]
                     save_cfg(self.cfg)
                     self.rbn_apply()
+                    self.post_json(self.cfg_msg())
+                elif k == 'mode' and c.get('v') in ('dx', 'contest'):
+                    self.cfg['modo'] = c['v']
+                    save_cfg(self.cfg)
+                    if self.engine:
+                        self.engine.listen_on = c['v'] != 'contest'
+                        self.engine.pending_listen = []
+                    if c['v'] == 'contest':
+                        self.listen_hist.clear()
                     self.post_json(self.cfg_msg())
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))
