@@ -991,9 +991,24 @@ class Hub:
     @staticmethod
     def _is_local(ws):
         try:
-            return ws.remote_address[0] in ('127.0.0.1', '::1', 'localhost')
+            h = ws.remote_address[0]
+            return h in ('127.0.0.1', '::1', 'localhost') or str(h).startswith('::ffff:127.')
         except Exception:
             return False
+
+    def idle_thread(self):
+        """Se nessuna pagina sul PC è collegata da 20 s (finestra chiusa senza avvisare), esco."""
+        seen = time.time() + 25                  # all'avvio la finestra può metterci un po' ad aprirsi
+        while True:
+            time.sleep(2)
+            if getattr(self, 'app_proc', None) is None:
+                continue
+            if any(self._is_local(c) for c in list(self.clients)):
+                seen = time.time()
+            elif time.time() - seen > 20:
+                log('Nessuna finestra collegata da 20 s: esco')
+                self.shutdown()
+                return
 
     async def _maybe_quit(self):
         """Finestra del programma chiusa: se entro 6 s non si riapre (non era un ricaricamento), esco.
@@ -1029,6 +1044,7 @@ class Hub:
         threading.Thread(target=self.rec_thread, daemon=True).start()
         threading.Thread(target=self.rbn_thread, daemon=True).start()
         threading.Thread(target=self.stations_thread, daemon=True).start()
+        threading.Thread(target=self.idle_thread, daemon=True).start()
         self.rbn_apply()
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
@@ -1058,6 +1074,15 @@ class Hub:
 
     def shutdown(self):
         """Ferma il ricevitore (libera il Perseus) ed esce."""
+        if getattr(self, '_closing', False):
+            return
+        self._closing = True
+        log('Chiusura in corso…')
+        # rete di sicurezza: qualunque cosa si blocchi (driver, browser), fra 8 s il processo esce comunque
+        t = threading.Timer(8.0, lambda: (log('Chiusura forzata'), os._exit(0)))
+        t.daemon = True
+        t.start()
+
         def run():
             try:
                 self.rec.stop_rec()                     # chiude bene il WAV in corso
