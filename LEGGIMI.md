@@ -1,4 +1,4 @@
-# FZR Skimmer 1.16
+# FZR Skimmer 1.17
 
 IW1FZR
 
@@ -7,6 +7,9 @@ il waterfall scorre libero su tutta la banda ricevuta, il testo CW decodificato
 appare accanto a ogni segnale e i 5NN sono evidenziati. Dopo ogni 5NN del DX
 il programma segna in arancio dove ha risposto la stazione lavorata, cioè dove
 il DX sta ascoltando.
+
+**Lingua**: pulsante **EN / IT** in alto a destra (italiano o inglese; resta memorizzato).
+English instructions: `README_EN.md`.
 
 ## Installazione
 

@@ -47,6 +47,7 @@ jobs:
           mkdir FZRSkimmer
           copy dist\FZRSkimmer.exe FZRSkimmer\
           copy LEGGIMI.md FZRSkimmer\
+          if exist README_EN.md copy README_EN.md FZRSkimmer\
           if exist prepara_cartella.bat copy prepara_cartella.bat FZRSkimmer\
           copy logo.png FZRSkimmer\
         shell: cmd

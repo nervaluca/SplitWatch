@@ -27,6 +27,7 @@ import numpy as np
 import websockets
 
 import dsp
+import i18n
 import licenza
 from dsp import Engine
 from rbn import RBN
@@ -257,7 +258,7 @@ class Hub:
     def on_status(self, s):
         self.status = s
         log(s)
-        self.post_json({'type': 'status', 'text': s})
+        self.post_json({'type': 'status', 'text': s, 'en': i18n.en(s)})
 
     def on_rate(self, fs, center):
         self.cmd_q.put(('rate', float(fs), float(center)))
@@ -604,7 +605,8 @@ class Hub:
             except Exception:
                 import traceback
                 log('ERRORE nel calcolo:\n' + traceback.format_exc())
-                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi fzrskimmer.log'})
+                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi fzrskimmer.log',
+                                'en': 'Processing error: see fzrskimmer.log'})
                 time.sleep(1)
 
     def diag_thread(self):
@@ -623,7 +625,8 @@ class Hub:
             if rate == 0:
                 msg = 'Nessun dato dal Perseus · ' + msg
             log(msg)
-            self.post_json({'type': 'status', 'text': (self.status if rate else 'Nessun dato dal Perseus') + ' · ' + f'{rate/1000:.0f} k/s'})
+            txt = (self.status if rate else 'Nessun dato dal Perseus') + ' · ' + f'{rate/1000:.0f} k/s'
+            self.post_json({'type': 'status', 'text': txt, 'en': i18n.en(txt)})
 
     def _dsp_loop(self):
         last_send = time.perf_counter()
@@ -795,11 +798,11 @@ class Hub:
         lic = {'lic': (self.lic or {}).get('testo'), 'donor': bool((self.lic or {}).get('donor')),
                'trial': self.trial_left(), 'locked': self.locked, 'url_key': URL_RICHIESTA_CHIAVE}
         if e is None:
-            return {'type': 'cfg', 'ready': False, 'status': self.status, **lic}
+            return {'type': 'cfg', 'ready': False, 'status': self.status, 'status_en': i18n.en(self.status), **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
                 'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
                 'rowdt': dsp.ROW_EVERY / dsp.FRAMES_PER_S, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
-                'src': self.src_kind, 'status': self.status, 'version': VERSION,
+                'src': self.src_kind, 'status': self.status, 'status_en': i18n.en(self.status), 'version': VERSION,
                 'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
@@ -892,7 +895,7 @@ class Hub:
                     self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
-                    for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list'):
+                    for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list', 'lang'):
                         if key in c['v']:
                             ui[key] = c['v'][key]
                     save_cfg(self.cfg)

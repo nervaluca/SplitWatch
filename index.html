@@ -49,6 +49,7 @@ button.audio[aria-pressed="true"]{background:#1d5a37;border-color:var(--dx)}
 .chip.old{opacity:.55}
 input[type=number]{width:7.2em;font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px}
 input.short{width:4.6em}
+#iCall{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:5px 7px;text-transform:uppercase}
 .licbox{display:flex;align-items:center;gap:8px}
 .lic{font:600 .85rem var(--f-mono);color:var(--dim)}
 .lic.ok{color:#e9b949}
@@ -134,6 +135,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <div class="licbox" style="margin-left:auto">
       <span id="licTxt" class="lic"></span>
       <button id="bReg" hidden>Registra</button>
+      <button id="bLang" style="font-family:var(--f-mono)">EN</button>
       <button id="bQuit" title="Ferma il ricevitore e chiude FZR Skimmer">Esci</button>
     </div>
   </header>
@@ -247,6 +249,36 @@ const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmtOff=o=>(o>=0?'+':'−')+Math.abs(o).toFixed(Math.abs(o)<10?2:1);
 let CFG=null;
+/* ---------------- lingua (italiano / inglese) ---------------- */
+const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed"};
+let LANG='it';
+try{LANG=localStorage.getItem('fzr_lang')||((navigator.language||'it').toLowerCase().startsWith('it')?'it':'en')}catch(e){}
+const T=s=>LANG==='en'&&EN[s]!=null?EN[s]:s;              // testo fisso
+const L=(it,en)=>LANG==='en'?en:it;                         // testo con numeri dentro
+const NOTR=new Set(['status','dxText','slist','licTxt','pFile','selDev','regMsg','sDx','sView','sLast','bufTxt','recTxt','pTime','rbnState','tag']);
+let i18nNodes=null;
+function collectI18n(){
+  i18nNodes={text:[],attr:[]};
+  const walk=el=>{if(el.id&&NOTR.has(el.id))return;if(el.tagName==='SCRIPT'||el.tagName==='STYLE'||el.tagName==='CANVAS')return;
+    for(const a of ['title','aria-label','alt'])if(el.getAttribute&&el.getAttribute(a)&&EN[el.getAttribute(a)]!=null)i18nNodes.attr.push([el,a,el.getAttribute(a)]);
+    for(const n of el.childNodes){if(n.nodeType===3){const k=n.nodeValue.trim();if(k&&EN[k]!=null)i18nNodes.text.push([n,n.nodeValue,k])}else if(n.nodeType===1)walk(n)}};
+  walk(document.body);
+}
+function applyLang(){
+  if(!i18nNodes)collectI18n();
+  document.documentElement.lang=LANG;
+  for(const[n,orig,k] of i18nNodes.text)n.nodeValue=LANG==='en'?orig.replace(k,EN[k]):orig;
+  for(const[el,a,orig] of i18nNodes.attr)el.setAttribute(a,T(orig));
+  const b=document.getElementById('bLang');if(b){b.textContent=LANG==='en'?'IT':'EN';b.title=LANG==='en'?'Passa all\'italiano':'Switch to English'}
+}
+function setLang(l,save){LANG=l;try{localStorage.setItem('fzr_lang',l)}catch(e){}applyLang();
+  if(save&&typeof send==='function')send({cmd:'ui',v:{lang:l}});
+  if(typeof CFG!=='undefined'&&CFG){chipsDirty=true;dxDirty=true;listDirty=true;onCfg(CFG,true)}
+  const ba=document.getElementById('bAudio');if(ba)ba.textContent=T(audioOn?'🔊 Audio DX':'🔈 Audio DX');
+  const sl=document.getElementById('sDxLbl');if(sl)sl.textContent=T(MODE==='contest'?'RX su':'RX fisso sul DX');
+  if(!$('#menu').hidden)closeMenu();
+  if(LASTSTATUS)setStatus(LASTSTATUS)}
+let LASTSTATUS=null;
 
 /* ---------------- waterfall ad anello ---------------- */
 const RING=3000;                     // 30 s a 100 righe/s
@@ -337,7 +369,7 @@ async function startAudio(){
 $('#bAudio').onclick=async()=>{
   audioOn=!audioOn;
   if(audioOn){await startAudio()}else if(ac){await ac.suspend()}
-  $('#bAudio').setAttribute('aria-pressed',audioOn);$('#bAudio').textContent=audioOn?'🔊 Audio DX':'🔈 Audio DX';
+  $('#bAudio').setAttribute('aria-pressed',audioOn);$('#bAudio').textContent=T(audioOn?'🔊 Audio DX':'🔈 Audio DX');
 };
 function playAudio(i16){
   if(!audioOn||!ac||!CFG)return;
@@ -389,7 +421,7 @@ function connect(){
       const m=JSON.parse(e.data);
       if(m.type==='cfg'){onCfg(m)}
       else if(m.type==='ev'){addEv(m)}
-      else if(m.type==='status'){setStatus(m.text)}
+      else if(m.type==='status'){setStatus({it:m.text,en:m.en})}
       else if(m.type==='play'){onPlay(m)}
       else if(m.type==='rec'){onRec(m)}
       else if(m.type==='files'){onFiles(m.files)}
@@ -404,7 +436,8 @@ function connect(){
   };
 }
 const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
-function setStatus(t,err){const s=$('#status');s.lastChild.nodeValue=' '+t;s.classList.toggle('err',!!err||/errore|non trovo|fallit|non risponde/i.test(t))}
+function setStatus(t,err){if(t&&typeof t==='object'){LASTSTATUS=t;t=LANG==='en'&&t.en?t.en:t.it}else{t=T(t)}
+  const s=$('#status');s.lastChild.nodeValue=' '+t;s.classList.toggle('err',!!err||/errore|non trovo|fallit|non risponde|error|not found|failed|does not respond/i.test(t))}
 let trialEnd=null,LIC=null,regOpenedOnLock=false;
 function onLic(m){
   LIC=m;
@@ -412,27 +445,27 @@ function onLic(m){
   if(m.lic){$('#licTxt').textContent=m.lic;$('#licTxt').className='lic ok';$('#bReg').hidden=true;trialEnd=null;return}
   $('#bReg').hidden=false;
   trialEnd=(m.trial==null)?null:Date.now()+m.trial*1000;
-  if(m.locked){$('#licTxt').textContent='Prova terminata';$('#licTxt').className='lic trial';
+  if(m.locked){$('#licTxt').textContent=T('Prova terminata');$('#licTxt').className='lic trial';
     if(!regOpenedOnLock){regOpenedOnLock=true;openReg(true)}}
-  else if(trialEnd==null){$('#licTxt').textContent='Non registrato · riproduzione libera';$('#licTxt').className='lic'}
+  else if(trialEnd==null){$('#licTxt').textContent=T('Non registrato · riproduzione libera');$('#licTxt').className='lic'}
 }
 function openReg(locked){
-  $('#regTitle').textContent=locked?'⏳ Prova di 5 minuti terminata':'Registra FZR Skimmer';
-  $('#regText').textContent=locked
+  $('#regTitle').textContent=T(locked?'⏳ Prova di 5 minuti terminata':'Registra FZR Skimmer');
+  $('#regText').textContent=T(locked
     ?'Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.'
-    :'Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.';
-  $('#regClose').textContent=locked?'Esci':'Continua la prova';
+    :'Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.');
+  $('#regClose').textContent=T(locked?'Esci':'Continua la prova');
   $('#regMsg').textContent='';$('#regBox').hidden=false;$('#regCall').focus();
 }
 $('#bReg').onclick=()=>openReg(LIC&&LIC.locked);
 $('#regClose').onclick=()=>{if(LIC&&LIC.locked){quitting=true;send({cmd:'quit'});setStatus('FZR Skimmer chiuso');$('#regBox').hidden=true;setTimeout(()=>{try{window.close()}catch(e){}},800)}else $('#regBox').hidden=true};
-$('#regOk').onclick=()=>{$('#regMsg').textContent='Verifico…';$('#regMsg').className='regmsg';send({cmd:'register',call:$('#regCall').value,key:$('#regKey').value})};
-$('#regOnline').onclick=()=>{$('#regMsg').textContent='Verifico online…';$('#regMsg').className='regmsg';send({cmd:'register_online',call:$('#regCall').value})};
+$('#regOk').onclick=()=>{$('#regMsg').textContent=T('Verifico…');$('#regMsg').className='regmsg';send({cmd:'register',call:$('#regCall').value,key:$('#regKey').value})};
+$('#regOnline').onclick=()=>{$('#regMsg').textContent=T('Verifico online…');$('#regMsg').className='regmsg';send({cmd:'register_online',call:$('#regCall').value})};
 setInterval(()=>{if(trialEnd==null||(LIC&&LIC.lic))return;const s=Math.max(0,Math.round((trialEnd-Date.now())/1000));
-  if(!(LIC&&LIC.locked)){$('#licTxt').textContent=`Prova: ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;$('#licTxt').className='lic trial'}},1000);
-function onCfg(m){
+  if(!(LIC&&LIC.locked)){$('#licTxt').textContent=L('Prova: ','Trial: ')+`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;$('#licTxt').className='lic trial'}},1000);
+function onCfg(m,again){
   onLic(m);
-  if(m.status)setStatus(m.status);
+  if(m.status&&!again)setStatus({it:m.status,en:m.status_en});
   if(!m.ready)return;
   const reset=!CFG||CFG.nbins!==m.nbins||CFG.center!==m.center||CFG.fs!==m.fs;
   const dxMoved=!!CFG&&CFG.dx!==m.dx&&m.dx!==localDx;
@@ -440,6 +473,7 @@ function onCfg(m){
   CFG=m;
   if(audioOn&&ac&&Math.round(m.arate)!==acRate)startAudio();
   if(reset){resetRing();WORDS=[];LISTEN=[];dxDirty=chipsDirty=true}
+  if(firstCfg&&m.ui&&m.ui.lang&&m.ui.lang!==LANG){LANG=m.ui.lang;try{localStorage.setItem('fzr_lang',LANG)}catch(e){}applyLang()}
   if(firstCfg&&m.ui){const u=m.ui;
     if(u.span)view.span=Math.min(+u.span,m.fs/1000);if(u.win)WIN=+u.win;
     if(u.pal){WFS.pal=u.pal;$('#selPal').value=u.pal}if(u.lum!=null){WFS.lum=+u.lum;$('#rLum').value=u.lum}
@@ -458,13 +492,13 @@ function onCfg(m){
   applyMode(m.modo||'dx',false);
   $('#chkRbn').checked=!!m.rbn_on;$('#bRbn').setAttribute('aria-pressed',String(!!m.rbn_on));$('#bSpot').hidden=!m.rbn_on;if(!m.rbn_on)SPOTS=[];$('#callBox').hidden=!m.rbn_need_call||!m.rbn_on;
   if(document.activeElement!==$('#iCall'))$('#iCall').value=m.rbn_call||'';setT($('#rbnState'),rbnTxt(m.rbn_state));
-  $('#tag').textContent=(pers?'Perseus dal vivo':aud?'audio della radio':iq?'IQ da scheda audio':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
+  $('#tag').textContent=T(pers?'Perseus dal vivo':aud?'audio della radio':iq?'IQ da scheda audio':'riproduzione registrazione')+` · ${(m.fs/1000).toFixed(1)} kHz`;
   $('#rateBox').hidden=!(pers||iq);$('#swapBox').hidden=!(pers||iq);
   $('#devBox').hidden=!(aud||iq);$('#offBox').hidden=!aud;
-  $('#loLbl').textContent=pers?'Centro Perseus kHz':aud?'Frequenza radio kHz':iq?'LO kHz':'Centro kHz';
+  $('#loLbl').textContent=T(pers?'Centro Perseus kHz':aud?'Frequenza radio kHz':iq?'LO kHz':'Centro kHz');
   if(document.activeElement!==$('#selSrc'))$('#selSrc').value=pers?'perseus':aud?'audio':iq?'iq':'file';
-  const sd=$('#selDev');if(sd.dataset.list!==JSON.stringify(m.audio_devs||[])){sd.dataset.list=JSON.stringify(m.audio_devs||[]);
-    sd.innerHTML='<option value="">Predefinito di Windows</option>'+(m.audio_devs||[]).map(n=>`<option>${n.replace(/[<>&]/g,'')}</option>`).join('')}
+  const sd=$('#selDev');if(sd.dataset.list!==LANG+JSON.stringify(m.audio_devs||[])){sd.dataset.list=LANG+JSON.stringify(m.audio_devs||[]);
+    sd.innerHTML='<option value="">'+T('Predefinito di Windows')+'</option>'+(m.audio_devs||[]).map(n=>`<option>${n.replace(/[<>&]/g,'')}</option>`).join('')}
   if(document.activeElement!==sd)sd.value=m.audio_dev||'';
   if(document.activeElement!==$('#iOff'))$('#iOff').value=m.offset;
   if(aud&&m.dial&&document.activeElement!==$('#iLo'))$('#iLo').value=(m.dial/1000).toFixed(2);
@@ -479,7 +513,7 @@ function renderBands(m){
   for(const b of ['160','80','40','30','20','17','15','12','10']){
     const mem=m.bands&&m.bands[b];if(!mem)continue;
     const el=document.createElement('button');el.className='band'+(mem.pred?' pred':'');el.textContent=b;
-    el.title=`${b} m · centro ${(mem.centro/1000).toFixed(1)} · DX ${(mem.dx/1000).toFixed(2)} kHz`+(mem.pred?' (predefinita)':'');
+    el.title=`${b} m · ${L('centro','centre')} ${(mem.centro/1000).toFixed(1)} · DX ${(mem.dx/1000).toFixed(2)} kHz`+(mem.pred?' '+T('(predefinita)'):'');
     el.setAttribute('aria-pressed',String(m.band===b));
     el.onclick=()=>{flushUI();send({cmd:'band',band:b});wantDx=true};
     box.appendChild(el);
@@ -489,6 +523,7 @@ $('#iDx').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'dx',
 $('#iUpLo').onchange=$('#iUpHi').onchange=()=>send({cmd:'up',lo:parseFloat($('#iUpLo').value)||0,hi:parseFloat($('#iUpHi').value)||10});
 $('#iLo').onchange=e=>{const v=parseFloat(e.target.value);if(v>0)send({cmd:'lo',hz:Math.round(v*1000)})};
 $('#bGui').onclick=()=>send({cmd:'gui'});
+$('#bLang').onclick=()=>setLang(LANG==='en'?'it':'en',true);
 $('#bQuit').onclick=()=>{quitting=true;send({cmd:'quit'});setStatus('FZR Skimmer chiuso: puoi chiudere questa finestra');setTimeout(()=>{try{window.close()}catch(e){}},800)};
 $('#selPal').value=WFS.pal;$('#rLum').value=WFS.lum;$('#rCon').value=WFS.con;
 $('#selPal').onchange=e=>{WFS.pal=e.target.value;wfChanged()};
@@ -509,7 +544,7 @@ function applyMode(md,user){
   if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md==='contest';
   document.body.classList.toggle('contest',ct);
   document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===md)));
-  $('#sDxLbl').textContent=ct?'RX su':'RX fisso sul DX';$('#whoLbl').textContent=ct?'RX ›':'DX ›';
+  $('#sDxLbl').textContent=T(ct?'RX su':'RX fisso sul DX');$('#whoLbl').textContent=ct?'RX ›':'DX ›';
   if(ct){$('#offTop').hidden=$('#offBot').hidden=true}
   if(user&&!first){setList(ct);flushUI()}      // cambiando modo: elenco acceso in contest, spento in DXpedition
 }
@@ -528,11 +563,11 @@ function renderList(){
     const call=s.call.replace(/[<>&]/g,'');
     return `<button class="${cls}" data-f="${s.fa}"><span class="c">${call}${s.cq?'<small>CQ</small>':''}</span><span class="fq">${(s.fa/1000).toFixed(2)}</span>`+
       `<span class="meta">${s.db!=null?s.db+' dB · ':''}${s.wpm?s.wpm+' wpm · ':''}${s.src==='rbn'?'RBN':s.rbn?'RX+RBN':'RX'} · ${s.age<60?s.age+' s':Math.round(s.age/60)+' min'}</span></button>`}).join('');
-  box.innerHTML=`<div class="hd"><span>Stazioni</span><span>${STATIONS.length}</span></div>`+(rows||'<div class="hd" style="position:static;border:0;text-transform:none;letter-spacing:0">Nessuna stazione ancora</div>');
+  box.innerHTML=`<div class="hd"><span>${T('Stazioni')}</span><span>${STATIONS.length}</span></div>`+(rows||'<div class="hd" style="position:static;border:0;text-transform:none;letter-spacing:0">'+T('Nessuna stazione ancora')+'</div>');
 }
 $('#slist').addEventListener('click',e=>{const b=e.target.closest('.srow');if(!b||!CFG)return;const hz=Math.round(+b.dataset.f/10)*10;
   CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);send({cmd:'dx',hz});centerOn((hz-CFG.center)/1000);listDirty=true});
-const rbnTxt=s=>!s||s==='spento'?'':s==='collegato'?`RBN: ${SPOTS.length} spot in banda`:'RBN: '+s;
+const rbnTxt=s=>!s||s==='spento'?'':s==='collegato'?`RBN: ${SPOTS.length} ${L('spot in banda','spots in band')}`:'RBN: '+(LANG==='en'?String(s).replace(/non raggiungibile, riprovo tra (\d+) s/,'unreachable, retrying in $1 s').replace(/^[\wà-ù… ]+$/,x=>T(x)):s);
 $('#chkRbn').onchange=e=>send({cmd:'rbn',on:e.target.checked});
 $('#iCall').onchange=e=>send({cmd:'rbn',call:e.target.value});
 
@@ -540,9 +575,9 @@ $('#iCall').onchange=e=>send({cmd:'rbn',call:e.target.value});
 let LIVE='perseus',PLAY=null,seeking=false;
 const mmss=s=>{s=Math.max(0,Math.round(s||0));const h=Math.floor(s/3600),m=Math.floor(s/60)%60,ss=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${ss}`:`${m}:${ss}`};
 function onRec(m){
-  setT($('#bufTxt'),m.saving?'… salvo':mmss(m.buf));
+  setT($('#bufTxt'),m.saving?T('… salvo'):mmss(m.buf));
   $('#bSaveLast').disabled=!m.buf||m.saving;
-  $('#bSaveLast').title=`Salva su disco gli ultimi ${mmss(m.buf)} (memoria: ${m.mem_min} min, ${m.mb} MB). Il ricevitore non si ferma.`;
+  $('#bSaveLast').title=L(`Salva su disco gli ultimi ${mmss(m.buf)} (memoria: ${m.mem_min} min, ${m.mb} MB). Il ricevitore non si ferma.`,`Save the last ${mmss(m.buf)} to disk (memory: ${m.mem_min} min, ${m.mb} MB). The receiver keeps running.`);
   $('#recGrp').hidden=false;
   $('#bRec').setAttribute('aria-pressed',String(!!m.rec));setT($('#recTxt'),m.rec?` ${mmss(m.rec.s)} · ${m.rec.mb} MB`:'');
 }
@@ -554,12 +589,12 @@ function onPlay(f){PLAY=f;
     sel.value=f.path}
 }
 function onFiles(list){const sel=$('#pFile'),cur=PLAY&&PLAY.path;
-  sel.innerHTML=list.length?'':'<option value="">nessuna registrazione</option>';
+  sel.innerHTML=list.length?'':'<option value="">'+T('nessuna registrazione')+'</option>';
   for(const f of list){const o=document.createElement('option');o.value=f.path;
-    o.textContent=`${f.name.replace(/\.wav$/i,'')} · ${mmss(f.dur)}`+(f.centro?'':' · centro ?');sel.appendChild(o)}
+    o.textContent=`${f.name.replace(/\.wav$/i,'')} · ${mmss(f.dur)}`+(f.centro?'':' · '+L('centro','centre')+' ?');sel.appendChild(o)}
   if(cur){if(![...sel.options].some(o=>o.value===cur)){const o=document.createElement('option');o.value=cur;o.textContent=PLAY.name;sel.prepend(o)}sel.value=cur}
 }
-$('#bSaveLast').onclick=()=>{send({cmd:'save_last'});setT($('#bufTxt'),'… salvo')};
+$('#bSaveLast').onclick=()=>{send({cmd:'save_last'});setT($('#bufTxt'),T('… salvo'))};
 $('#bRec').onclick=()=>send({cmd:'rec',on:$('#bRec').getAttribute('aria-pressed')!=='true'});
 $('#bFolder').onclick=()=>send({cmd:'opendir'});
 $('#pPlay').onclick=()=>{if(PLAY)send({cmd:'pause',on:!PLAY.paused})};
@@ -613,9 +648,9 @@ function drawWF(){
   if(MODE!=='contest')for(const e of LISTEN){const age=tNewest-e.t;if(age>180)continue;const y=yOf(e.f/1000);if(y<0||y>H)continue;const nw=e===last;
     c.globalAlpha=nw?1:clamp(.55-age/400,.15,.55);c.strokeStyle='#ffb020';c.lineWidth=(nw?1.6:1)*dpr;c.setLineDash(nw?[]:[4*dpr,4*dpr]);
     c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();
-    if(nw){c.fillStyle='#ffb020';c.fillText(`ascolto ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
+    if(nw){c.fillStyle='#ffb020';c.fillText(`${L('ascolto','listening')} ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
   c.globalAlpha=1;c.setLineDash([]);
-  for(const o of marks){const y=yOf(o);if(y<0||y>H)continue;c.strokeStyle='#e6d3ff';c.lineWidth=1*dpr;c.setLineDash([8*dpr,3*dpr,2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);c.fillStyle='#e6d3ff';c.fillText(`segnaposto ${fmtOff(o-DX)}`,8*dpr,y-3*dpr)}
+  for(const o of marks){const y=yOf(o);if(y<0||y>H)continue;c.strokeStyle='#e6d3ff';c.lineWidth=1*dpr;c.setLineDash([8*dpr,3*dpr,2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);c.fillStyle='#e6d3ff';c.fillText(`${L('segnaposto','marker')} ${fmtOff(o-DX)}`,8*dpr,y-3*dpr)}
   // spot RBN: etichetta sul bordo SINISTRO (la parte vecchia del waterfall), così non copre i segnali appena arrivati
   if(SPOTSHOW){c.font=`600 ${10.5*dpr}px Consolas,monospace`;c.textBaseline='middle';c.textAlign='left';
   for(const sp of SPOTS){const y=yOf((sp.fa-CFG.center)/1000);if(y<6*dpr||y>H-6*dpr)continue;
@@ -678,13 +713,13 @@ function updateUI(){
   if(!CFG)return;const DX=dxOff(),t=tNewest,ctr=CFG.center/1000;
   setT($('#sView'),`${(ctr+view.low).toFixed(1)}–${(ctr+view.low+view.span).toFixed(1)}`);
   const last=LISTEN[LISTEN.length-1];
-  setT($('#sLast'),last?`${fmtOff(last.f/1000-DX)} kHz dal DX · ${Math.max(0,Math.round(t-last.t))} s fa`:'—');
+  setT($('#sLast'),last?L(`${fmtOff(last.f/1000-DX)} kHz dal DX · ${Math.max(0,Math.round(t-last.t))} s fa`,`${fmtOff(last.f/1000-DX)} kHz from DX · ${Math.max(0,Math.round(t-last.t))} s ago`):'—');
   const top=$('#offTop'),bot=$('#offBot');
-  if(MODE!=='contest'&&last&&t-last.t<25){const y=yOf(last.f/1000),l=`ascolto a ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
+  if(MODE!=='contest'&&last&&t-last.t<25){const y=yOf(last.f/1000),l=`${L('ascolto a','listening at')} ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
   if(chipsDirty){chipsDirty=false;const box=$('#chips');box.querySelectorAll('.chip').forEach(n=>n.remove());
     LISTEN.slice(-6).forEach((e,i,a)=>{const b=document.createElement('button');b.className='chip'+(i<a.length-1?' old':'');b.textContent=fmtOff(e.f/1000-DX);b.onclick=()=>centerOn(e.f/1000);box.appendChild(b)})}
   if(dxDirty){dxDirty=false;const dw=WORDS.filter(w=>w.dx).slice(-40);
-    $('#dxText').innerHTML='<span>'+dw.map(w=>{const s=w.w.replace(/[<>&]/g,'');return HOT.test(s)?`<span class="k-hot">${s}</span>`:w.s?`<span class="k-calls" title="decodificato ${s}">${w.s}?</span>`:w.v?`<span class="k-callv">${s}</span>`:CALLRE.test(s)?`<span class="k-call">${s}</span>`:s}).join(' ')+'</span>'}
+    $('#dxText').innerHTML='<span>'+dw.map(w=>{const s=w.w.replace(/[<>&]/g,'');return HOT.test(s)?`<span class="k-hot">${s}</span>`:w.s?`<span class="k-calls" title="${L('decodificato','decoded')} ${s}">${w.s}?</span>`:w.v?`<span class="k-callv">${s}</span>`:CALLRE.test(s)?`<span class="k-call">${s}</span>`:s}).join(' ')+'</span>'}
   const full=CFG.fs/1000;
   document.querySelectorAll('#spans button').forEach(b=>b.setAttribute('aria-pressed',String((+b.dataset.s||full)===view.span)));
   document.querySelectorAll('#wins button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.w===WIN)));
@@ -717,8 +752,8 @@ let drag=null,menuAt=null,lpTimer=null;
 const offAt=cy=>{const r=wf.getBoundingClientRect();return view.low+view.span-(cy-r.top)/r.height*view.span};
 const markNear=o=>marks.findIndex(m=>Math.abs(m-o)<view.span/40);
 function openMenu(cx,cy){const r=wf.getBoundingClientRect(),m=$('#menu');menuAt=offAt(cy);m.hidden=false;
-  $('#mMark').textContent=markNear(menuAt)>=0?'Togli questo segnaposto':'Segnaposto qui';
-  $('#mClear').hidden=!marks.length;$('#mClear').textContent=`Togli tutti i segnaposti (${marks.length})`;
+  $('#mMark').textContent=T(markNear(menuAt)>=0?'Togli questo segnaposto':'Segnaposto qui');
+  $('#mClear').hidden=!marks.length;$('#mClear').textContent=`${T('Togli tutti i segnaposti')} (${marks.length})`;
   m.style.left=Math.max(0,Math.min(cx-r.left,r.width-210))+'px';m.style.top=Math.max(0,Math.min(cy-r.top,r.height-150))+'px'}
 // Ctrl + clic: DX esattamente lì (passo 10 Hz); la vista resta ferma
 function dxAt(cy){if(!CFG)return;const hz=Math.round((CFG.center+offAt(cy)*1000)/10)*10;
@@ -742,7 +777,7 @@ document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;con
 
 function frame(){if(W&&H){drawWF();drawTX()}updateUI();renderList();requestAnimationFrame(frame)}
 window.addEventListener('pagehide',flushUI);
-resize();connect();requestAnimationFrame(frame);
+applyLang();resize();connect();requestAnimationFrame(frame);
 })();
 </script>
 </body>
