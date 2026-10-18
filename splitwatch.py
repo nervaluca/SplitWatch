@@ -32,9 +32,10 @@ import licenza
 from dsp import Engine
 from rbn import RBN
 from recorder import Recorder
-from sources import AudioCard, PerseusDirect, PerseusExtIO, WavFile, list_audio_inputs, wav_info
+from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
+                     list_audio_inputs, wav_info)
 
-VERSION = '1.17'
+VERSION = '1.18'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -306,6 +307,21 @@ class Hub:
         self.src_kind = kind
         if self.locked:
             return
+        if kind == 'extio':
+            path = self.cfg.get('extio_path')
+            if not path or not os.path.isfile(path):
+                found = self.extio_list()
+                path = found[0] if found else None
+            if not path:
+                raise RuntimeError('Nessun plugin ExtIO trovato: installa quello del ricevitore per HDSDR '
+                                   'oppure scegli il file con «Sfoglia…»')
+            self.cfg['extio_path'] = path
+            save_cfg(self.cfg)
+            src = ExtIOSource(path, self.cfg.get('lo', 14025000), int(self.cfg.get('extio_rate', 192000)),
+                              self.on_iq, self.on_status, self.on_rate)
+            src.start()
+            self.src = src
+            return
         if kind in ('audio', 'iq'):
             devs = list_audio_inputs()
             want = self.cfg.get('audio_dev')
@@ -348,6 +364,24 @@ class Hub:
         self.src = None
         raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
 
+    def extio_list(self):
+        extra = [app_dir(), DATA_DIR, os.path.dirname(self.cfg.get('extio_path') or '') or None]
+        return find_extio_dlls([d for d in extra if d])
+
+    def pick_extio(self):
+        """Finestra di Windows per scegliere il plugin ExtIO_*.dll."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True)
+            p = filedialog.askopenfilename(parent=root, title='Plugin ExtIO del ricevitore (32 bit, quello per HDSDR)',
+                                           filetypes=[('Plugin ExtIO', 'ExtIO*.dll'), ('DLL', '*.dll')])
+            root.destroy()
+            return os.path.abspath(p) if p else None
+        except Exception as e:
+            self.on_status(f'Impossibile aprire la finestra dei file: {e}')
+            return None
+
     def trial_left(self):
         if self.lic or self.src_kind == 'file':
             return None
@@ -385,7 +419,7 @@ class Hub:
         log(f"Registrazione: {info['testo']}")
         if self.locked:
             self.locked = False
-            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq') else 'perseus')
+            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio') else 'perseus')
         self.post_json(self.cfg_msg())
         return True, info['testo']
 
@@ -759,7 +793,7 @@ class Hub:
             self.words_hist.clear()
             self.stations.clear()
             self.listen_hist.clear()
-            if self.src_kind == 'perseus':
+            if self.src_kind in ('perseus', 'extio'):
                 self.cfg['lo'] = int(center)
                 save_cfg(self.cfg)
             elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
@@ -811,7 +845,10 @@ class Hub:
                 'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
                 'rowdt': dsp.ROW_EVERY / dsp.FRAMES_PER_S, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
                 'src': self.src_kind, 'status': self.status, 'status_en': i18n.en(self.status), 'version': VERSION,
-                'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else self.cfg.get('campionamento', 96000)), 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else
+                                self.cfg.get('extio_rate', 192000) if self.src_kind == 'extio' else self.cfg.get('campionamento', 96000)),
+                'ext_rates': [r for r in getattr(self.src, 'rates', [])] if isinstance(self.src, ExtIOSource) else [],
+                'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
@@ -877,7 +914,7 @@ class Hub:
                     if b in BANDS:
                         m = self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3]}
                         self.cmd_q.put(('dx', float(m['dx'])))
-                        if isinstance(self.src, (PerseusDirect, PerseusExtIO)):
+                        if isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
                             self.src.set_lo(int(m['centro']))
                         elif isinstance(self.src, AudioCard):
                             self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
@@ -900,7 +937,7 @@ class Hub:
                     ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
-                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file') else 'perseus')
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
                     for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list', 'lang'):
@@ -970,7 +1007,20 @@ class Hub:
                         self.on_status(f'Le registrazioni sono in {self.rec_dir}')
                 elif k == 'source' and c.get('kind') == 'file':
                     self.switch_source('file')
-                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq'):
+                elif k == 'extio' and c.get('path'):
+                    if os.path.isfile(c['path']):
+                        self.cfg['extio_path'] = c['path']
+                        self.switch_source('extio')
+                elif k == 'browse_extio':
+                    path = await asyncio.get_running_loop().run_in_executor(None, self.pick_extio)
+                    if path:
+                        self.cfg['extio_path'] = path
+                        self.switch_source('extio')
+                elif k == 'rate' and isinstance(self.src, ExtIOSource):
+                    self.cfg['extio_rate'] = int(c['hz'])
+                    save_cfg(self.cfg)
+                    self.src.set_rate(int(c['hz']))
+                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio'):
                     self.switch_source(c['kind'], c.get('dev'))
                 elif k == 'audiodev':
                     self.switch_source(self.src_kind if self.src_kind in ('audio', 'iq') else 'audio', c.get('dev'))
@@ -990,7 +1040,7 @@ class Hub:
                     save_cfg(self.cfg)
                     self.src.set_swap(bool(c['on']))
                     self.post_json(self.cfg_msg())
-                elif k == 'gui' and isinstance(self.src, PerseusExtIO):
+                elif k == 'gui' and isinstance(self.src, (PerseusExtIO, ExtIOSource)):
                     self.src.show_gui()
         except Exception:
             pass
@@ -1194,7 +1244,7 @@ def main():
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
-    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
+    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')

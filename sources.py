@@ -426,6 +426,286 @@ class PerseusExtIO:
             self.ready.set()
 
 
+# ---------------------------------------------------------------------------- ExtIO generico
+def find_extio_dlls(extra=()):
+    """ExtIO_*.dll a 32 bit nelle cartelle solite (HDSDR, programma, scelte dall'utente)."""
+    dirs = list(extra)
+    for base in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LOCALAPPDATA')):
+        if base:
+            dirs += [os.path.join(base, 'HDSDR'), os.path.join(base, 'Programs', 'HDSDR'),
+                     os.path.join(base, 'SDRplay', 'ExtIO'), os.path.join(base, 'Airspy')]
+    out, seen = [], set()
+    for d in dirs:
+        if not d or not os.path.isdir(d):
+            continue
+        try:
+            names = os.listdir(d)
+        except Exception:
+            continue
+        for n in sorted(names):
+            if n.lower().startswith('extio') and n.lower().endswith('.dll') and 'perseus' not in n.lower():
+                p = os.path.abspath(os.path.join(d, n))
+                if p.lower() not in seen:
+                    seen.add(p.lower())
+                    out.append(p)
+    return out
+
+
+class Decimator:
+    """Riduce il campionamento di un fattore intero (FIR passa-basso, calcolato solo sui campioni tenuti).
+    Serve per i ricevitori che danno 2 MHz o più (SDRplay): il programma lavora bene fino a ~200 kHz."""
+    TARGET = 200000
+
+    def __init__(self, fs):
+        self.fs_in = float(fs)
+        self.d = max(1, int(np.ceil(self.fs_in / self.TARGET)))
+        self.fs = self.fs_in / self.d
+        if self.d > 1:
+            n = 10 * self.d + 1
+            t = np.arange(n) - (n - 1) / 2
+            h = np.sinc(0.8 * t / self.d) * np.blackman(n)
+            self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
+            self.tail = np.zeros(n - 1, np.complex64)
+            self.ph = 0                              # da dove parte il prossimo campione tenuto
+
+    def __call__(self, x):
+        if self.d == 1:
+            return x
+        n = len(self.h)
+        z = np.concatenate([self.tail, x.astype(np.complex64)])
+        idx = np.arange(self.ph, len(z) - n + 1, self.d)
+        if len(idx):
+            w = np.lib.stride_tricks.sliding_window_view(z, n)[idx]
+            y = (w @ self.h).astype(np.complex64)
+            self.ph = idx[-1] + self.d - (len(z) - (n - 1))
+        else:
+            y = np.zeros(0, np.complex64)
+            self.ph -= len(x)
+        self.tail = z[-(n - 1):].copy()
+        return y
+
+
+class ExtIOSource:
+    """Qualsiasi ricevitore con un plugin ExtIO per HDSDR/Winrad (SDRplay RSP, Airspy HF+, FunCube, …).
+
+    Il plugin deve essere a 32 bit (quelli per HDSDR lo sono). Tutte le chiamate alla DLL
+    avvengono in un solo thread con la coda dei messaggi di Windows, così la finestra
+    di impostazioni del plugin (guadagno, antenna, AGC…) funziona.
+    """
+
+    TYPES = {3: ('s16', 4), 5: ('s24', 6), 6: ('s32', 8), 7: ('f32', 8)}
+
+    def __init__(self, dll_path, lo_hz, rate, on_iq, on_status, on_rate):
+        self.dll_path = dll_path
+        self.name = os.path.splitext(os.path.basename(dll_path))[0]
+        self.lo = int(lo_hz)
+        self.want_rate = int(rate or 0)
+        self.on_iq = on_iq
+        self.on_status = on_status
+        self.on_rate = on_rate
+        self.cmd = queue.Queue()
+        self.fs = None
+        self.center = float(lo_hz)
+        self.rates = []                         # campionamenti offerti dal plugin
+        self.ready = threading.Event()
+        self.stopped = threading.Event()
+        self.error = None
+        self._cb = None
+        self.dec = None
+        self.fs_hw = None
+        self.nsamp = 0
+        self.nblocks = 0
+
+    def _new_rate(self, fs_hw):
+        """Campionamento del ricevitore -> quello che arriva al programma (ridotto se serve)."""
+        self.fs_hw = float(fs_hw)
+        if not self.dec or self.dec.fs_in != self.fs_hw:
+            self.dec = Decimator(self.fs_hw)
+        self.fs = self.dec.fs
+        self.on_rate(self.fs, self.center)
+
+    # API pubblica (thread-safe)
+    def start(self):
+        threading.Thread(target=self._thread, daemon=True).start()
+        self.ready.wait(25)
+        if self.error:
+            raise RuntimeError(self.error)
+        if not self.ready.is_set():
+            raise RuntimeError(f'{self.name} non risponde')
+
+    def stop(self):
+        self.cmd.put(('stop',))
+        if self.ready.is_set():
+            self.stopped.wait(4)               # il plugin va chiuso prima di riaprirlo
+
+    def set_lo(self, hz):
+        self.cmd.put(('lo', int(hz)))
+
+    def set_rate(self, hz):
+        self.cmd.put(('setrate', int(hz)))
+
+    def show_gui(self):
+        self.cmd.put(('gui',))
+
+    def _thread(self):
+        import ctypes
+        from ctypes import wintypes
+        dll = None
+        try:
+            if struct.calcsize('P') != 4:
+                raise RuntimeError('I plugin ExtIO per HDSDR sono a 32 bit: serve FZR Skimmer a 32 bit')
+            if not os.path.exists(self.dll_path):
+                raise RuntimeError(f'Non trovo {self.dll_path}')
+            folder = os.path.dirname(self.dll_path)
+            k32 = ctypes.windll.kernel32
+            k32.SetDllDirectoryW(folder)              # le DLL che il plugin si porta dietro
+            try:
+                dll = ctypes.WinDLL(self.dll_path)
+            except OSError as e:
+                raise RuntimeError(f'{self.name}: impossibile caricare il plugin ({e}). '
+                                   'Serve la versione a 32 bit e il driver del ricevitore installato.')
+            u32 = ctypes.windll.user32
+            CB = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_void_p)
+            box = {'fmt': 's16', 'bpf': 4}
+
+            def cb(cnt, status, iqoffs, data):
+                try:
+                    if cnt > 0 and data:
+                        raw = ctypes.string_at(data, cnt * box['bpf'])
+                        self.nsamp += cnt
+                        self.nblocks += 1
+                        if self.nblocks == 1:
+                            self.on_status(f'{self.name}: primo blocco, {cnt} campioni')
+                        y = self.dec(to_complex(raw, box['fmt'])) if self.dec else to_complex(raw, box['fmt'])
+                        if len(y):
+                            self.on_iq(y)
+                    elif cnt < 0:
+                        if status == 100:            # campionamento cambiato (dalla finestra del plugin)
+                            self.cmd.put(('rate',))
+                        elif status in (101, 102):   # LO cambiato
+                            self.cmd.put(('getlo',))
+                except Exception as e:
+                    self.on_status(f'Errore dati: {e}')
+
+            self._cb = CB(cb)
+            dll.SetCallback.argtypes = [CB]
+            dll.SetCallback.restype = None
+            dll.SetCallback(self._cb)              # alcuni plugin la vogliono prima di InitHW, altri dopo
+            name = ctypes.create_string_buffer(256)
+            model = ctypes.create_string_buffer(256)
+            typ = ctypes.c_int(0)
+            dll.InitHW.restype = ctypes.c_bool
+            dll.InitHW.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+            if not dll.InitHW(name, model, ctypes.byref(typ)):
+                raise RuntimeError(f'{self.name}: ricevitore non trovato (InitHW). È collegato? Un altro programma lo sta usando?')
+            if typ.value not in self.TYPES:
+                raise RuntimeError(f'{self.name}: formato dei campioni non gestito ({typ.value})')
+            box['fmt'], box['bpf'] = self.TYPES[typ.value]
+            dll.SetCallback(self._cb)              # dopo InitHW, come fa HDSDR
+            dll.OpenHW.restype = ctypes.c_bool
+            if not dll.OpenHW():
+                raise RuntimeError(f'{self.name}: apertura del ricevitore fallita (OpenHW)')
+            dll.GetHWSR.restype = ctypes.c_long
+            dll.GetHWLO.restype = ctypes.c_long
+            dll.SetHWLO.argtypes = [ctypes.c_long]
+            dll.SetHWLO.restype = ctypes.c_int
+            dll.StartHW.argtypes = [ctypes.c_long]
+            dll.StartHW.restype = ctypes.c_int
+
+            # campionamenti disponibili (funzioni facoltative dei plugin moderni)
+            get_sr = getattr(dll, 'ExtIoGetSrates', None)
+            set_sr = getattr(dll, 'ExtIoSetSrate', None)
+            if get_sr is not None:
+                get_sr.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_double)]
+                get_sr.restype = ctypes.c_int
+                v = ctypes.c_double()
+                for i in range(64):
+                    if get_sr(i, ctypes.byref(v)) != 0:
+                        break
+                    self.rates.append(float(v.value))
+            if set_sr is not None:
+                set_sr.argtypes = [ctypes.c_int]
+                set_sr.restype = ctypes.c_int
+
+            def choose_rate(want):
+                if not self.rates or set_sr is None:
+                    return
+                # il più vicino a quello voluto (di base 192 kHz: oltre il PC lavora molto di più)
+                want = want or 192000
+                i = min(range(len(self.rates)), key=lambda k: abs(self.rates[k] - want))
+                set_sr(i)
+
+            choose_rate(self.want_rate)
+            nb = dll.StartHW(self.lo)
+            if nb <= 0:
+                raise RuntimeError(f'{self.name}: avvio fallito (StartHW)')
+            self.center = float(dll.GetHWLO() or self.lo)
+            fs_hw = float(dll.GetHWSR())
+            if fs_hw <= 0:
+                raise RuntimeError(f'{self.name}: il plugin non dichiara il campionamento')
+            self._new_rate(fs_hw)
+            red = f' (ricevitore {fs_hw/1000:.0f} kHz ÷ {self.dec.d})' if self.dec.d > 1 else ''
+            self.on_status(f'{name.value.decode(errors="ignore") or self.name} {model.value.decode(errors="ignore")} attivo · '
+                           f'{self.fs/1000:.1f} kHz{red} · centro {self.center/1000:.3f}')
+            self.ready.set()
+
+            msg = wintypes.MSG()
+            QS_ALLINPUT, MWMO_ALERTABLE, MWMO_INPUTAVAILABLE = 0x04FF, 0x0002, 0x0004
+            u32.MsgWaitForMultipleObjectsEx.argtypes = [wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD]
+            t0 = time.time()
+            warned = False
+            running = True
+            while running:
+                u32.MsgWaitForMultipleObjectsEx(0, None, 20, QS_ALLINPUT, MWMO_ALERTABLE | MWMO_INPUTAVAILABLE)
+                while u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
+                    u32.TranslateMessage(ctypes.byref(msg))
+                    u32.DispatchMessageW(ctypes.byref(msg))
+                if not warned and self.nsamp == 0 and time.time() - t0 > 5:
+                    warned = True
+                    self.on_status(f'{self.name}: nessun dato dopo 5 s')
+                try:
+                    c = self.cmd.get_nowait()
+                except queue.Empty:
+                    continue
+                if c[0] == 'stop':
+                    try:
+                        dll.StopHW()
+                        dll.CloseHW()
+                    finally:
+                        running = False
+                elif c[0] == 'lo':
+                    dll.SetHWLO(c[1])
+                    self.center = float(dll.GetHWLO() or c[1])
+                    self.lo = int(self.center)
+                    self.on_rate(self.fs, self.center)
+                elif c[0] == 'getlo':
+                    self.center = float(dll.GetHWLO() or self.center)
+                    self.on_rate(self.fs, self.center)
+                elif c[0] == 'setrate':
+                    dll.StopHW()
+                    choose_rate(c[1])
+                    dll.StartHW(self.lo)
+                    self._new_rate(float(dll.GetHWSR()) or self.fs_hw)
+                    self.on_status(f'Campionamento {self.fs/1000:.1f} kHz'
+                                   + (f' (ricevitore {self.fs_hw/1000:.0f} kHz ÷ {self.dec.d})' if self.dec.d > 1 else ''))
+                elif c[0] == 'rate':
+                    self._new_rate(float(dll.GetHWSR()) or self.fs_hw)
+                    self.on_status(f'Campionamento {self.fs/1000:.1f} kHz'
+                                   + (f' (ricevitore {self.fs_hw/1000:.0f} kHz ÷ {self.dec.d})' if self.dec.d > 1 else ''))
+                elif c[0] == 'gui':
+                    sg = getattr(dll, 'ShowGUI', None)
+                    if sg is not None:
+                        sg()
+                    else:
+                        self.on_status(f'{self.name} non ha una finestra di impostazioni')
+        except Exception as e:
+            self.error = str(e)
+            self.on_status(str(e))
+            self.ready.set()
+        finally:
+            self.stopped.set()
+
+
 # ---------------------------------------------------------------------------- Perseus diretto
 class PerseusDirect:
     """Perseus comandato direttamente tramite perseususb.dll (driver WinUSB),

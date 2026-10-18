@@ -1,4 +1,4 @@
-# FZR Skimmer 1.17
+# FZR Skimmer 1.18
 
 by IW1FZR
 
@@ -53,6 +53,17 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
     0 if it shows the USB carrier.
 - **IQ from sound card** – receivers sending I and Q on the left/right channels (SoftRock and
   similar) at 48/96/192 kHz. **LO** = receiver centre frequency.
+- **ExtIO (SDRplay, Airspy HF+…)** – *experimental, needs testing*. Any receiver with an HDSDR
+  ExtIO plugin: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube and others.
+  - You need the receiver's **32-bit** HDSDR plugin (`ExtIO_SDRplay….dll`, `ExtIO_AirspyHF.dll`…)
+    with its driver installed: if it works in HDSDR it works here.
+  - FZR Skimmer looks for it in the HDSDR, SDRplay and Airspy folders and in its own folder;
+    otherwise use **Plugin → Browse…** and pick the DLL.
+  - **Sample rate**: the list comes from the plugin; choose 192 kHz or less (Airspy HF+: 192).
+    If the receiver only offers high rates (SDRplay at 2 MHz) the program reduces them below
+    200 kHz by itself (÷ n next to the value).
+  - **Receiver settings** opens the plugin window (gain, antenna, AGC…).
+  - Close HDSDR or any other program using the receiver.
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.

@@ -1,4 +1,4 @@
-# FZR Skimmer 1.17
+# FZR Skimmer 1.18
 
 IW1FZR
 
@@ -72,6 +72,18 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - L'audio lo senti già dalla radio: in questo modo il pulsante Audio DX serve poco.
 - **IQ da scheda audio** – ricevitori che mandano I e Q sui canali sinistro/destro
   (SoftRock e simili), a 48/96/192 kHz. **LO** = frequenza centrale del ricevitore.
+- **ExtIO (SDRplay, Airspy HF+…)** – *sperimentale, da collaudare*. Qualsiasi ricevitore che
+  abbia un plugin ExtIO per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery,
+  FunCube e altri.
+  - Serve il plugin **a 32 bit** per HDSDR del ricevitore (`ExtIO_SDRplay….dll`,
+    `ExtIO_AirspyHF.dll`…) con il suo driver installato: se funziona in HDSDR funziona anche qui.
+  - FZR Skimmer lo cerca da solo nelle cartelle di HDSDR, SDRplay e Airspy e in quella del
+    programma; altrimenti **Plugin → Sfoglia…** e scegli la DLL.
+  - **Campionamento**: l'elenco viene dal plugin; scegli 192 kHz o meno (Airspy HF+: 192).
+    Se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo
+    sotto i 200 kHz (÷ n accanto al valore).
+  - **Impostazioni ricevitore** apre la finestra del plugin (guadagno, antenna, AGC…).
+  - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
 
