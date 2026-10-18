@@ -227,7 +227,15 @@ class Hub:
         self.lock = threading.Lock()
         self.dropped = 0
         self.audio_devs = list_audio_inputs()
-        self.lic = find_license()
+        # --prova: si comporta da non registrato (per provare la versione di prova); può solo accorciarla
+        self.trial_s = TRIAL_S
+        if getattr(args, 'prova', None) is not None:
+            self.lic = None
+            if args.prova > 0:
+                self.trial_s = min(TRIAL_S, args.prova)
+            log(f'Modo prova: licenza ignorata, ricevitore per {self.trial_s:.0f} s')
+        else:
+            self.lic = find_license()
         self.t_start = time.time()
         self.locked = False                              # prova scaduta: ricevitore fermo
         up = os.environ.get('USERPROFILE', '')
@@ -343,7 +351,7 @@ class Hub:
     def trial_left(self):
         if self.lic or self.src_kind == 'file':
             return None
-        return max(0, TRIAL_S - (time.time() - self.t_start))
+        return max(0, self.trial_s - (time.time() - self.t_start))
 
     def trial_thread(self):
         while True:
@@ -1190,6 +1198,9 @@ def main():
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')
+    p.add_argument('--prova', type=float, nargs='?', const=0, default=None, metavar='SECONDI',
+                   help='si comporta da non registrato (ignora la licenza) per provare la versione di prova; '
+                        'con un numero la prova dura quei secondi (al massimo 5 minuti)')
     args = p.parse_args()
     if port_in_use(args.porta):
         # già acceso: riapro solo la finestra
