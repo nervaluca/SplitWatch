@@ -128,7 +128,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.19</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.20</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt id="sDxLbl">RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -596,7 +596,9 @@ function onCal(m){const msg=$('#calMsg');
     `${L('Errore attuale','Current error')}: <b>${sg(m.err_hz,2)} Hz</b> ${L('su','at')} ${m.khz} kHz<br>`+
     `${L('Correzione misurata','Measured correction')}: <span class="big">${sg(m.ppm,3)} ppm</span> <span style="color:var(--dim)">(${L('ora','now')} ${sg(m.old,3)}) · ${sg(m.hz14,1)} Hz ${L('a','at')} 14 MHz</span>`;
   if(m.ok){msg.className='regmsg ok';msg.textContent=Math.abs(m.err_hz)<0.5?L('✓ Il ricevitore è già preciso','✓ The receiver is already accurate'):L('✓ Misura buona: premi «Applica la correzione»','✓ Good measurement: press «Apply the correction»');$('#calApply').hidden=Math.abs(m.err_hz)<0.05}
-  else{msg.className='regmsg err';msg.textContent='✗ '+L(m.why==='segnale troppo debole'?'Segnale troppo debole: prova un\'altra stazione o frequenza':'Misura instabile: riprova o scegli un\'altra stazione',m.why==='segnale troppo debole'?'Signal too weak: try another station or frequency':'Unstable measurement: retry or pick another station');$('#calApply').hidden=false}
+  else{msg.className='regmsg err';const W={'segnale troppo debole':['Segnale troppo debole: prova un\'altra stazione o frequenza','Signal too weak: try another station or frequency'],
+    'portante non continua':['Non è una portante continua (CW manipolato o RWM nei minuti a impulsi): riprova tra qualche minuto o scegli un\'altra stazione','Not a continuous carrier (keyed CW or RWM pulse minutes): retry in a few minutes or pick another station']}[m.why]||['Misura instabile: riprova o scegli un\'altra stazione','Unstable measurement: retry or pick another station'];
+    msg.textContent='✗ '+L(W[0],W[1]);$('#calApply').hidden=true}
 }
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
 let MODE=null;

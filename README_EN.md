@@ -1,4 +1,4 @@
-# FZR Skimmer 1.19
+# FZR Skimmer 1.20
 
 by IW1FZR
 

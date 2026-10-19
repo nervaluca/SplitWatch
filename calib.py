@@ -29,7 +29,7 @@ class Measure:
         self.got = 0
         # dove deve cadere la portante, rispetto al centro del ricevitore, con la correzione attuale
         self.expect = self.true_hz / (1 + self.ppm_now * 1e-6) - self.hw_center
-        self.win = max(300.0, 25e-6 * self.true_hz)        # cerca entro ±25 ppm
+        self.win = max(60.0, 10e-6 * self.true_hz)         # cerca entro ±10 ppm (100 Hz a 10 MHz)
 
     @property
     def done(self):
@@ -71,14 +71,23 @@ class Measure:
             d = 0.5 * (a - c) / den if den != 0 else 0.0
             freqs.append(f[k] + d * fs2 / nfft)
             snrs.append(10 * np.log10(sp[k] / (np.median(sp[idx]) + 1e-30)))
+        # la portante campione è continua: un segnale CW manipolato (o RWM nei minuti a impulsi) no
+        rel0 = self.expect + float(np.median(freqs))
+        q = int(self.fs * 0.02)                     # pezzi da 20 ms: più corti di un punto CW
+        nq = len(x) // q
+        tt = np.arange(q) / self.fs
+        lo = np.exp(2j * np.pi * rel0 * tt).astype(np.complex64)      # vdot coniuga lo: riporta la portante a 0 Hz
+        amp = np.array([abs(np.vdot(lo, x[i * q:(i + 1) * q])) for i in range(nq)])
+        steady = float(np.mean(amp > 0.15 * np.percentile(amp, 90))) if nq else 0.0   # il QSB lento va bene
         freqs = np.array(freqs)
         snr = float(np.median(snrs))
         rel = self.expect + float(np.median(freqs))
         spread = float(freqs.max() - freqs.min())
         ppm = (self.true_hz / (self.hw_center + rel) - 1) * 1e6
         err_hz = (self.hw_center + rel) * (1 + self.ppm_now * 1e-6) - self.true_hz   # di quanto sbaglia ora
-        ok = snr >= MIN_SNR and spread < max(1.0, 0.1e-6 * self.true_hz * 5)
-        why = '' if ok else ('segnale troppo debole' if snr < MIN_SNR else 'misura instabile')
+        ok = snr >= MIN_SNR and spread < max(1.0, 0.5e-6 * self.true_hz) and steady >= 0.85
+        why = ('' if ok else 'segnale troppo debole' if snr < MIN_SNR else
+               'portante non continua' if steady < 0.85 else 'misura instabile')
         return {'ok': ok, 'why': why, 'ppm': round(ppm, 3), 'err_hz': round(err_hz, 2), 'snr': round(snr, 1),
-                'spread': round(spread, 2), 'khz': self.true_hz / 1000, 'old': round(self.ppm_now, 3),
+                'spread': round(spread, 2), 'steady': round(steady, 2), 'khz': self.true_hz / 1000, 'old': round(self.ppm_now, 3),
                 'hz14': round(ppm * 14.0, 1)}

@@ -36,7 +36,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.19'
+VERSION = '1.20'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -435,8 +435,14 @@ class Hub:
                 self.cal = None
                 if tunable and prev_hw:
                     self.src.set_lo(int(prev_hw))
+                    t0 = time.time()
+                    while abs((self.hw_center or 0) - prev_hw) > 2 and time.time() - t0 < 6:
+                        time.sleep(0.05)
                 if prev_dx:
                     self.cmd_q.put(('dx', float(prev_dx)))
+                # la decodifica ha visto 6 s di un'altra banda: riparte pulita, come dopo un riavvio
+                if self.fs and self.hw_center is not None:
+                    self.cmd_q.put(('rate', self.fs, self.hw_center, 'reset'))
                 self.cal_busy = False
         threading.Thread(target=run, daemon=True).start()
 
@@ -852,7 +858,9 @@ class Hub:
             if fs <= 0:
                 self.on_status('Campionamento sconosciuto: attendo i dati…')
                 return
-            if len(c) > 3 and self.engine is not None and fs == self.fs:     # cambiata solo la correzione
+            if len(c) > 3 and c[3] == 'reset':
+                self.engine = None                          # decodifica da zero (dopo la calibrazione)
+            elif len(c) > 3 and self.engine is not None and fs == self.fs:     # cambiata solo la correzione
                 self.center = center
                 self.engine.set_dx(self.dx_abs - center)
                 if self.src_kind != 'file':
