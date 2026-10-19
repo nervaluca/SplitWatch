@@ -36,7 +36,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.20'
+VERSION = '1.21'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -882,7 +882,7 @@ class Hub:
                 self.engine.up_lo, self.engine.up_hi = up[0] * 1000, up[1] * 1000
                 self.engine.set_bw(float(self.cfg.get('filtro', 500)))
                 self.engine.min_snr = float(self.cfg.get('sensibilita', 5.0))
-                self.engine.listen_on = self.cfg.get('modo', 'dx') != 'contest'
+                self.engine.listen_on = self.cfg.get('modo', 'dx') == 'dx'
             else:
                 self.engine.set_dx(self.dx_abs - center)
             with self.lock:
@@ -1064,13 +1064,13 @@ class Hub:
                     save_cfg(self.cfg)
                     self.rbn_apply()
                     self.post_json(self.cfg_msg())
-                elif k == 'mode' and c.get('v') in ('dx', 'contest'):
+                elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale'):
                     self.cfg['modo'] = c['v']
                     save_cfg(self.cfg)
                     if self.engine:
-                        self.engine.listen_on = c['v'] != 'contest'
+                        self.engine.listen_on = c['v'] == 'dx'
                         self.engine.pending_listen = []
-                    if c['v'] == 'contest':
+                    if c['v'] != 'dx':
                         self.listen_hist.clear()
                     self.post_json(self.cfg_msg())
                 elif k == 'memory':
