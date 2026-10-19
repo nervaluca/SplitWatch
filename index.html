@@ -75,6 +75,15 @@ select{font:500 .9rem var(--f-mono);background:#0b1118;color:var(--fg);border:1p
 .cell{position:relative;min-width:0;min-height:0}
 .cell+.cell{border-left:1px solid var(--line);background:#0a1016}
 .scope.withlist{grid-template-columns:minmax(0,1fr) minmax(150px,28%) minmax(190px,240px)}
+.scope.withlist.withtext{grid-template-columns:minmax(0,1fr) minmax(130px,22%) minmax(280px,40%)}
+.trow{display:grid;grid-template-columns:4.6em 1fr;gap:0 8px;width:100%;text-align:left;border:0;border-bottom:1px solid #121b24;border-radius:0;background:transparent;padding:4px 8px;font:500 .8rem var(--f-mono);color:#7f95a8;line-height:1.55}
+.trow:hover{background:#13202b}
+.trow .fq{color:#9fb1c0;font-weight:600}
+.trow .tx{overflow-wrap:anywhere}
+.trow.old{opacity:.45}
+.trow.cur{background:#14301f;box-shadow:inset 3px 0 0 var(--dx)}
+.trow .k-call{color:#fff;font-weight:700;background:#1d3445;border-radius:3px;padding:0 3px}
+.trow .k-cq{color:#58d98b;font-weight:700}
 .slist{overflow-y:auto;font-family:var(--f-mono);font-size:.84rem}
 .slist .hd{position:sticky;top:0;background:#0d141b;color:var(--dim);font:600 .7rem var(--f-ui);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
 .srow{display:grid;grid-template-columns:1fr auto;gap:0 8px;width:100%;text-align:left;border:0;border-bottom:1px solid #121b24;border-radius:0;background:transparent;padding:5px 8px;font:inherit;color:var(--fg)}
@@ -128,7 +137,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.20</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.21</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt id="sDxLbl">RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -143,7 +152,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
   </header>
 
   <div class="ctrl" id="bandRow">
-    <div class="grp" id="modes"><span class="lbl">Modo</span><button data-m="dx" title="Pile-up in split: RX fermo sul DX, ricerca di dove ascolta">DXpedition</button><button data-m="contest" title="Contest / S&amp;P: elenco stazioni, niente ricerca dell'ascolto">Contest</button></div>
+    <div class="grp" id="modes"><span class="lbl">Modo</span><button data-m="normale" title="Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì">Normale</button><button data-m="dx" title="Pile-up in split: RX fermo sul DX, ricerca di dove ascolta">DXpedition</button><button data-m="contest" title="Contest / S&amp;P: elenco stazioni, niente ricerca dell'ascolto">Contest</button></div>
     <div class="grp" id="bands"><span class="lbl">Banda</span></div>
     <button id="bSave" title="Memorizza centro e DX attuali per questa banda">Salva memoria</button>
     <div class="grp recgrp" id="recGrp">
@@ -273,7 +282,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmtOff=o=>(o>=0?'+':'−')+Math.abs(o).toFixed(Math.abs(o)<10?2:1);
 let CFG=null;
 /* ---------------- lingua (italiano / inglese) ---------------- */
-const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
+const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "Normale": "Normal", "Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì": "Normal listening: the text of every signal scrolls alongside, with callsigns and 599 highlighted. Click a signal = RX there", "Nessun testo ancora": "No text yet", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
 let LANG='it';
 try{LANG=localStorage.getItem('fzr_lang')||((navigator.language||'it').toLowerCase().startsWith('it')?'it':'en')}catch(e){}
 const T=s=>LANG==='en'&&EN[s]!=null?EN[s]:s;              // testo fisso
@@ -298,7 +307,7 @@ function setLang(l,save){LANG=l;try{localStorage.setItem('fzr_lang',l)}catch(e){
   if(save&&typeof send==='function')send({cmd:'ui',v:{lang:l}});
   if(typeof CFG!=='undefined'&&CFG){chipsDirty=true;dxDirty=true;listDirty=true;onCfg(CFG,true)}
   const ba=document.getElementById('bAudio');if(ba)ba.textContent=T(audioOn?'🔊 Audio DX':'🔈 Audio DX');
-  const sl=document.getElementById('sDxLbl');if(sl)sl.textContent=T(MODE==='contest'?'RX su':'RX fisso sul DX');
+  const sl=document.getElementById('sDxLbl');if(sl)sl.textContent=T(MODE!=='dx'?'RX su':'RX fisso sul DX');
   if(!$('#menu').hidden)closeMenu();
   if(LASTSTATUS)setStatus(LASTSTATUS)}
 let LASTSTATUS=null;
@@ -422,7 +431,7 @@ function addEv(m){
   for(const l of m.listen)LISTEN.push(l);
   if(WORDS.length>4000)WORDS=WORDS.slice(-3000);
   if(LISTEN.length>300)LISTEN=LISTEN.slice(-200);
-  dxDirty=true;chipsDirty=true;
+  dxDirty=true;chipsDirty=true;listDirty=true;
 }
 
 /* ---------------- vista (offset in kHz dal centro) ---------------- */
@@ -603,12 +612,13 @@ function onCal(m){const msg=$('#calMsg');
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
 let MODE=null;
 function applyMode(md,user){
-  if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md==='contest';
-  document.body.classList.toggle('contest',ct);
+  if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md!=='dx';   // normale e contest: niente ricerca dell'ascolto
+  document.body.classList.toggle('contest',ct);$('.scope').classList.toggle('withtext',md==='normale');
   document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===md)));
   $('#sDxLbl').textContent=T(ct?'RX su':'RX fisso sul DX');$('#whoLbl').textContent=ct?'RX ›':'DX ›';
   if(ct){$('#offTop').hidden=$('#offBot').hidden=true}
-  if(user&&!first){setList(ct);flushUI()}      // cambiando modo: elenco acceso in contest, spento in DXpedition
+  if(user&&!first){setList(ct);flushUI()}      // cambiando modo: pannello acceso in normale (testo) e contest (stazioni), spento in DXpedition
+  listDirty=true;$('#slist').setAttribute('aria-label',T(md==='normale'?'Testo decodificato':'Elenco stazioni'));
 }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{applyMode(b.dataset.m,true);send({cmd:'mode',v:b.dataset.m})});
 let SPOTS=[],STATIONS=[],LISTON=false,listDirty=true,SPOTSHOW=true;
@@ -618,8 +628,27 @@ $('#bSpot').onclick=()=>{SPOTSHOW=!SPOTSHOW;$('#bSpot').setAttribute('aria-press
 $('#bRbn').onclick=()=>send({cmd:'rbn',on:$('#bRbn').getAttribute('aria-pressed')!=='true'});
 function setList(on){LISTON=on;$('#slist').hidden=!on;$('.scope').classList.toggle('withlist',on);$('#bList').setAttribute('aria-pressed',String(on));listDirty=true;resize()}
 $('#bList').onclick=()=>{setList(!LISTON);flushUI()};
+let lastTxt=0;
+function esc(s){return String(s).replace(/[<>&"]/g,'')}
+function hiTok(tk,v,sg){if(sg)return`<span class="k-calls">${esc(sg)}?</span>`;const s=esc(tk);
+  return HOT.test(s)?`<span class="k-hot">${s}</span>`:v?`<span class="k-callv">${s}</span>`:CALLRE.test(s)?`<span class="k-call">${s}</span>`:s==='CQ'?`<span class="k-cq">${s}</span>`:s}
+function renderText(){
+  const now=performance.now();if(now-lastTxt<400)return;lastTxt=now;listDirty=false;
+  const box=$('#slist'),t=tNewest,dx=CFG.dx,groups=new Map();
+  for(let i=WORDS.length-1;i>=0;i--){const w=WORDS[i];if(t-w.t>180)break;
+    const key=w.dx?'dx':(w.ch!=null?'c'+w.ch:'f'+Math.round(w.f/40));let g=groups.get(key);
+    if(!g){g={fa:w.fa!=null?w.fa:CFG.center+w.f,ws:[],last:w.t};groups.set(key,g)}if(g.ws.length<40)g.ws.unshift(w)}
+  const lo=CFG.center+view.low*1000,hi=lo+view.span*1000;            // solo i segnali visibili nel waterfall
+  const shown=[...groups.values()].filter(g=>g.fa>=lo&&g.fa<=hi&&(g.ws.length>=3||g.ws.some(w=>w.v||w.s||HOT.test(w.w)||CALLRE.test(w.w))));
+  const rows=shown.sort((a,b)=>b.fa-a.fa).map(g=>{const cur=Math.abs(g.fa-dx)<60;
+    const tx=g.ws.map(w=>hiTok(w.w,w.v,w.s)).join(' ');
+    return `<button class="trow${t-g.last>60?' old':''}${cur?' cur':''}" data-f="${g.fa}"><span class="fq">${(g.fa/1000).toFixed(2)}</span><span class="tx">${tx}</span></button>`}).join('');
+  box.innerHTML=`<div class="hd"><span>${T('Testo decodificato')}</span><span>${shown.length}</span></div>`+(rows||'<div class="hd" style="position:static;border:0;text-transform:none;letter-spacing:0">'+T('Nessun testo ancora')+'</div>');
+}
 function renderList(){
-  if(!LISTON||!listDirty||!CFG)return;listDirty=false;
+  if(!LISTON||!listDirty||!CFG)return;
+  if(MODE==='normale')return renderText();
+  listDirty=false;
   const box=$('#slist'),dx=CFG.dx;
   const rows=STATIONS.map(s=>{const cur=Math.abs(s.fa-dx)<60,cls='srow'+(s.ok?' ok':'')+(s.src==='rbn'?' rbn':'')+(s.age>90?' old':'')+(cur?' cur':'');
     const call=s.call.replace(/[<>&]/g,'');
@@ -627,7 +656,7 @@ function renderList(){
       `<span class="meta">${s.db!=null?s.db+' dB · ':''}${s.wpm?s.wpm+' wpm · ':''}${s.src==='rbn'?'RBN':s.rbn?'RX+RBN':'RX'} · ${s.age<60?s.age+' s':Math.round(s.age/60)+' min'}</span></button>`}).join('');
   box.innerHTML=`<div class="hd"><span>${T('Stazioni')}</span><span>${STATIONS.length}</span></div>`+(rows||'<div class="hd" style="position:static;border:0;text-transform:none;letter-spacing:0">'+T('Nessuna stazione ancora')+'</div>');
 }
-$('#slist').addEventListener('click',e=>{const b=e.target.closest('.srow');if(!b||!CFG)return;const hz=Math.round(+b.dataset.f/10)*10;
+$('#slist').addEventListener('click',e=>{const b=e.target.closest('.srow,.trow');if(!b||!CFG)return;const hz=Math.round(+b.dataset.f/10)*10;
   CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);send({cmd:'dx',hz});centerOn((hz-CFG.center)/1000);listDirty=true});
 const rbnTxt=s=>!s||s==='spento'?'':s==='collegato'?`RBN: ${SPOTS.length} ${L('spot in banda','spots in band')}`:'RBN: '+(LANG==='en'?String(s).replace(/non raggiungibile, riprovo tra (\d+) s/,'unreachable, retrying in $1 s').replace(/^[\wà-ù… ]+$/,x=>T(x)):s);
 $('#chkRbn').onchange=e=>send({cmd:'rbn',on:e.target.checked});
@@ -703,11 +732,11 @@ function drawWF(){
   c.fillStyle='rgba(88,217,139,.10)';c.fillRect(0,yd-fh/2,plotW,fh);
   c.fillStyle='rgba(88,217,139,.55)';c.fillRect(plotW-6*dpr,yd-fh/2,6*dpr,fh);
   // zona UP
-  if(MODE!=='contest'){const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
+  if(MODE==='dx'){const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
   c.fillStyle='rgba(255,176,32,.05)';c.fillRect(plotW-4*dpr,Math.min(u0,u1),4*dpr,Math.abs(u1-u0));}
   c.font=`600 ${11*dpr}px Consolas,monospace`;c.textBaseline='bottom';
   const last=LISTEN[LISTEN.length-1];
-  if(MODE!=='contest')for(const e of LISTEN){const age=tNewest-e.t;if(age>180)continue;const y=yOf(e.f/1000);if(y<0||y>H)continue;const nw=e===last;
+  if(MODE==='dx')for(const e of LISTEN){const age=tNewest-e.t;if(age>180)continue;const y=yOf(e.f/1000);if(y<0||y>H)continue;const nw=e===last;
     c.globalAlpha=nw?1:clamp(.55-age/400,.15,.55);c.strokeStyle='#ffb020';c.lineWidth=(nw?1.6:1)*dpr;c.setLineDash(nw?[]:[4*dpr,4*dpr]);
     c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();
     if(nw){c.fillStyle='#ffb020';c.fillText(`${L('ascolto','listening')} ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
@@ -763,7 +792,8 @@ function drawTX(){
       if(HOT.test(tk)){c.fillStyle='#ffb020';c.fillRect(x-2*dpr,ly-7.5*dpr,w+4*dpr,15*dpr);c.fillStyle='#1a1205'}
       else if(sset.has(tk)){c.fillStyle='#5fd4d6';for(let xx=x;xx<x+w;xx+=4*dpr)c.fillRect(xx,ly+6*dpr,2*dpr,1*dpr);c.fillStyle='#9fe8ea'}
       else if(known){c.fillStyle='#123a4e';c.fillRect(x-2*dpr,ly-7.5*dpr,w+4*dpr,15*dpr);c.fillStyle='#5fd4d6';c.fillRect(x-2*dpr,ly+6*dpr,w+4*dpr,1.5*dpr);c.fillStyle='#ffffff'}
-      else if(CALLRE.test(tk))c.fillStyle='#c9d6e2';else c.fillStyle='#6f8597';
+      else if(CALLRE.test(tk)&&MODE==='normale'){c.fillStyle='#1d3445';c.fillRect(x-2*dpr,ly-7.5*dpr,w+4*dpr,15*dpr);c.fillStyle='#ffffff'}
+      else if(CALLRE.test(tk))c.fillStyle='#c9d6e2';else if(tk==='CQ')c.fillStyle='#58d98b';else c.fillStyle='#6f8597';
       c.fillText(tk,x,ly+.5*dpr);x+=w}
     c.font=`500 ${12.5*dpr}px Consolas,monospace`;}
   c.globalAlpha=1;
@@ -777,7 +807,7 @@ function updateUI(){
   const last=LISTEN[LISTEN.length-1];
   setT($('#sLast'),last?L(`${fmtOff(last.f/1000-DX)} kHz dal DX · ${Math.max(0,Math.round(t-last.t))} s fa`,`${fmtOff(last.f/1000-DX)} kHz from DX · ${Math.max(0,Math.round(t-last.t))} s ago`):'—');
   const top=$('#offTop'),bot=$('#offBot');
-  if(MODE!=='contest'&&last&&t-last.t<25){const y=yOf(last.f/1000),l=`${L('ascolto a','listening at')} ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
+  if(MODE==='dx'&&last&&t-last.t<25){const y=yOf(last.f/1000),l=`${L('ascolto a','listening at')} ${fmtOff(last.f/1000-DX)} kHz`;top.hidden=!(y<0);bot.hidden=!(y>H);setT(top,'▲ '+l);setT(bot,'▼ '+l)}else top.hidden=bot.hidden=true;
   if(chipsDirty){chipsDirty=false;const box=$('#chips');box.querySelectorAll('.chip').forEach(n=>n.remove());
     LISTEN.slice(-6).forEach((e,i,a)=>{const b=document.createElement('button');b.className='chip'+(i<a.length-1?' old':'');b.textContent=fmtOff(e.f/1000-DX);b.onclick=()=>centerOn(e.f/1000);box.appendChild(b)})}
   if(dxDirty){dxDirty=false;const dw=WORDS.filter(w=>w.dx).slice(-40);
