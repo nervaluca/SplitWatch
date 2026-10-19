@@ -4,6 +4,11 @@ on:
   push:
   workflow_dispatch:
 
+# più commit di fila (file caricati uno alla volta): compila solo l'ultimo, gli altri si annullano
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -47,6 +52,7 @@ jobs:
           mkdir FZRSkimmer
           copy dist\FZRSkimmer.exe FZRSkimmer\
           copy LEGGIMI.md FZRSkimmer\
+          if exist README_EN.md copy README_EN.md FZRSkimmer\
           if exist prepara_cartella.bat copy prepara_cartella.bat FZRSkimmer\
           copy logo.png FZRSkimmer\
         shell: cmd
