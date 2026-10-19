@@ -1,4 +1,4 @@
-# FZR Skimmer 1.18
+# FZR Skimmer 1.19
 
 IW1FZR
 
@@ -86,6 +86,21 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## Calibrazione della frequenza
+
+Se il ricevitore legge un po' spostato (il Perseus a volte di qualche decina di Hz), si corregge
+con **Correzione ppm** in basso. L'errore viene dal quarzo, è proporzionale alla frequenza:
+per questo si scrive in ppm e vale da solo per tutte le bande (1 ppm = 14 Hz a 14 MHz, 7 Hz a 7 MHz).
+
+Il modo comodo è **Calibra…**: scegli una stazione campione che senti bene (RWM 4996/9996/14996 kHz,
+WWV e BPM 5/10/15 MHz, CHU 3330/7850/14670 kHz) e premi **Misura**. Il programma si sintonizza,
+misura la portante per 6 secondi al centesimo di Hz, torna dov'eri e mostra errore attuale,
+forza del segnale e stabilità. La correzione la applichi tu con **Applica la correzione**;
+**Azzera** la toglie. Una misura su una seconda stazione deve dare «già preciso».
+
+Vale per Perseus, ExtIO e IQ da scheda audio (ognuno ha la sua). Con la scheda IQ, che non si
+sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 
 ## Uso
 

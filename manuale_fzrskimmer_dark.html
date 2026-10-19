@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FZR Skimmer - Manuale Utente / User Manual</title>
+<style>
+  :root {
+    --bg-main: #0d1117;
+    --bg-card: #161b22;
+    --bg-card-hover: #1f242c;
+    --bg-code: #0b0e14;
+    --border-color: #30363d;
+    --border-accent: #388bfd;
+    --primary: #58a6ff;
+    --primary-hover: #79c0ff;
+    --text-main: #c9d1d9;
+    --text-title: #f0f6fc;
+    --text-muted: #8b949e;
+    --accent-green: #3fb950;
+    --accent-purple: #bc8cff;
+    --accent-orange: #d29922;
+    --accent-red: #f85149;
+    --btn-blue: #1f6feb;
+    --btn-blue-hover: #388bfd;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-main);
+    background-color: var(--bg-main);
+    line-height: 1.65;
+    margin: 0;
+    padding: 20px 15px;
+  }
+
+  .fzr-container {
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+
+  /* Navigazione Hub Principale Dark */
+  .fzr-nav-hub {
+    background: linear-gradient(145deg, #161b22 0%, #0d1117 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .fzr-nav-hub h3 {
+    margin: 0 0 16px 0;
+    text-align: center;
+    font-size: 1.3rem;
+    color: var(--text-title);
+    font-weight: 700;
+  }
+
+  .fzr-nav-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .fzr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #ffffff !important;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+  .fzr-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .btn-manuale { background-color: #1f6feb; border-color: #388bfd; }
+  .btn-manuale:hover { background-color: #388bfd; }
+
+  .btn-hamlib { background-color: #238636; border-color: #2ea043; }
+  .btn-hamlib:hover { background-color: #2ea043; }
+
+  .btn-mac { background-color: #30363d; border-color: #484f58; }
+  .btn-mac:hover { background-color: #484f58; }
+
+  .btn-com0com { background-color: #6e40c9; border-color: #8957e5; }
+  .btn-com0com:hover { background-color: #8957e5; }
+
+  .btn-faq { background-color: #b62324; border-color: #da3633; }
+  .btn-faq:hover { background-color: #da3633; }
+
+  /* Sezioni Card Dark */
+  .fzr-section {
+    scroll-margin-top: 25px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 35px;
+    background: var(--bg-card);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .fzr-section h2 {
+    margin-top: 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.6rem;
+    color: var(--text-title);
+  }
+
+  /* Selettore Lingua */
+  .lang-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+  }
+
+  .lang-tab-btn {
+    background: #21262d;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-tab-btn.active {
+    background: var(--btn-blue);
+    border-color: var(--border-accent);
+    color: #ffffff;
+  }
+
+  .lang-panel {
+    display: none;
+  }
+  .lang-panel.active {
+    display: block;
+  }
+
+  /* Indice argomenti a griglia Dark */
+  .fzr-toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    background: #0d1117;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 22px;
+    margin: 24px 0 35px 0;
+  }
+
+  .fzr-toc-grid h4 {
+    margin: 0 0 12px 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .fzr-toc-grid ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  .fzr-toc-grid li {
+    margin-bottom: 7px;
+    font-size: 0.94rem;
+  }
+  .fzr-toc-grid a {
+    color: #79c0ff;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .fzr-toc-grid a:hover {
+    color: #a5d6ff;
+    text-decoration: underline;
+  }
+
+  .badge-new {
+    background: #1f6feb22;
+    color: #58a6ff;
+    border: 1px solid #1f6feb;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 700;
+    margin-left: 6px;
+    text-transform: uppercase;
+  }
+
+  /* Capitoli del manuale */
+  .manual-chapter {
+    padding-top: 22px;
+    margin-top: 28px;
+    border-top: 1px solid var(--border-color);
+  }
+  .manual-chapter:first-of-type {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 0;
+  }
+  .manual-chapter h3 {
+    color: var(--text-title);
+    font-size: 1.25rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Tabelle Dark */
+  .fzr-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .fzr-table th, .fzr-table td {
+    border: 1px solid var(--border-color);
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 0.94rem;
+  }
+  .fzr-table th {
+    background-color: #21262d;
+    color: var(--text-title);
+    font-weight: 600;
+  }
+  .fzr-table tr:nth-child(even) {
+    background-color: #161b22;
+  }
+  .fzr-table tr:nth-child(odd) {
+    background-color: #0d1117;
+  }
+
+  /* Codice & Prompt Dark */
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    background: #21262d;
+    color: #e6edf3;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+  }
+  pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg-code);
+    color: #e6edf3;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.92rem;
+    border: 1px solid var(--border-color);
+  }
+
+  /* Callout box Dark */
+  .fzr-callout {
+    border-left: 4px solid var(--primary);
+    background: #111a2c;
+    color: #e6edf3;
+    padding: 15px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    border-top: 1px solid #1f293d;
+    border-bottom: 1px solid #1f293d;
+    border-right: 1px solid #1f293d;
+  }
+  .fzr-callout strong {
+    color: var(--primary);
+  }
+  .fzr-callout.warning {
+    border-left-color: var(--accent-orange);
+    background: #271c08;
+    border-top: 1px solid #3c2909;
+    border-bottom: 1px solid #3c2909;
+    border-right: 1px solid #3c2909;
+  }
+  .fzr-callout.warning strong {
+    color: #e3b341;
+  }
+  .fzr-callout.danger {
+    border-left-color: var(--accent-red);
+    background: #2c0e11;
+    border-top: 1px solid #4a1417;
+    border-bottom: 1px solid #4a1417;
+    border-right: 1px solid #4a1417;
+  }
+  .fzr-callout.danger strong {
+    color: #ff7b72;
+  }
+
+  /* Dettagli / Accordion Dark */
+  details {
+    background: #161b22;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    padding: 12px 18px;
+    transition: background-color 0.2s ease;
+  }
+  details[open] {
+    border-color: var(--border-accent);
+    background: #1c2128;
+  }
+  summary {
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-title);
+    list-style-position: inside;
+  }
+  summary:hover {
+    color: var(--primary);
+  }
+  .details-body {
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 12px;
+    color: var(--text-main);
+  }
+
+  /* Torna su link */
+  .back-to-top {
+    display: inline-block;
+    margin-top: 22px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .back-to-top:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .fzr-hero { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .fzr-hero img { width:120px; height:120px; border-radius:50%; box-shadow:0 0 0 2px #3a2c12, 0 8px 24px rgba(0,0,0,.5); flex:none; }
+  .fzr-hero h1 { margin:0 0 6px 0; color:var(--text-title); font-size:2rem; }
+  .fzr-hero .sub { color:var(--text-muted); margin:0; }
+  .fzr-img { border:1px dashed var(--border-color); border-radius:8px; padding:28px; text-align:center; color:var(--text-muted); background:#0d1117; }
+  .fzr-section ul li, .fzr-section ol li { margin-bottom:6px; }
+  .fzr-section a { color:#79c0ff; }
+  .btn-dl { background-color:#238636; border-color:#2ea043; } .btn-dl:hover { background-color:#2ea043; }
+  .btn-contest { background-color:#9e6a03; border-color:#bb8009; } .btn-contest:hover { background-color:#bb8009; }
+  .lang-tabs { justify-content:flex-end; }
+
+    .fzrk{--bg:#0d1117;--card:#161b22;--card2:#1c2229;--bd:#30363d;--txt:#c9d1d9;--tit:#f0f6fc;--mut:#8b949e;--blu:#58a6ff;--acc:#2f6fed;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt);line-height:1.6;
+      margin:26px auto 6px;background:linear-gradient(160deg,var(--card) 0%,var(--card2) 100%);
+      border:1px solid var(--bd);border-radius:14px;padding:24px 22px;max-width:600px;box-sizing:border-box;}
+    .fzrk *{box-sizing:border-box;}
+    .fzrk h3{margin:0 0 4px;color:var(--tit);font-size:1.3rem;font-weight:800;text-align:center;}
+    .fzrk .sub{margin:4px 0 18px;color:var(--mut);font-size:.92rem;text-align:center;}
+    .fzrk label{display:block;font-size:.8rem;color:var(--mut);margin:12px 0 4px;font-weight:600;}
+    .fzrk input,.fzrk select,.fzrk textarea{width:100%;padding:11px 12px;border:1px solid var(--bd);border-radius:10px;
+      background:#0d1117;color:var(--txt);font-size:15px;font-family:inherit;}
+    .fzrk input:focus,.fzrk select:focus,.fzrk textarea:focus{outline:none;border-color:#388bfd;}
+    .fzrk textarea{min-height:68px;resize:vertical;}
+    .fzrk .rowck{display:flex;align-items:center;gap:8px;margin-top:12px;}
+    .fzrk .rowck input{width:auto;}
+    .fzrk .hp{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;}
+    .fzrk button{margin-top:18px;width:100%;padding:13px;border:0;border-radius:10px;background:var(--acc);color:#fff;
+      font-size:16px;font-weight:700;cursor:pointer;transition:.2s;}
+    .fzrk button:hover{background:#3f7ff5;}
+    .fzrk button:disabled{opacity:.6;cursor:wait;}
+    .fzrk .kofi{margin-top:14px;text-align:center;font-size:.85rem;color:var(--mut);}
+    .fzrk .kofi a{color:var(--blu);text-decoration:none;font-weight:600;}
+    .fzrk .note{margin-top:14px;font-size:.75rem;color:var(--mut);line-height:1.5;text-align:center;}
+    .fzrk .note b{color:var(--txt);}
+    .fzrk .ok{display:none;margin-top:14px;padding:16px 18px;border-radius:12px;background:#12251a;border:1px solid #1f4030;
+      color:#4ade80;font-weight:600;text-align:center;}
+
+</style>
+</head>
+<body>
+
+<div class="fzr-container" id="top-content">
+
+  <div class="lang-tabs">
+    <button class="lang-tab-btn active" onclick="switchLang('it')">🇮🇹 Italiano</button>
+    <button class="lang-tab-btn" onclick="switchLang('en')">🇬🇧 English</button>
+  </div>
+
+  <div class="lang-panel active" id="lang-it">
+  <div class="fzr-nav-hub">
+    <div class="fzr-hero">
+      <img src="data:image/jpeg;base64,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" alt="FZR Skimmer">
+      <div>
+        <h1>FZR Skimmer</h1>
+        <p class="sub">Ricevitore CW per pile-up in split e contest &middot; Perseus SDR e scheda audio &middot; IW1FZR Amateur Radio Tools</p>
+      </div>
+    </div>
+    <h3 style="margin-top:22px">📚 Indice Rapido Documentazione FZR Skimmer</h3>
+    <div class="fzr-nav-buttons">
+      <a href="#installazione" class="fzr-btn btn-dl">💾 Installazione</a>
+      <a href="#manuale-utente" class="fzr-btn btn-manuale">📖 Manuale</a>
+      <a href="#dxpedition" class="fzr-btn btn-com0com">🌍 Modo DXpedition</a>
+      <a href="#contest" class="fzr-btn btn-contest">🏆 Modo Contest</a>
+      <a href="#registrare" class="fzr-btn btn-mac">⏺️ Registrare</a>
+      <a href="#problemi" class="fzr-btn btn-faq">❓ Risoluzione Problemi</a>
+    </div>
+  </div>
+
+  <section id="manuale-utente" class="fzr-section">
+    <h2>📖 Manuale Utente FZR Skimmer</h2>
+    <p><strong>FZR Skimmer</strong> è un ricevitore CW per lavorare i <strong>pile-up in split</strong> e i <strong>contest</strong> con il Perseus (o con qualsiasi radio tramite la scheda audio). L'audio resta fermo sul DX mentre il waterfall scorre libero su tutta la banda ricevuta; accanto a ogni segnale compare il testo CW decodificato, con i 5NN evidenziati, e dopo ogni rapporto del DX il programma segna dove ha risposto la stazione lavorata: cioè dove il DX sta ascoltando.</p>
+    <p class="fzr-img"><em>[Immagine: schermata principale di FZR Skimmer]</em></p>
+    <div class="fzr-toc-grid">
+      <div>
+        <h4>🚀 Per iniziare</h4>
+        <ul>
+          <li><a href="#requisiti">Cosa serve</a></li>
+          <li><a href="#installazione">Installazione</a></li>
+          <li><a href="#registrazione">Registrazione e prova gratuita</a></li>
+          <li><a href="#ricevitori">Ricevitori</a></li>
+          <li><a href="#calibrazione">Calibrazione della frequenza</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>🎛️ Uso</h4>
+        <ul>
+          <li><a href="#schermata">La schermata</a></li>
+          <li><a href="#dxpedition">Modo DXpedition (pile-up in split)</a></li>
+          <li><a href="#contest">Modo Contest (S&amp;P)</a></li>
+          <li><a href="#nominativi">Nominativi e decodifica</a></li>
+          <li><a href="#rbn">Reverse Beacon Network</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>🛠️ Altro</h4>
+        <ul>
+          <li><a href="#registrare">Registrare e riascoltare</a></li>
+          <li><a href="#tastiera">Mouse e tastiera</a></li>
+          <li><a href="#tablet">Uso dal tablet</a></li>
+          <li><a href="#problemi">Problemi e soluzioni</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="requisiti" class="fzr-section">
+    <h2>🧰 Cosa serve</h2>
+    <ul>
+      <li>PC con <strong>Windows 10 o 11</strong> (FZR Skimmer è a 32 bit, gira anche sui Windows a 64 bit).</li>
+      <li><strong>Microsoft Edge</strong> (c'è già in Windows) oppure Google Chrome: servono solo a disegnare la finestra.</li>
+      <li>Un ricevitore: <strong>Perseus</strong> (il modo migliore), oppure una radio collegata alla scheda audio, oppure un ricevitore IQ (SoftRock e simili), oppure un ricevitore con plugin ExtIO per HDSDR (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> e altri).</li>
+      <li>Per il Perseus: i file <code>perseususb.dll</code> e <code>perseus*.sbs</code>, che ha già chi usa CW Skimmer o il software del Perseus (<strong>prepara_cartella.bat</strong> li copia da lì). Altrimenti sono tutti nel pacchetto ufficiale <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a (Microtelecom)</a>; il driver USB del Perseus è nel pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">driver Perseus 2026a1</a>. Per aiuto: <a href="https://groups.io/g/Perseus-SDR" target="_blank" rel="noopener">gruppo utenti Perseus</a>.</li>
+      <li>Facoltativo: un collegamento Internet per il Reverse Beacon Network e per la verifica online della registrazione.</li>
+    </ul>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="installazione" class="fzr-section">
+    <h2>💾 Installazione</h2>
+    <ol>
+      <li>Scarica lo zip <strong>FZRSkimmer</strong> e scompattalo dove vuoi, per esempio in <code>C:\FZRSkimmer</code>.</li>
+      <li><strong>Senza CW Skimmer né software Perseus</strong>: installa il driver USB dal <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">pacchetto driver di Microtelecom</a> (se il Perseus non è già riconosciuto da Windows), poi scarica il pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a</a> e copia <code>perseususb.dll</code> e tutti i file <code>perseus*.sbs</code> nella cartella di FZR Skimmer, accanto a FZRSkimmer.exe. Il passo successivo allora non serve.</li>
+      <li>Avvia una volta <strong>prepara_cartella.bat</strong>: copia nella cartella i file del Perseus prendendoli da CW Skimmer, HDSDR o dal software Perseus, e l'elenco nominativi <code>MASTER.SCP</code> da N1MM se c'è. Se non lo fai, FZR Skimmer cerca comunque quei file nelle cartelle di CW Skimmer.</li>
+      <li><strong>Chiudi CW Skimmer, HDSDR e il software del Perseus</strong>: il Perseus lo può usare un solo programma per volta.</li>
+      <li>Avvia <strong>FZRSkimmer.exe</strong>: si apre la finestra del programma.</li>
+    </ol>
+    <div class="fzr-callout">Per chiudere usa il pulsante <strong>Esci</strong> in alto a destra, oppure chiudi la finestra: in entrambi i casi il Perseus viene liberato e il programma termina.</div>
+    <p>Tutte le impostazioni (banda, DX, memorie, filtro, sensibilità, colori, ricevitore, modo) si salvano da sole nel file <code>fzrskimmer.json</code> accanto all'exe. Il diario del programma è <code>fzrskimmer.log</code>, nella stessa cartella: è il primo file da guardare se qualcosa non va.</p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="registrazione" class="fzr-section">
+    <h2>🔑 Registrazione e prova gratuita</h2>
+    <p>FZR Skimmer usa <strong>la stessa registrazione di ADIF FZR</strong>: stesso nominativo, stessa chiave. Se ADIF FZR è già registrato sullo stesso PC, FZR Skimmer trova la licenza da solo e non chiede nulla.</p>
+    <ul>
+      <li>Senza registrazione il ricevitore funziona <strong>5 minuti per ogni avvio</strong>, poi si ferma e compare la finestra di registrazione.</li>
+      <li>La <strong>riproduzione delle registrazioni</strong> è sempre libera.</li>
+      <li>Pulsante <strong>Registra</strong> in alto: scrivi il nominativo e incolla la chiave, oppure premi <strong>Verifica online</strong> se il tuo nominativo è già abilitato sul sito.</li>
+      <li><strong>Richiedi una chiave</strong> apre la pagina di richiesta su iw1fzr.it; oppure compila il modulo qui sotto. La registrazione è gratuita e la stessa chiave vale per ADIF FZR.</li>
+    </ul>
+    <div class="fzrk" id="fzrk-kit">
+    <h3>🔑 Richiedi la chiave di registrazione</h3>
+    <p class="sub">La registrazione è gratuita e <b>una sola chiave vale per ADIF FZR e per FZR Skimmer</b>. Senza chiave ADIF FZR funziona 30 giorni di prova, FZR Skimmer 5 minuti per ogni avvio. I Donor hanno il <span style="color:#ff6b6b">&hearts;</span> accanto al call. Compila e invia: riceverai la chiave via email.</p>
+    <form class="fzrk-form" data-err="Errore invio: " action="https://www.iw1fzr.it/adiffzr/richiedi.php" method="POST">
+      <input type="hidden" name="ajax" value="1">
+      <input type="text" name="sito_web" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <label for="kit-call">Nominativo *</label>
+      <input id="kit-call" name="call" type="text" required placeholder="es. IU1PJO" autocomplete="off" style="text-transform:uppercase">
+      <label for="kit-nome">Nome</label>
+      <input id="kit-nome" name="nome" type="text" placeholder="Come ti chiami">
+      <label for="kit-email">Email *</label>
+      <input id="kit-email" name="email" type="email" required placeholder="tuo@email.it">
+      <label for="kit-tel">Telefono</label>
+      <input id="kit-tel" name="telefono" type="tel" placeholder="+39 …">
+      <label for="kit-prog">Programma</label>
+      <select id="kit-prog" name="programma"><option value="ADIF FZR + FZR Skimmer">ADIF FZR + FZR Skimmer (stessa chiave)</option><option value="FZR Skimmer">FZR Skimmer</option><option value="ADIF FZR">ADIF FZR</option></select>
+      <label for="kit-tipo">Tipo di chiave</label>
+      <select id="kit-tipo" name="tipo"><option value="Registrato / Registered">Registrato — tutte le funzioni</option><option value="Donatore / Donor">Donatore (Donor) — sostieni + cuore ♥</option></select>
+      <div class="rowck">
+        <input id="kit-kofi" name="kofi" type="checkbox" value="1">
+        <label for="kit-kofi" style="margin:0;font-weight:400;color:var(--txt)">Ho già donato su Ko-fi</label>
+      </div>
+      <label for="kit-note">Messaggio (facoltativo)</label>
+      <textarea id="kit-note" name="note" placeholder="Eventuali note…"></textarea>
+      <button type="submit">✉️ Invia richiesta</button>
+    </form>
+    <div class="ok">✅ Richiesta inviata! Riceverai la chiave via email appena possibile. 73!</div>
+    <div class="kofi">☕ Sostieni il progetto: <a href="https://ko-fi.com/D3B421DISC" target="_blank" rel="noopener">ko-fi.com/iw1fzr</a></div>
+    <div class="note">Ricevi la chiave via email. In <i>FZR Skimmer</i>: pulsante <b>Registra</b> in alto, incolla la chiave e premi <b>Registra</b>. In <i>ADIF FZR → Aiuto → Registrazione software</i>: incollala e premi <b>Registra</b>. In tutti e due puoi anche premere <b>Verifica online</b> per l'attivazione automatica (se il tuo call è già abilitato). La chiave è legata al tuo nominativo.</div>
+  </div>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="ricevitori" class="fzr-section">
+    <h2>📻 Ricevitori</h2>
+    <p>Il ricevitore si sceglie in basso, alla voce <strong>Ricevitore</strong>, senza riavviare il programma.</p>
+    <table class="fzr-table"><thead><tr><th>Ricevitore</th><th>Quando usarlo</th><th>Cosa impostare</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>Il modo migliore: vedi e decodifichi fino a 96 kHz di banda (48 kHz bastano per quasi tutti i pile-up).</td><td><strong>Centro Perseus kHz</strong>, <strong>Campionamento</strong>. Se le stazioni appaiono specchiate, spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td><strong>Audio della radio</strong></td><td>Qualsiasi radio: l'uscita audio entra nella scheda audio del PC (per esempio USB Audio CODEC dell'IC-7600). Vedi solo la banda passante della radio, 2–3 kHz.</td><td><strong>Ingresso</strong>, <strong>Frequenza radio kHz</strong> (quella che mostra la radio), <strong>Offset</strong>: la nota CW, es. 600, se la radio mostra la frequenza del segnale come gli Icom in CW; 0 se mostra la portante.</td></tr><tr><td><strong>IQ da scheda audio</strong></td><td>Ricevitori che mandano I e Q sui canali sinistro e destro (SoftRock e simili).</td><td><strong>Ingresso</strong>, <strong>LO kHz</strong> (frequenza centrale), <strong>Campionamento</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>sperimentale</em></td><td>Qualsiasi ricevitore che abbia un plugin ExtIO <strong>a 32 bit</strong> per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube e altri. Se il ricevitore funziona in HDSDR, funziona anche qui. Serve il driver del ricevitore installato (per SDRplay la SDRplay API).</td><td><strong>Plugin</strong>: il programma lo cerca nelle cartelle di HDSDR, SDRplay e Airspy e nella sua; altrimenti <strong>Sfoglia…</strong> e scegli il file <code>ExtIO_….dll</code>. <strong>Campionamento</strong>: l'elenco viene dal plugin, scegli 192 kHz o meno; se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo sotto i 200 kHz (÷ n accanto al valore). <strong>Impostazioni ricevitore</strong> apre la finestra del plugin (guadagno, antenna, AGC). <strong>Centro kHz</strong>.</td></tr><tr><td><strong>Registrazione (WAV)</strong></td><td>Riascoltare una registrazione IQ.</td><td>Vedi <a href="#registrare">Registrare e riascoltare</a>.</td></tr></tbody></table>
+    <p>Se il ricevitore non parte, premi <strong>Riavvia ricevitore</strong>: chiude e riapre il Perseus senza chiudere il programma (un paio di secondi di silenzio; le impostazioni restano). Il programma riprova già da solo 3 volte all'avvio.</p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="calibrazione" class="fzr-section">
+    <h2>🎯 Calibrazione della frequenza</h2>
+    <p>Se il ricevitore legge un po' spostato rispetto alla frequenza vera (il Perseus a volte di qualche decina di Hz), si corregge con <strong>Correzione ppm</strong>, in basso accanto al campionamento. L'errore viene dal quarzo del ricevitore ed è proporzionale alla frequenza: per questo si scrive in <strong>ppm</strong> (parti per milione) e una sola correzione vale per tutte le bande. 1 ppm sono 7 Hz a 7 MHz, 14 Hz a 14 MHz, 28 Hz a 28 MHz.</p>
+    <p>Il modo comodo è il pulsante <strong>Calibra…</strong>, che fa un test su una <strong>stazione campione</strong>:</p>
+    <ol>
+      <li>Scegli una stazione che in quel momento senti bene: RWM 4996 / 9996 / 14996 kHz, WWV e BPM 5 / 10 / 15 MHz, CHU 3330 / 7850 / 14670 kHz. Dall'Italia di solito vanno bene RWM e le portanti a 10 o 15 MHz.</li>
+      <li>Premi <strong>Misura</strong>: il programma si sintonizza sulla stazione (la portante finisce nell'audio DX, la senti), la misura per 6 secondi con la precisione di un centesimo di Hz e torna dov'eri, con lo stesso DX.</li>
+      <li>Compaiono l'<strong>errore attuale</strong> in Hz, la <strong>forza del segnale</strong>, la <strong>stabilità</strong> e la correzione misurata in ppm.</li>
+      <li>Se va bene premi <strong>Applica la correzione</strong>. Non viene applicata da sola: decidi tu.</li>
+      <li>Per controllo, misura una seconda stazione su un'altra frequenza: deve dire <em>«Il ricevitore è già preciso»</em>.</li>
+    </ol>
+    <table class="fzr-table"><thead><tr><th>Messaggio</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Segnale troppo debole</td><td>Prova un'altra stazione o un'altra frequenza della stessa (cambia con l'ora del giorno).</td></tr><tr><td>Misura instabile</td><td>Riprova: fading forte o due stazioni sulla stessa frequenza (WWV e BPM sono entrambe su 5, 10, 15 MHz).</td></tr></tbody></table>
+    <div class="fzr-callout">La correzione è memorizzata per ciascun ricevitore: Perseus, ExtIO e IQ da scheda audio hanno ognuno la sua. <strong>Azzera</strong> la toglie. Con la scheda IQ, che non si sintonizza da sola, prima porta la stazione campione dentro la banda ricevuta. Il quarzo cambia un po' con la temperatura: meglio calibrare a ricevitore acceso da una mezz'ora.</div>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="schermata" class="fzr-section">
+    <h2>🖥️ La schermata</h2>
+    <p class="fzr-img"><em>[Immagine: la schermata con le parti numerate]</em></p>
+    <ul>
+      <li><strong>In alto</strong>: frequenza su cui è fermo l'RX, zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
+      <li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
+      <li><strong>Comandi del waterfall</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Filtro RX</strong> (100–800 Hz), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
+      <li><strong>Waterfall</strong> a sinistra: il tempo scorre da sinistra verso destra (a destra i segnali appena arrivati), la frequenza è in verticale con la scala a destra. La fascia verde è la banda passante dell'RX sul DX.</li>
+      <li><strong>Testo decodificato</strong> a destra, all'altezza di ogni segnale. 5NN/599/TU su fondo arancio; nominativi sicuri in bianco su fondo blu; nominativi corretti dal programma con il <strong>?</strong>, sottolineati a tratti.</li>
+      <li><strong>Riga DX</strong> sotto il waterfall: tutto quello che trasmette il DX, di seguito.</li>
+      <li><strong>In basso</strong>: impostazioni (DX, Zona UP, ricevitore, memoria, RBN) e la riga di stato.</li>
+    </ul>
+    <table class="fzr-table"><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="dxpedition" class="fzr-section">
+    <h2>🌍 Modo DXpedition (pile-up in split)</h2>
+    <p>È il modo per cui FZR Skimmer è nato. Un esempio tipico: il relè della radio commuta in trasmissione, il Perseus riceve; l'audio resta fisso sul DX mentre tu scorri il waterfall per vedere dove chiama il pile-up e dove risponde la stazione lavorata.</p>
+    <ul>
+      <li><strong>Imposta il DX</strong>: <strong>Ctrl + clic</strong> sul suo segnale nel waterfall, oppure scrivi la frequenza in <strong>DX kHz</strong>, oppure tasto destro → <em>Imposta il DX qui</em>. Per ritoccarlo: <strong>Ctrl + rotellina</strong> (50 Hz, con Maiusc 10 Hz) o le frecce sinistra/destra.</li>
+      <li><strong>Zona UP</strong>: dove cercare l'ascolto, in kHz sopra il DX. Se il DX dice "UP 1-5", scrivi 1 e 5. Serve anche a escludere FT8 e altri segnali digitali.</li>
+      <li><strong>Ascolto rilevato</strong>: dopo ogni 5NN del DX, il programma guarda chi risponde subito dopo e traccia una <strong>linea arancio</strong> su quella frequenza, con lo scostamento dal DX. Le ultime frequenze restano come pulsanti in <strong>Ascolti</strong>: un clic e il waterfall si centra lì.</li>
+      <li>Se l'ascolto è fuori dalla vista, compare un pulsante arancio in alto o in basso nel waterfall: cliccalo per andarci.</li>
+    </ul>
+    <div class="fzr-callout">Il rilevamento scatta solo quando il DX passa un 5NN che il programma riesce a decodificare. Molti DX non ripetono il proprio nominativo: è normale non vederlo nella riga DX.</div>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="contest" class="fzr-section">
+    <h2>🏆 Modo Contest (S&amp;P)</h2>
+    <p>Con <strong>Modo → Contest</strong> si apre l'<strong>elenco stazioni</strong> e la ricerca dell'ascolto si spegne. L'elenco si apre e chiude anche a mano con <strong>☰ Elenco</strong>.</p>
+    <ul>
+      <li>Le stazioni sono in ordine di frequenza, con nominativo, etichetta <strong>CQ</strong> se stanno chiamando CQ o TEST, frequenza, dB, velocità e da quanto sono state sentite.</li>
+      <li>Ci finiscono i nominativi <strong>confermati</strong> (decodificati uguali almeno due volte sullo stesso segnale, oppure subito dopo CQ/TEST) e gli spot RBN della banda ricevuta, in viola.</li>
+      <li><strong>Clic su una riga</strong>: l'audio va su quella stazione e il waterfall si centra lì.</li>
+    </ul>
+    <p class="fzr-img"><em>[Immagine: il modo Contest con l'elenco stazioni]</em></p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="nominativi" class="fzr-section">
+    <h2>🔤 Nominativi e decodifica</h2>
+    <p>Il decoder segue ogni segnale CW sulla sua frequenza esatta, misura da solo la velocità e ignora i disturbi brevi. Per rendere più sicuri i nominativi usa tre aiuti, in quest'ordine:</p>
+    <ol>
+      <li><strong>Reverse Beacon Network</strong>: se il nominativo decodificato coincide con uno spottato lì vicino, è sicuro.</li>
+      <li><strong>Ripetizione</strong>: chi chiama ripete il proprio call. Quando lo stesso nominativo esce due volte sullo stesso segnale diventa confermato, e le letture storpiate di quel segnale (una lettera sbagliata, l'inizio perso) vengono mostrate corrette con il <strong>?</strong>, anche quelle arrivate prima.</li>
+      <li><strong>Elenco nominativi</strong>: se nella cartella c'è <code>MASTER.SCP</code> (Super Check Partial, da supercheckpartial.com o dalla cartella di N1MM), <code>MASTER.DTA</code> (CW Skimmer) oppure <code>callsign.dat</code> / <code>nominativi.txt</code> con un nominativo per riga, i call presenti vengono evidenziati e quelli che differiscono di una sola lettera vengono suggeriti con il <strong>?</strong>.</li>
+    </ol>
+    <p>Le parole attaccate per uno spazio troppo corto (<code>CQCQDE</code>, <code>DL1ABCTEST</code>, <code>TU5NN203</code>) vengono separate da sole.</p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="rbn" class="fzr-section">
+    <h2>📡 Reverse Beacon Network</h2>
+    <ul>
+      <li>Pulsante <strong>RBN</strong> (accanto a Elenco) o casella <strong>RBN</strong> in basso: accende e spegne il collegamento a telnet.reversebeacon.net, solo CW. Si usa il nominativo della registrazione; se non sei registrato compare il campo <strong>Nominativo</strong>.</li>
+      <li>Pulsante <strong>Spot</strong>: mostra o nasconde le etichette sul waterfall. Gli spot compaiono in viola sul <strong>bordo sinistro</strong>, sulla loro frequenza, con i dB; sbiadiscono con il tempo e spariscono dopo 15 minuti.</li>
+      <li>L'RBN spotta chi chiama CQ: il DX e le stazioni in contest, quasi mai i chiamanti di un pile-up.</li>
+    </ul>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="registrare" class="fzr-section">
+    <h2>⏺️ Registrare e riascoltare</h2>
+    <p>In alto a destra:</p>
+    <ul>
+      <li><strong>💾 Salva ultimi m:ss</strong>: FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti; il pulsante li scrive su disco senza fermare il ricevitore. Comodo per controllare con calma se il DX ti ha messo a log. Quanti minuti tenere si sceglie in basso alla voce <strong>Memoria</strong> (spenta, 1, 2, 5, 10 minuti; a 96 kHz servono circa 23 MB di RAM al minuto).</li>
+      <li><strong>⏺ Registra</strong>: registra su disco da quel momento finché non lo premi di nuovo (circa 35 MB al minuto a 96 kHz). Cambiando banda il file si chiude e ne parte un altro.</li>
+      <li><strong>📂</strong>: apre la cartella <code>registrazioni</code>.</li>
+    </ul>
+    <p>I file sono WAV IQ a 24 bit, con centro e DX scritti dentro e nel nome (es. <code>FZR_20261017_121500Z_18085.000kHz_DX18080.00.wav</code>); si aprono anche con HDSDR, SDR Console e CW Skimmer.</p>
+    <p><strong>Per riascoltare</strong>: <strong>Ricevitore → Registrazione (WAV)</strong>. Il Perseus si ferma e compare la barra di riproduzione: ▶/⏸ (anche la barra spaziatrice), <strong>−15 s</strong>, cursore della posizione, elenco delle registrazioni e <strong>Sfoglia…</strong> per aprire qualsiasi WAV IQ. Waterfall, decodifica e ricerca dell'ascolto funzionano come dal vivo. Per le registrazioni di CW Skimmer, che non salvano la frequenza, scrivila in <strong>Centro kHz</strong>: viene ricordata per quel file. <strong>Torna al ricevitore</strong> riaccende il Perseus.</p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="tastiera" class="fzr-section">
+    <h2>⌨️ Mouse e tastiera</h2>
+    <table class="fzr-table"><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="tablet" class="fzr-section">
+    <h2>📱 Uso dal tablet</h2>
+    <p>FZR Skimmer si può guardare anche da un tablet o un telefono collegati alla rete di casa: apri nel browser l'indirizzo scritto in <code>fzrskimmer.log</code>, del tipo <code>http://192.168.x.x:8073</code>. Dal tablet chiudere il browser non spegne nulla: per spegnere usa <strong>Esci</strong>. Chiudendo invece la finestra sul PC si spegne tutto.</p>
+    <div class="fzr-callout warning">Non aprire la porta 8073 verso Internet: l'interfaccia non ha password. Per usarlo da fuori casa passa dalla VPN.</div>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="problemi" class="fzr-section">
+    <h2>❓ Problemi e soluzioni</h2>
+    <details>
+      <summary>🔴 Il ricevitore non parte</summary>
+      <div class="details-body"><p>Chiudi CW Skimmer, HDSDR e il software Perseus; premi <strong>Riavvia ricevitore</strong>. Controlla in Gestione attività che non ci sia un altro FZR Skimmer acceso.</p></div>
+    </details>
+    <details>
+      <summary>🔴 ExtIO: «Nessun plugin ExtIO trovato» o «impossibile caricare il plugin»</summary>
+      <div class="details-body"><p>Installa il plugin <strong>a 32 bit</strong> per HDSDR del ricevitore e il suo driver, poi <strong>Plugin → Sfoglia…</strong>. Chiudi HDSDR: il ricevitore lo usa un programma per volta.</p></div>
+    </details>
+    <details>
+      <summary>🔴 I segnali sono un po' fuori frequenza (es. i nominativi dell'RBN non coincidono)</summary>
+      <div class="details-body"><p>Calibra il ricevitore: <a href="#calibrazione">Calibrazione della frequenza</a>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Stazioni specchiate rispetto al centro</summary>
+      <div class="details-body"><p>Spunta <strong>Inverti I/Q</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Nessun audio</summary>
+      <div class="details-body"><p>Premi <strong>Audio DX</strong>: il browser accende l'audio solo dopo un clic.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Troppa decodifica sbagliata</summary>
+      <div class="details-body"><p>Sensibilità <strong>Media</strong> o <strong>Bassa</strong>; restringi il <strong>Filtro RX</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Waterfall troppo scuro o chiaro</summary>
+      <div class="details-body"><p>Cursori <strong>Luce</strong> e <strong>Contrasto</strong>, o un'altra tavolozza in <strong>Colori</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 In Gestione attività ci sono due FZRSkimmer.exe</summary>
+      <div class="details-body"><p>È normale: l'exe "a file unico" è composto da due processi. Alla chiusura spariscono tutti e due entro pochi secondi.</p></div>
+    </details>
+    <details>
+      <summary>🔴 "Persi" che cresce nel log</summary>
+      <div class="details-body"><p>Il PC non tiene il passo: scegli un campionamento più basso (48 kHz).</p></div>
+    </details>
+    <details>
+      <summary>🔴 Qualcos'altro</summary>
+      <div class="details-body"><p>Guarda <code>fzrskimmer.log</code> nella cartella del programma e mandamelo.</p></div>
+    </details>
+    <p><em>FZR Skimmer è un programma di IW1FZR. Il Perseus è un prodotto <a href="https://www.microtelecom.it/en/perseus-22" target="_blank" rel="noopener">Microtelecom</a>; i suoi file (perseususb.dll, .sbs) non sono distribuiti con FZR Skimmer e vanno presi dal sito del produttore.</em></p>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  </div>
+
+  <div class="lang-panel" id="lang-en">
+  <div class="fzr-nav-hub">
+    <div class="fzr-hero">
+      <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCADwAPADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5BCn0oIp3PPFBHPvXWkcw38+tLg0oB9Keo56VSVxMaBjoKdg4FPx29KeqdOKtRIbI1B9OKkCc9DUyx4z0qVY+OBVJGbkVgufWlVPlwea1NK0fUtUmMWn2U1y4IB2L8q56ZPQfjXZaZ8Ntg36zqYix96K0UPtx2aQnaPwDVzVsXRoaTlqb0sNVqq8VoedhQBjNaGkaDrWryBNL0i/vS3TyLdnH5gYr0a61b4deF0RLIW0l0udzQJ9qmB93b5VP0xTtD+K2uXWqRWHhzw1candzAi2huJy2eOSqIBngE/e9a5nmNWS/dU/m9DqWChH+JP7jG074P+OrpA8mlR2S4zm6uEXH4Akj8q6rQv2ffEl/II5Nb0WFuOA0r8/gnNUvHHjn4zaPYpcatp1voNnI2xZLe0jcBuu0uWcg9eDisvV7rx/BrmlWPiD4kPYR6pp6XyXR1CRII42BKq2wD5uMYA6kClHHY2yalBfe9ipYbDbWk/wPa/Dn7Kk+3fqPim3kJx8kNpJg+oya5Txx8ELfTNVuYbLW8RIfkElq5OPqK888X22paJfWWnQfEe41bUbm5jiMMd1cp5KvjbIWcgFTntWlfeF/GkXxJ17wfZeNZ1g0M+Ze6rdX0tvbQR7VJkYbiRycADJOK9HC51VhRftakZaXWlvmedWy6Mqq5Ytd9bkNx8NryOXbDq1hMC2MlJFH/oJxVGfwLrKZEK2t4w6pbXCs/wCCnBP4Uniz/hM/DunWmsWPjiLxHot5M0Ed9aSGWLzlGTE6SqGVscjI5HQ1rS2XxU8P+KBo134esb+9SwfUvLgVTvtl++6sjAHHIIxkYPFcs8zxUtYuLv8Ap9x1fUcNaz5kclqWh6np7FbyyubU/wDTWIr+pFZc0DqM8n6V21h8U9PknVrvTdR01X+81pcieP6lGAyPbJr1fwD4c+FnxJsDbLqNrFq23KfYpVt7kepeBwA/1UH61lPNnR/3im0u61RDy1S/hTT8nofM0gPoc1XdWJ5r3n4mfATxD4fM1zo0qa5ZoN2I18udB6MhPOP9kn6V4vfWM1vO8MsbRyIcMrDBU+hrsoYujiY81KSaOWpRqUXacbGQYyTk8UhjJIq88RB5FR+Xg8fhW6jcXOVjHxUZTjuKvbCTyKY6ZNU4gplFlxxTQuOKtuhJ6YphQgVm4mikVyvFRyDkVZZeBUMg6VnJFxY4DknAoYbjn9KXHNO2jPtSSKYwDPanoPmAxUm0D0p6KAexq0iHIRUJPAFSoh6YFSovHIrpPA/hLVPFepC002EJEmDPdSZEUK+rH19AOTU1atOjBzqOyQoQnVkowV2zCsbGe8uo7S0t5bi4kOEiiQuzH2A5r27wL8FLa30ttd8eX62VuoDfZElVRGv96aQ8KPRRz7iptQ1PwZ8ItPe3slkv9ekiAVFcedKT/E5GREnoo5Pv1rhfH6fFHxFYDX/Fmmzf2LZFJ5NMimWLyYj/ABtFkuOP42BIz2FfNVswxOPfLh37Om/tPd/4V+p7NPBUcKr1VzT7LZepu+PviZ4Y05m0nwJpkN3aWrYEyxmO1QngED7znPc4z71xXha3ufiDrN7b+I9d1AJa2r3cdlZQqzXG370cSZChsY6gmu31bRfDur/CKxsvBk8WlLquoyXxi1i5WNneFArxCU8YXIYZPr715T4V1DVdF8WWd9o0P2rUraUqkMP73zcgqyjbncCCeR9a1weFpRozdL411lv877dtB1683Uip/C+i2O78PaL4b8K/EzwzHIxns9YtWWS01S3ja406RwQjMoBXdkAjIzjNXvF19qWl+MvBvibULq/K2N79mkm1B7ZCU3Z3RwRYMUW0t9/1qh4d+CfjjXL1tU1TyfD/AJ0xmBlkZ7hSTnhFyRjtkg12MHw5+D3hGUz+MtebULsfMy3d5t3H/rnH8x/E1jVxFFT1nzO1mkr9/l1NqdGo46R5Ve6bdjhPFWu+HNJ8M+JvD2ma6mvy69fLOojjYQWKrIW4ZvvOeB8vHArmPFGsTeKLHQbe3067abTdLWydhCWDkHjGM8V7N/wtj4K+GJNvhzwTHeOvSSKwjjB/4HJlj+VK/wC1RdW7Y0fwNZQoPu+bcn+SAVph/rN04UG3vdtLpbb0IrKnqpVEvJJvzPLbjT/EviTxBBqkPhXVkMKW6rGLWVt3lY77e+K6XV73X7LxZ4l1DxD4K1h9N8QIIr+0EciyKq4KsrleqkZ5rtbT9rjxqkg8vw7oij0Mkp/9mqS4/a78UyOReeFNIlB6+XPIv9TXoTwuIlQ1oarT4vn+aRyRrQVXSp+B4zq3ibTY7Cx8P6XpN5p2jQ6lHfXRu5PNuZnU4zjAAAUngda9MufjBpOreFfHMc9yi6gy3kehyzIVka3uQgeNP7uCudue9acn7SHhbWVEfiT4fBlbhihinH5OoP61HFd/s6+M5Nk1tDoNw/GSjWhB+o3Ia8mtGSs61Cat1T5uqb++33HdBppqFSLv0enQ8Z+Guiw+I/H+g6JcELbXF4n2lj0WFfmkJ/4Cp/OvevFvwf8ABms67eeLrK+g8NeFhoMepwwWgzOG2sxlRTwqY2556sAMVQ1D9nFb23/tX4ceNY7hlBMayyjoRggSxdMjjkV5v4n0n4nfD/QNV8O+JNHuYbTUoIbU30m6VUgibcsUcgJUIT1HFdM8T9cqp4arZ7We++ujOVUfYxtVj8zo/hv43+MMXhd7ldH1TxX4XRCji7jLMqDr5U33+PT5x7UkOt+GfG8RhECm5wNsE7+XdRgdkfpIPbn6Cs/S9e0vU7fwZqkXjeDw3J4ctEt72ym80MxR9xaFVBVxIuAQTUNtoPhfxDL4g8aa3Pc6Do2qasbfQZUUblmZixkK/wDPNcc4IwWPPFTywU5TceR+SffZrr30L95xUb8y87f195k+IPDj2Jee3lS7tAfvpwyezr1H15HvXOSQMnOAK65dcvfCXiS68PeMYIJrqylEf9oQje4BGQXx/rUZSDnG769K7qD4eaX4k0mTVNJu7dJZVDRQwsDDJxnKemf7vb9K9vBYiU5KnU67PozysThlFOdPpuux4iyE/XFNWLDZNaeqWMtjfS20ybXiYqR6EHmqxT5c4FenKPK7M89TutCoyZ/hqCReSKvFagmX5ieKlq5cWUSuDUMi4NW5V4GKgnHTiuecbHTB3YwH1qWAhyQQAaiK9fepYeOnWojuaT2J9gAxT0WNetMZsd61fCOg3XiHUmiTfHZwgPdXAGRGuf1J6Af0BorVoUYOctEiKdKVWSjHdm34A8JXPie5M0zPbaXCwWacDlj/AHEz1b+Xf37bxT8Q7XwdpjeFvCEMC3Sgh3Khltc9S3Z5cevA7+gwfHniqHQbZPD/AIcJtpUiCs4OTbKffvIepPbPrjHM+GdK8Lz+Gdc1LxB4gezuraJY7CxhiL3FxM4yshB4MeOvOfmzx3+ajQlmUlicVf2a+GPfzZ7DqRwUfZUfje7/AERQMHiXSHsvF7x3MMs1151re3ABaaVMMWAblh/tYx2zXe6h4s8NRXep+NLC+uZda8SaY1rJokalxHcv8sjuTn5MgFFHJyccVwGiWHifxt4gsdJsvtmsam0aQQo7l/KjUYAyeFRR+Ar6n8K+C/hz+z7oMPijxhJHr3i+ZM2sEShir/3YUPQDvI34V1472SlGL+P+VdV2McPKaTf2e77nnPgL4HeNPFvh/S5PHt7/AMI54W0yFja2zoqTMrHczlTwpbu784xxXRXfjb4Y/Dy3bRvhvoI1i+BEcl1FkqW/25zy30XArkviH42+IXxelniurW707T9+LfTrdhHCD2MjsR5nqT09BXKRaPc6DqJtI7a0luC8SxpmXyo2Rf3xZhhSqk9ck9KdPKqmJd8XK0f5Vovn3JlmUaKaoK8u5J4p+I3inxFfyWF/4li0y258yK1YwwLj+HcuXc/jUdn4J0B7BNSM8l/HIf8AXLMdrnvjvx71U+MGg6XpWqQzwTJBdXYEs1sqs+CclnDn5cZ4wMY9K6jwfcWFp8ObG5u2ElvbRySysxCAAM3yLyfnJwOg5xX1WXZfQoSSUFY+ezTF16lFTjN3bsVLfTdGggWNNLtdgHVkycepJ79647xg2lrdLa6dY2ihUAkmUtvBBPy4Hyj64zXZWp8X6xpUGraL4Tu49JupfIW8lKKGc9lLEDP86w/G/hK68K6rBYa1aalZTywiXN1bBd+eSylSQy+4r16lehXXJSsn8jiweEr4eftK99fN/icaY1VAwOSQeMHgVsahoelW+ix6hH4jtrmWdN0VvHbPvBBAKtkjaeeDg5waoSxhclXR1/2T0/DrXaeCPBFveWiavr5lgtJGzDCp2vL2GT1AJ4Hc9awhhZVZckV/Xc7sRi4YePPN2X5+RwMdvF5i+YQqMQGbB+UetLNp6FWEckbMvUAN/hgV6B4y8IaVE4fRLi8juZmBitpFEkY7MN45HPPIIxUcHg+7FvJZXF3EYHm8xiq4fpgH0P07VLyytzcvKRDNMPKCnzWucV4c1nXvDl+t5oWr3mnzoc77aYr+YBwfxr6C8CftOavZWg0r4iaNa+I9KmGxrqKJQ5H+0pG1/wAQDXD+FfhZfaiZ7mK0jkhtkEplD/KMY3Aqe3fJIxmoNd0m0jhjiv8AVLHy3cmSC2zK6Adc4AUH6GuaXD2Hxikp25l969WdUc0lCzhdx/A9P8T/AAo+GXxR06TxH8LNWtdNu8bpbPafKDejx/eiPuMrXkup634m8EJZeEvG3hLTNVj0lmfTFvkZRECc5R4yBKmeec1nQSR+Hr6PVfCWu6jZXqE4dYwpYehG45HTIPFeqeHviD4c+JOmDwv48tII9SbiNmHlpM/96Nv+Wcnt0P6V8jj8vxeWytU/eUl/4FH/ADPdwuIo4pe4+Sf4My9KWCPwdqPjvxHc6Pf6n4oBMi3MReyS3TB+yGRM+TKygbT1BVRyQa4Twn4wj8M+K573wtFeroTyKy2l9IrSAEAnlcLuByAccjGak8f+EPEvw/S9ttO1S9fwzqhEczISqSYIIjmQcBsgc9D29Kw/D0nhV9D1e11iS40/Uwgn06+j3SIxUYMDxjs3ZuoPtxV4KFPldW/NFvS3T5dLEYmc4yULWa/r8T3v4heDtE8ZeDLbxh4YvIZtRnkZpYoQGE2ACVYD7so7jv8AXr8+zHYSjAggkEEcg1qeCfFuteCNRctHdQWl4iPc20iFSyEZSVQe+DkEdRWp4/S31eY67YyBmlXzJQq4Eqn/AJar7/3vz9a6YY6pQrqlW+F/C/0OSphI1abqU91ujkNwqNyDkEcVIORmo3Xn8K9dSPOSK1zgr8pNV58YFWJRzioJhxWM9TopjduPWnD5c0deeailfHrWV0jVq5e0fT7zWNUg06wQyTzvtUdvqfQDqTXpniS6tvAnh2LTdMcPdScREjmSTHzTMPQdgfYetanwf0GHw34OvPGOsR+U1xbsVZ1/1dsOrD3cjA9v96vML641Lxt4xMsEJFxeSbIIiflhjHTJ9AMkn614FeX1/EODf7qGr832+R69On9UoqS+Oe3ku5F4dRYLxNd1Oxh1PT7a5VryK4mK/aCcnbx8xJ//AF1s3cviX4rePlNvbQm9mRYoo44wkNnbIMLkgcKq9zyfyFZWqgalqtr4c8OQyXUMcohtgg+a7nJwZPxPT0Fe7aadF+Cvw/a4mWK+1m9+Q7et5cAZ2g9oY88nvx3YY3xWLdLldON6ktIrsu7MaGGU2+Z+6t2bttfeFfgV4Sj0/RoI9T8VajFuBcYknP8Az0fukIPRe/5mvN7bSfEHiHVZ/Evia6ub6/mO7zJAcYz0UdFQdMdKj8G2ur3urt4s8SWxkvNTX7SlzLICzpnGNgPyLgfKMdMY45r0PxL4sivUljj8PRNGwBdLINGFwMAlVOPxNfTZHw/9UgsRXXNOW7f6eR8dn/EEqtV4bD/CtNP66HnfiSz1Ge0ew0u7S2LHEuHIZh2ww6Cs3wXo5sEmkuLlLuSRdkQJLqoz83B45wK9q8DfD5vE15FHFdWul4jWWQzyq7kHB4C+nviuM+IGpeGtBuk0WC/069uo5nS5uIt6hOo4Owgjp6496+hnLByloryR42GxWLqRVKmtG99Om9zy3xv4WXTWtZra488TARtG82+UMO+Ou0jp9MVSs/DHiSa1S1h07UJIpnEiQhWCs3QEKeCT2+tdt8OPEtnpviq007UbCw1yyjuWOnRTktEtw7BQ0jqodlIJ5bIGQccVp6/460+e7mtbvw7pFjqS6sGtLlIys9nMko325kwB5SgHGfQY9vCxuY0KNRwVN/LY+xwuDxEqN5TTsOv5PGui/C20t9Yt9R8PDSbm1s/sDF4pL2OXzdkzKeBtMbDkZ446VmeNW8axaYf7c06TUtLhZ7SHWJw08Rl3AMEkPCsNu3B5xkYr0L9r3XdQg1nwiscqPYX2npLcCNhIlwyZwz8cspJwc8Zrldak1bx78HvD2laRLNetama5uSWVfMbKgqDnLNnc3OAcdc189gcbChiI15RST89r/wDDnsYrDSrUfZ3u/wDI4YeGJ5JNLk0uBbuWbAeMMrqZQxyQR/BjHPbnmvRNQ0bxNqFvbrKLW1ms5yftUzhS64PKKDkcZB3etT+F/C2vaM8Ol2OialceYjPHPcW/kxogwSplUEE57Z/KqPgLxDp/iO71aLX9Ti0m1tIXlJRGkk3Lx05JG7vxj9a/RPrmEoUnN1FbrbX8j89r4fH4qv7OnFXj/MrPXyfz3O08GfDbWfEUdw8EtsnkAOTNOMHI/l7+1UtR0eDw3qJjvbBNScPt34YwIffb9/6HA9jXHax4rktdN0q98NazfSJK7JqFnIuxRtPGJBw24Envis218W3kW/ezltxQENtO3PHTrx61nhsdLGt1Kc7w9GtvM56uUV8KlGsve62f3WR08niOW9uBAiQ7JA0TlQqgDpjaMDH4VyWpWa+bujhmkRCQxWPIUfXmul8NxW8s8uo30Wmyadgvc3l0vkmIHqxlHIPHAIOT2OaxdY8X+BoTJ/Zui+J9Ttwrn7QXitIXGc7lLIxPbsPpzVYrNaeGahJLXt2OzL8rnWi50pe7+pkWmkCWQooSQvnMbAo6k9CM8E/zqj4h8H3kE7213A0VwhBwAehAKt+IIIrRT4qeHBB5Nr4V16O6YBTO2uRzZHpsa3K+lek+A/Gmh3+kra+JvD2tSAQtFa3E1oipErHKfvk4znIAYADA9cVxVMzwlVbX8u/9ep3fUsbRkpQf9f15HOfDL4gW0/8AxQ3jtobiK4UW8N3cfdkU8CObP6P1Hf1rkvjb8Lr34f6kl1CslxoN65FtOwy0LdfKc+o7HuKvfFnwhodnanXrK4uUyOhjVwXOcK4BBXODyNw6EGvRv2d/Gum+PNEufhD8RGS68+DytOumbJmUdE3H/lovBU9TjFfGZvl8srxDxGFXuP4o+XdefdH1OAxscwwyjU3Wz/Q8L8Ra7r/jsS6nr+trdXekWUcMETxBS1urHOGHUgtnnrk9OAWeB9XaG5XR5riSOKZ8WzjB2O3BQ5/hbP5/U1e+I/hPWvhV8RJtIusTGA77WYr+7vLdv6EcEdjWN4r0i3tBa6npheTSNRQy2rHrGw+/E3+0p/TFZOFKtTVJfC/h8vL+vMuLnTfOt1uaPizRp9GmjlEbC0uMmIn+Fh1Q/T+RHvWNG4da9V8DR2vxB8A3Wm3ch/tWDEcjk8+ZyYpj7Nyp+jV5NPBcafdy2l3G8U0TlHRhggg4I/OtcvxUpXpVPijuZYzCqFqkPhkNnHOaqTfdq27bhntVWUZ5r0ZO6OSCaYhGM5rpPhR4Un8Y+PNP0lIt1vu826Y9EiXlif5fUisExtJ0Ga+kvgToD+CPhdf+NtYs/JF3E9zudcMLaPpg/wC23T1wK8XN8a8LhpOGsnovVnp4DDqvWSltu/Q5T9qPxFHaT2vgLTQkUUSpcXyR4AXj91Fx2Aw2P92uAjUeFfAAu+U1nxGhS3/vQWIOHf2MjcD2FVNAtdQ+I/xKDXz7ZdTunub2QdIYVy8h9gqDA/Cr7qfiT8Vkt7YNb6bLKI4QOltYQjt6fIM/7zVzYahHC0Y0JPSK5pPv/wAO/wAEdNarKtUdRLV6R/r+tzs/gR4cttH0abxvrDC2DwyfZpHXi3tV4lnx6tyijvz/AHhXF+J9W1Px74qbUlt3WAYt7C0GWMUQOQgAByx5Zj3JPavS/in9v1y40/4c+GrdI3lhW7u494RIreNcwwk9AAq+Yf8AgFcXZKum2wsLNZQpXyri5iG0t3cb24UYHTv39K9jh/Ce1m8fXWsvh8l0ODM8XTpWwkJfDv6nrWgyaJd6ZaLMySajJCzSWkLhwNjbNryDgMDglVGQCORmuW+Jvii70e2ghmtH8mQ5jghURwoPV2H9ck888V5v4N8Wz+GfEljfBnms4pXeS2DDc6yLtZQegyAp+qjpXoc/ij4Y+IdcW+lup7a/Fsq251GzZ7ZZSWABQEhiu7OT8v5V9lTxqkrSl7y2b/Q+DqZMqOL51Bum1ey7+et/P8jI0rxrqlt4TutShiu9PkLiOOSGFtrQsDvbf0znaMZ7155e3c1xNNPM5eUsM7n3OxP8zXQW2gXOl+JtVXTb/Up9IshI8uomIQRzQx8ttLZUlmG3HIPpiu88Gav4JvtQn1G0v7LTtelkSQXmrWzF03EBipj/AHYbHHb73vXJPMa0VyVHyp/oe7hcvo0+aVGO+v4bEXwT8NaeYtb1VdSsNSa204Ty2zWRFxa/deKRJGOFPmhVYL82PQGsXUr2a/1bWoNQi09rbUvtUjyXNv8AaGgklmLNJHkkq2F4K88Yz1r074Y6Itx4a1hNe1aOTUoYbrNzps3lMquysRIUIDLuXIUjjJrxLTYbJfH2mjUr6O4sVmImaa4ZY3y7EBj2+8B6V8hjXKri6koS0X+R9LhHyUIxktWddr/hH/hB/h9p+l6zY2l/qNxqMN5ZXGlyGbzrWWGYSxBscEMEyMYzjrityzTTPDvg7SvEEFzFpel3t1Nbww3cqiaNgc7WVM4U/wB7GBkdM10n7QNj4d0zxB4S0mFZtRawt4ljnhWOQXAZXwpAcYPy84+orzfRNX8NP8Pr2x1XREX7LbTSWfn3CpEZJjCgYKDuLoF3Yz1zXmqKxUr1Nm9bevY7VN0FeH4n0X8NPEck6QTWt7bzRTkoskMwkEhAHHB/+vWR8cdP0rxBdBrvRVW5VAou4YhHKFO5duSMHJk/HHtXzxpOumLTH0G3SK4iuW2rjKGNieqkEbSeOcV6tHbePvCukvc6t4jhurGPSbi+WxuZVupBFEow4lKkE7nQbFbJBJHIqswyH6pJOhXWvR3Tf3XT/AzweavGNupStbruv0t+JyOkH4cyaZP4RW1mbUbG0ZP7QvUZjFIc5MZhxnB25D8ZHHeqWleGPEJcQW1nBqKH5Unt2BDNjIBVsEZ9s1nfDrw/deIZrnVrP7I+oyN5ht4Lg/NkK7EcHGA46kDp716X4EnsbDXpl1a6XTZ7WURmOdlQxMpHVgShPPY966sFmeOyqE50IOcd3u157bfKxWLwGCx8YwrOze3T/hznrPXNNtPDdz4H8R28uky6jKGmW8sWWVJEJ2MFIG4D/ZPIJwax/E3jHxzp3gVvCja7a2Wlww7o2sZXMd1Du2n5XyyHJAIO0j3zX1frV2bvSY4L20sdc04/NsvIFmQAjsSDj6ivnj4+6j4TsIr/AMPWeg2dhJa+H5mhRJWYLJNPCTtyeAAo4+tYUuIqOa1uaFPlqPftZdfXoclPJauW0+WLvTu353f6Hzro80sF+LiKRHlhO5WlhWVcD1U8EfWvVtK1nVtXvovFeuS2dozWixw2GnR+Ut1j7kk6p8gUcHHJIAGAOa818B21rc39+kyxkDT7pl8w/LxEf19K7O81kk3raaYJo4sBUZcERqAMAfgAO1fU5PhaeJruNR6JXsutv66HnY6pUp0uamle9tSt4r1XVru5gtxttZbGJyR8hSdSCFkGeCxUldvtnFZN9HGFg1vQvM0+8tWV5Y4nP7mQHiSPuFJA4P3Tx0xUlk8eqwXOoX9kJpLUoX2XBVjG3ACoQeFIyT/tc1q2Nt4ekuP9H1GWybBVY7+MMkiN1DSIOPTlfxr08TSjXqSm3o+/Y5MM1Qp8kbK3bvue2eIpLX9oH4FxaqkcSeMdCyrqvBeQDLL/ALsijcPRga8D+Hgj1qG98D3r+WdRzNpjPx5N8g+VfYOAVPviu4+HLap8LfiHY3V08Q8O6+BA08U4kj2lsI5YcBkfr7Z7GsL9oLw63hr4hnWNKJt4NQkN1CyceTcIw3genzYYfWvz+NL6tiJ4NP3X70H2a3XyPo1JVaMcQumkvNM534Za2vhT4gWN1qIkhszN9l1FD1WMnDEj1VsH8DXpH7UPgiPSdUs/FenxlrPUsx3JHRZlAw2f9pf1U1wnxYtoL6XSvGllGFtPElqZ5kHSO8Q7LhP++sN/wKvdfhlNB8U/2b7vw7qG99Q02JrRXPJMsS77dvqVwv51jjq9SjVo4yC0b5Zr8PwZdCmqkJ4Z+q/rzR8uKQRtGaZKpC4xzilnikhk2uu1l4I9DSvhoxjrj1r6RSTWh47i4s2/Ctm1/wCINP05ArNd3KQD2LMBn8M5/CvqD9qzX9I0j4R2Xg3SrqFRPLHa7Aw3PDCAWOPQtsz9a8F+A9slz8SLK4cqI9OR7wnGQCo2r+O5lqD9oHVpLz4g/ZRIDBYWyIoHYuN7E++Cv5V4mJh7fHQp9I6nq0F7PCSqd9ESeD0Hhz4R+LPFYGy71SaPw7pzdwHHm3TD/tmFXP8AtV1H7O+iQWfhvV/Ft8uyFi0O/H3baEeZMR9SFX/gNcp8VJxpngfwD4UXhrTSn1a7Ud57ty4z7iNUH416f8SrZvAf7Oei6GB5V5qMENq4HX5v385/PC/jWWKvWjGlHerK3/bq/wCAvxKw/wC7k5y+wvxZ5BdeLL2bVr/UwSt7qTvJdSE8LuPyxL/sqMD8PYVm6je3VzaolzcyOIsrFEXyiZ5Yge9U4xbCBd6u5YHd2APbFWLdLi7ENlZwJ5kzEoI0+YkcdT2Ga+1cuSEaUHoj55wjObqNe8ylFE0jkBGbAJ4FWYdNuyhlFo2zOzJwBnjjn2NdBaWWgWdp5msX0uoXZYD7JYuDjrw8xyv/AHwG+tRx65bWlw1xYaHpNuiFSivG0zDGf4nJJz+HTtWtOlHrsOXMtjq7Lw3rDeFtS0CynfUr1LKS7lSKRpN2QFEUYOSxHC8ADr25ryW+e6s7yWG5SWG5OFdZlZGGDn7rYPb0r0O4F74hkD6XfRROqLK87T+SEYsABu7MWIAHc9KQaT47eMW13Jpt9AH2mG+O8MR7MnB9xTzihGbi4bJWRz5bUUE+d+83dnDaVrF7bTGRJ5YyZPM3ROY2L/3tw5zXReGPHE+n601/c2sGoMM4W5gRxgnkbhhjkdya1E8Fi7ZYrrSYtMdiR5theM6A9yYpFP6FazNe+Ht7YQCS01rTL4DLeXtlhmwB3UoVP/AWNeK8PJR0WjPWjVjfc7v4m/Erwn44WxuZfC9pYXNqhW4lsbRWWZyrclTtYD1O737Vw/gqw8PJpF1/aV7Yi6eJ0jVztYkMpySRjtxk1hXOlX+nwwyX/lKH+VPMDjeSM4HygGtHRfDd3cXLXcZRGiXJDJIOPrt9aihl8qn7uFipYtQ96R3ukeC7q3vYrie4MFtJDHcI4Xei5PCuy5Xt0znp0rufjZ4h8S+F/CugWv2bUdJgTRJLNWs7oSx3BZeSRgFOcHBBxgcnFcnY+CNW0bRota0vxdbWF00W8JGblRKpPQlUwRk9+Kz/ABJ42+IE9pJoXie707WYtghT7XC8jxccFJFVWzjvk1rmGU4h1I1JPYwwma4ecHCknv2Zk/C7xDfx/EOzv0OtXNuHHmQxziBJCYhH855AU4AJAPArW0y3sL2wEPiUx2QlLZYAqq7WPRzgHAwMnrXJQ6rrek61byeGZ7TRpQ22DZPI7yk4GAZFJY57Ad+9YGpaBr+o3cbXFw13PNK2FYyNlj7beCa48Oq2HrOce1tzqm41ocj16nr3hnxt4f8AA3iCzh8O+ItQ1KBQwfTIdwhlLKwVeOpBwfl5/lWV8RmstV0ibxBrWraObvUbUJaWtslwktuivkq6yqDzt+8GbnqOa4PRfA2qXV3DbyGBXkO1FPmA5HUfc4NdtrvhW9tNBhQalbaq8iMsS3EE7tbsrDcAHQ44z7VdeMqlX23Kk2rOyt8/UuEnTp8jvY4jwPZ6euqu801o8Uge3ZJrzyFG9GGS3pz15rsNSsNEfwVc6PCsuoalpVs1zcavauHt4wQoFtGVUbgcjJOehPHUZMNpeaNAZ5dB0WeLyg8jraxTbFPGWH3o/qQBUEWoW7SieDVrzT51DKN5LQFWGGT5cFQRxwD9a9HDYevGN4ytf8jhniKcna17fmXodGh0nwTFrNxO8l9czqUtopEKmHYerAZPBzxx68iuYmlVS84XyIi+I1d8kA8gZ79+at6tGbLZdx6ebW0dCIGtrpprctg5xuJwTnpnI9KTQ9XvNJtL+zgtYdT0mXynuY57RWT5SeeeVIywDAiu/wBre1NL9TiVFq7fUjnv7m+0Z7e4uZZI0cNGhfgdmIH5V634mA8e/ACHV1Al1LToxLIR97zYPll/76jIavIdZbSIZWn02GaGGR/lgkcF4xtznH905GOT0PtXrn7KFxBf6t4i8JSO0trcwC7hDjBwR5cgI91dfyr5viKCp0I1oL3qbv8ALqevlDtUlSk/dkrf5HDeC0XxF8JfFfh1vnudDKeIrAdT5YxFdKP+Asj/APATXa/sn+MrLw34ru9KmtTcx6rCNqlsASRZYH8QW5+lcV8LiPCfxvt9F1A7bV72fQr4Ho0MwaBs/mp/Cud8PzXHhTx/aC4yr6bqXkT9uFcxvn8M1xVqXtFOMeq5l/Xy/E6KM+SUXLvZnXftAadZWHxM1MWlolpbXTLdwxL0VZBnA/HNecOoGdvAr1r9pRPNvdD1NFGDBJaMQe6MGA/JzXkzn5a3yyp7TCwkZ4+l7LESiep/ANGgOs37Mqt5ccKsw6ZbJx+Q/KuWv9Mn8a+O/F9894lpaWhnnnuZFLBVVhFDGBnlnfYg9M57V0Xwy1EaT4bdyWzc3pQYA5ChT1/4HVL4cxL/AGRpiXYc2ura1Pq2okH/AFlrp8Zk2H2Z3f8AECuWpN06s6i32/z/AAR1QipUYQe24vjiBfE/7QH9j2+DDJqtppcQ7COMRxY/8dNek/t1Xe3x7onhqAjZY2DTso6B5XIH/jqCua+GsEN/+0P4EvLsmTVtRm/tvU23fIryiSaJFXHG2PZn3PtR+1Jcpqn7QWu3Fy7fZ7SK3ibafmYCMHavucn6davCKEsZRj1hC6/I5sROUaU5PZv/AIJ5XpsELXMJ1GWS3tC21pETcxOM4UHqeRnsP0rSvNVE2k2enra2sK2qvGJI0CyS7m3He38Q9PQVV1zVX1jU/tLRQQOVCbYYxGo2rjoAB0HJ7nk8mspjuIxzgdq+gleTUpbnmX0tHYmhYqNyMuBjHPIOOlEr4jLMVx2wOaSME24ZVPDEcD2Fb3w50W91nxJaQ29v5k0lyILQOuUM5Gdzf7Ma5kb2Uetd9Koor33Zbv0M2m9ldnuH7Mfg2CRF1q6QiPTZ/M3lf9dqGPlx6rbxtx/00kJ/hr2bVfE2laF9ovNS1fUDa2waaaRZCyjaCSOvX9Sa4a8tZtH0610TRdaGlaVaoLeDfEXluWJJeRiBgMxLMSe7VDf6N4fvNGm07V7OTUbdgGeNJWBmYc7XZSGEeRk7SOlfkGY5xPM8c6ilaneyS3t+Wu59hRytYTDpNXk9X6mD4t/aJ8M6gfM0fU9VtyAQA1swKj/vrr6muBu/ixa36MLrXdUVVBVFSNuhP1rZl8F+DY59sfgrS1Dy4HN6V2+nMv6964X4823gzR/7K0Xw34cgsNQ2faLy5V5dzqRhV2u7BQSCfXGOa9nBYLA1aihDnu+5z1atejC75TQ0Pxlpmr/EKHXNf1i5XSfD0Jl0qCVWkMt1wEcqTgYPz8n+BRU6+NraDV7u6sfEkiwyKTIspYFwxyc5OC2ef8a868LeDtc8T3KWmhWrXc7IXdQ4QRoP4nZiFVfdiBXsvg/4b+G/B9s19qAtfEniGIbmaVN2n2WO6g/65/8AaYbfRTwa9DM3g8ugk5NO2iVr/wBeZz4SdbFt8sb66s0NP8Qa5rOnpctqN09gxEcE6oQr47DPLducYyauQJMlw1zql7drF5vmTXUkm3aQOM5bt+lZXi7xnZaOr3l1qkl3IwyItoUEkfwYzx78V4z4o8Xa14oleJHNpp+fktY+EA/qfc142AwGMzWV17sX/Xzf4HXiZUMIrbs7PxP4wttc+K3gu00bUbmWCw1OEec/XzGmQEr7bQPSvqvxE+l6Xr11FYLIGjlldQHwoYk/dOeOa+CvD0JtPFGmyFj5kVykmc4IKsGH8q+i/EF/rdx4rvpJb6d9Oku3B3HnqeFPpyOBW+fZa8MqVKDtZMWXVlVcps7fxD8aNC8FQJYX8mofaJk8y3MURZSc/Phs4HJ/WuI0TxZcfEfxM8Oia3cWqxo7iFi0ZEfGf5+tNvPBOheLtOtTq1tqdy1pI0dq0V6sW9SRu3ZRj6YxW54P8FeHfCNxcf8ACPabJayTp5M17dzmaYR5BI3YVUBwOFGTgAnrXmOWGWF1k/a/gdjVVVdEuT8Tq28OwXq/Z9VMt9brbeVE7nM8LHo6SnlWB5wPlI4IIOK+QvEyC11+7smhjikglkt50jXanmIxUsoHADDBwOASccYr6O+I/wAR9H8F2cRSbVbi/MTCANGfLlYHB+Y4BwR0FfLEuoT6pq017OxaWeV5pWPd3OTX0HB0MXSU/av3Hsv8vkeXncaEnFwVpLf/AIJ3nhXw/enSY9Ue5As7lvmtQu5ZlQ4O8Hjr07+4robrStL1O1az09WimeMh7WR/vYxwh/i/3TyPesKz8W2ej+F7KxtIHvLpbZg3mjEcTs5JH+0PpUvgzX5NX1B7e606EXRO+IwLtG0DJ4znI9a/VKMsPZQj8TPgMTDGScqt9I3t/mYPjezkjNszRiMwxLASB2X7pPqccfgK6H9mjVRpfx08NDJVLuVrCX5uCJQVH4Z2/lW/8XNY8Lap4ftNGs9Ja11u1k8y8nVifMVl+UEZ+8PvE+4rzfwjHc6T440bUSwZbTVbfEseSmRIp4P0zx1r5rNpQxCq0mraNHu5ZKpGFOc99Dtf2qtHfwv8fNceD920rQalHjszKGJH/AlNZPxy0m3/ALa1HxNZXiTR6heFrmBUwbWSWFJkJP8AEsgZyDxyrDtXrH7XljpV3+0Z4YbWopZdN1OxgguRFJsbaZnj3A+25T74x3rznXLGa70uOzv/AJ7m50K7sLjB4e60yUiOT6+WAv0J9a+Yw9eKp0Zx7W+X9I9x0nPni+6f9feWPircvq3w803UXKuweCQHb8wDxnOT9QK8tcZjHrivSbhbi++Dgyu9YdOgk+UdNrhck/iK83QHYvOeK2y5qMJQXRsWYe/UU+6R6p4N8J3us+BNMv7Ukr9uuQ6Y6BRF/SqXw+h/tDw/4UsrbmS/ste0oH0neLci/Uh1rS+G/iO8tvCWn6VbTyR7dUk5TuJPKGD+Rrhvh3rC21nf+G5btrK7F9Bf6JdBSTBfxSBQvA4DoSMngFUzWVWEpOfl/wAFfqXTkko/12O9+Gt3bw/HTwhr0U8M0V5okcuEYExSR2jQyRsOxVom49CD3rH/AGgblbv4xa7KgIV5I3J9QYkOfyrJ8GXUifHZbi5t7e1mn1K6SWKBdsaM6yLhR2GTxV34t2z3HxHEhkjiF7p1nP5kjYRf3IUkn6oa0wdL/hSh/g/UzxL5sHJtfa/Q4xhNFcRttCEPwcAjkdPSpIppo4/KjmkRCu1gpwCN27H581Jf+Q1wGtY5orcFDtdt2TtAJzgdTk+w4rX8M6F4p1uBoNH0u+u4AOQkJcDJBHY7c474zivpuZRlq7I8iN2tEc/bw3N1eRWNpG01xPKscSA/eZuBXrXhW9j8D+HxqtrFJNdXcLwWDKg5g3jzZgT0MzjA4/1cY/vVmaV8NvHumm6uv+EO1GeSS2aFNoaJ0DjDFTtPJXI+hNTeLX+LUdsja3YXGmxSPHDaxXMkIdzwipGgTJwMDAwMD2rz80f1im8PTkrS39O3+Z2YNxpVPazW23r3LnhXxRq2ta5qKapqMiqThsAYjZRk5GOFVAxJrzHxdr2p6x4qvLtJ57ZA+yGIEjy4x91fy5PuTXdaRo/xU0X7S974X1WK2n+SbzoY4VYZzhmK5C5AyBjPSuN8P+G/EGu39w2naPe6lJHJm5METPhmY8kjjkg/ka5ssynCYVOqpLm2fkv+Cb43MK1a1NJ2/MwZrnUmX5r2YjOeWPWtbwJpWnaxrUj+JZ9TbTLSAvL9i2edIxOEjVnyqknPJBwFOAa6HxF4O8QWcEA1Hw5LpClCVe4dYg4GfmO45qfSvD/xGbw5Z2nh/wAOa4mnXBN350UaCO5ZhhZNzD+7wOfXHWvSxMaTg/Z1F95xYecnJe0izp4PGGk21suh6fYtpGloD5VnEMkn+/M/WWQ+rfgAOK7eXQ9X1C3WW30udLcW8citBMELR4HZlYbjn0zXivha3+IOt3F42jadr+ofYJfLuTatEzQvzwTs68H8q6q/8W/EHwe1pZeJZfFukrNGWtormWBdyA4O3MR9f1r5DE8NVcXVUqNWKl53Z7sc2jRhZwdl2N+8+FOgXV7NdXWkaxO+zzHEuqDqeuAqVJqnhHwxoenyeR4ZuGuJVxEHvtwVe5wV/U1Jonj26159P0zRb/xnrOuXQKGytWtQSi5b5f3JzgckkDpya5/4kX/xD0vTry81LQvFmmWKMokmvprcBecAYEQJ57CuujlOb4Cabxi06LQ46WaYTGRd8O/mjzzxjaWmleI9INlZSwBzmQSz+YXYPjPQYHb361614+15LbVrzT7S3uluRcOJFKZEYyc8447155feDviT4itdLvZPB3iO7ibEttMY0Kuj4I2kKODwcnNYXirxV4ym1y8j13UdQXUI52S6imCBlcHBDALjtW2MwNTGezcpptXua0sVCi5WjZM6PxtqE174S07ULMvBNZ37OjKxDspQncG6jlK6v4b/ABHudRRba6V5tVUEJk/LcADn5e8mOdv8WOPSuR8KnxXrnheeG08K69rul+a6l4FQxLP5ZAJKxbsqHzt3Y5GaxJPD3ia28SJYWui6lbarKqyJYNGwmlAPG1RyTkZBHIxmumGUYSeF9jUa5lfXqv66mEswqqtzxTtp8z0/xN4jt791sNT0mPUIfkjltp8qrnkdByjd9wwRXC+IPBcFukupaAZpbJATKGXc9rzjbMV429hKBj+8F61eu7L4yXd48l7oXiCaQ/eMkabvxJXk+5rqfBt38S/DRkvp/CnilUtomkeVbq3jSGMDLMd0DYHqawwVCphP4c16d/8AIrE1oV/iizyO4t7m0uZLO9tpLa5jxujlXaRnkH3BBBB6EHIp2lSLBqUFwUnkSKUMyQSFHYc8BhyPrXqniKz13x5p7a3pnw01p0vJS9vqKXCTRkjhtgjhQbCVOR0zkjHNYL+A/iCkWweGdUiiz0EBUfXA69K+poYmmoqTkkzxp053tY4u6SRrh5PNLOW/eNIxDBu4OeSa0rCeGPUbSCOaSeFriB5FIKgybh2746A/Wq+t6TrGiz41TT7q3MhOGmhZd3OMjcATzxnpTfCtvJfeNdFs1BPnalbpj1zKtYYxxnSlJFUVacUe5/tEiPxV8Z/AdpHNFAgeSOaWWQKsccU4d2JPoqsfwrkr+9gvp7LU9jRpPaeJNfKsMFYbhmSLI7Z2fqKwP2i70XfiPTl3ZX7NcS/g9xJj9Fqp8RNbktdClhuJUOta3b2izpBGUhtNOiiUxQIP9pgGbH9wetfF4Kg/q1Fd0/zd/wAH+HmfR1qijWqNdLf1+B6Pox0df2bbpJlQXf8AYSY9dxnz/KvA7c/uFJGTiu41DUJk+GTQbyiLp9tAUB4Jypz/ADrhYz/o4wOccV6WCpOLm31ZwYmaail2O3+GVldahaXMtrk/YLmOcqr4Y5PH6qPzri9Xjk0nxhfbhh7PUXbrn7sma9W/ZThS98c3+jz7PLvrHPzDIzHIr9P90NXL/H3Rho/xX1S1AXy50inBXoSyAMf++lahVoLGug92m/x/4JXI/qyq9mQ+Nn/sL4zzaiOI49TgvlPYo+yTP5Ma6D452hF7od4ANotZ7It6mGdiP/HZVrF+KcKX/hrwX4lTk6jo32S5P/Te1cxHPvtKmuo15W8SfBe11pMvLZSw3Ex9Ny/Z5v8Ax9Yj+NZUJclbDVH5wfrt+aNai56daK/xL+vRnl1u7zXMdoJnRJGwRuODgHHFfWupR2tt4Nt9I0i109rK1gzap5xRXbbjzXb++WySx559BXybpWj6rr+pCx0Wzlu7sDcqR43H6ev4e9dxp178TNBX+ybzwzrV0Au0L9kkfj0BCmvbxKanuebRty6m/wD2p8TrMSyR+FLG8hts/wDHrcw3GO3/ACzck1zsfibWvGPxO8K6VrumRafPaapEkkAiaJvvg4dW6EY9utdd4Uj1XRNM+3arosFiszmVre72NKFHRioGUHOBuwTg8Y5pnirWpPEXxX8Ma21vC15p+nyzTPEmGaKLcYy/qRnAJ7ADtXLpJ27m7ulc9H1tINWs7qxW6s4WmIHmA7vJ3cl2z129cd+nesj4g33hv4eeDEGmSy3KCXco2/NNKw4eUgbdxAPpgZA71594u126tPD95fIzRpFPDvRPlMil+Vz7/wBBW+NStL3w1ELu3TUdO1CEJLHnHmQ5B5PZhjgj7pGazlB87a3K5/dWmh4N4k13UfEF7JeXr9fuqOij0A7Cvoex1i30n4caJCsEYuF0232uw7mNTx+deG/EDw0/hjUDFbyS3Wk3YZ9PvGTb5qDqrdhIuQGH0I4Ir0jxtpWsWbabpzqxYW8EQQr8w/drgEduwromoOKcTJSldpk/7Ml3bxy+JJbuKORJrgNtkxtyMnv9a674hQ6P4y8Py2V9HBalDm3u1+9by44b3Xsw64Oewry74YWGpDwrql/bI6xrqMsW/HybhGpxn15/I1raVrL2fiOw029Fu0uqWKyoXOEWVdygHt8wUc+uKwnUSgl/S8zZRbk2dz8INAtfh/4Wea6lhfxHqsIa6uEk3LbWxIKQIR3Y4dz/ALq9jXD/ABo1SK50G+t4FVYyFJAGMsGHze5rQh1T7T8Q9C0Fnjma9m3Oiv8AIiBCyr6ZJAwa5n4maVc21jqEe5ZVihDMVOQAGX/GsadZ1Lxf/D/1YbhytWPbPA2rabYfC3w/cXiLKTYQIPNIyCVGP/re2K4D4k/DuXxp4qjudGls7S/lnhhui8gCGBuPPPqUAwwGSRjvWSt3qOn+EvCsot5THPaW21pl3IQABlRT9Ev5mn1HT1dReaXcvYTOzZLKrMqSD2wMH3AqnV5n7rsHI1ueqC38O+GvCMNhorBtItkKQKz7pZHz88jAfxOeT6cDoBXitneb/jdoU6qu1pXAUEjH3iAD+VbHgzVH1/TPEsEbBksntI4Zc9FxLuIHfJArl7WyuE+IXhdVRnea7aFeMFmOBj/x6iE7rbZ/oKSs7dz1rxbpWs3+lXM2g6Zb3d6w3wxqBuk6ZAyQOhJ/CvNb1vHfh7w/ql3qvhZbaxmtXt5pXlTID/L8uHyeT2Brqr+fxVDDfWGmRvcXXl+ZFFIoLMwx8oU9O/FcTr+nfE2+0yWy1DwbqPkTRhV8qzY45yCNua0lFuT2/r5mcXojpvhP4gMXgG0gZRIIlljCse4PA+nP86SPUfEUnxDPhZPDkl7unjEbw2xX924B3MegUA5JPGATWB8Nre7tvC0crI8TRahPGwcYKMoQkEHp1r0O28VasftenpqlyLe3t4mlh+0NsdXGQ20fw5BHsRz1qat9FD0Kja75jQ+KFxBb/DPUtDnsbaaEEXEO7k28qkZaM543KCpA6g+wrxn4Kx+f8RNNvCN0enia+c+ghidx/wCPBa2/jHqWvf2PGsaxyaXcECSZeqN1CkdgccHvgjqKt/AHSo49H13WLg7VaOOwVj2WRvMlP4Rxf+PU6tV08FWqS7W+b0Kp04zxFOMe/wDwTk/iy73/AI4WwiBZ4LO2sxj/AJ6MoZh/31Iar/F9Gk+IWpWEA3m08nT0A5yY41TH/fWa1/hdDH4r+Nen312MWj6lJql0W6Jbw7pjn22oBS/DGwPjb4zWc9wjGK61CbUZu/yqWlAPtkKPxrljbDxV/sQ1+f8AwzNZSdVu32pfl/w5m+OrOfS9CaGVX2NcLAhPTKKc/wBK5WByYgPavW/2rzHa6zoWhwRxq0Ns91PsGNzSMFB9fupnn1ryOAfIBjtW+XT9ph4zfXUyx8VCs4x6Hq37L9zbWfxi8PT3NwkCGdkZ2YKMMjDBzxjmvQf21/DNlaXGleIYXi8wSPZ3ACgNz88ZPtkOK+cIrl7aVWRtrLyCOxr37xFrj/Er4U2iSSxm+ntVt5N5yRcwkBGz2LbU/wC+zXl5lTlQxlPFdL2fkmdmCUa1GdLra55noZ/t74Pa7o337vw/ex6xajv9nkHlXAHsDsat39n+/t7+21jwVqEgW3v4XC57JINjn/gLbH/CuF+GuvJ4f8X2t3eIfsUoey1CJh1glGyQH6Zz/wABqSZLv4ffEcg5lOmXW3I6T257/RoyD9a68VQdSNSjHd+9H16/jr8zHD1VBwqPb4X6f8N+R0vwq1S18BeKNbl1uY2mq20U1kg2ElH3qkgGBx8okH/Aq1PEfxC0O9uGl/tG7KnjYnm/d9OSKj/aL0CC7Ol/ELSgJbHV4kiu5F5Hnhco5/66Rgf8CRq8eEaegruwleOLpqut3v5NaNbHPXg6E3TfQ9J1f4jaamnvZ6XaTShhhTIAgX24JJFQfDfx9baBqmu+ItYt0vr+4sFsrO2IKqMyKxbIGAqqmMd93fmuNt9F1OaJZodJvpY2GVZLZ2DD1BAqcaDrJB/4kepnH/Tm/wDhW/s4Pcz559Eb/iLx7/buj3mnyaPbQi4O4PGW3Bs5BOeKb4L8ZXXh/TBp7WkFzCJi4Ese/CkDIHIx0rEXQ9aB40TUs/8AXpJ/hUy6FrpGf7C1X/wDk/wraMaaVmZylUeyOo8VfEOXXvDr6JLpFrFbPIkuIo1XZInSRSdxVsEg4OCDgiq2q/FDxlf6wNSubqCaXeHYSQIQSBj09BiuUuI5rad4LiGSGVDh45EKsp9CDyKgLEmn9XpNbE+2qI29M8Z+KdK0ibSNN1F7exmuJLh4FxsLvgE9PRQPpVLXNZ1PXJrefUniMtvAII2jQJ8oJIzj6mqGTRuPrVRoU4u6QnWm1a5Lpt9qOk6jb6npt1Lb3tsd0Myn5kOCMgnvzWhc+K/E97Y3lle6g1zDeJtm81QxbkHOcZzkVlinKeDTlQpSd3EI15xVkzei8deKk0zTdLku4bix0wKtrDPAriML0HTNY+raje6nq17qk7iOe8uHuJfKGxdzEk4A7ZPSq+aFI3KCcAkAn0GaiOHpU23GNrlOvUlZNm74I8W6n4SF+thBazLfKiyieLzPuklccjByTz712GkeNtLm1vwvrWrRGCfSL57uT7PbZV8DKJjfnBYDJ7Z9q6QeH/g5d+FpVtNL8Rx6sqMsLLrMUnmyAcN93aVzg4C9K8j03TNTvXlt7TTLy5lgO2ZYbdnMZyRhsDjkH8qimsNNttFSlWglY7Xxp8QLTXPEE2rLapB5ucxRyOigHsBtOPzNS6H8S7Owv4bkQeW8QA+WRSGGeRyorj38L+Im4/4RzWc4z/x4ydPyqrL4Z11Qc+H9WHGf+PKTp+VOtSoyjy9PX/MVOdRSvY7PQ/iB4dsvDmpaXcxXQe81i6vEkRFfbHKEAUjcOflJyMjmsbX/ABbYQeJtI1bRJJJ4ksBa3sc0ewSr5jEqRk8EEfQ1y83h7WAf+QHqYPvZyf4VmzW7QSPFLE8UiMVdHUqykdQQeQa54UKcXZG0qk3uj3CLVfDE9vdWNprlhPpc6sHguYHify2AJQttIDAgYIOAQDU/jeCDwF8JItHtLnzLnUmZlcLtJM4BzjtthCj6sa81+DfhIeLPHlpZzox022/0vUGH/PFCMr9XOEH+97Vr/HPxO3inx9NDagPbWLtBEkfR5WPz7fxwo9lFeZiY+2xUMOnovel8tjrov2dGVV7vRfPcd4IcaF8N/FniXOye8iXQLE990uHmYfSNQP8AgVek/sc22lx6xqmtXUXMUKWcTP03OwLge+Ao/GvKfidKuk2mj+Crd9y6NAZLzb/HfTYaT67RtQV3ml6sfAXw3kiiKx3cFs+5xjLXMvp9Of8Av2K48xdSthnyfFUat/h/4K/M2wkYwre/tBa+v9fkY37T2v6b4m+LN9daWYmtraGK0jMbbtwjXGcj615qF2x/hVGGeV2aSQkknJPqauRyExjJ7V7mEo+ypRh2R5dealNyRWlJ9K7r4Ray3n3XhueVkiux51vg8iZAeB/vL+qrXEOuVxTLS4uLC9hvbWRop4HDxuOqsOQaMVQVam4MeHrOlUUkdT8V9Haw11NYijAs9W3SHaOEnGPNX8SQ49n9qt6u/wDwlfw/tdYX59V8PotlqH96S1J/czH12n5Ca9RGlWHxN+GTJpcYjvZwsg3sAkF4gPyj+6jbiOezqe1eK+ENUu/CniMz3Vm7RoXtNRspVx5sRO2WNge45/EV5uGqyq07L46b27rt81+Op6FenGnO7+Cf9fh+R6P8DNc07XvD2o/C/wATOfsl5GxspDyyc7vl/wBpG+dfUbh3ryzxh4e1Pwr4jvND1WMLc2z43L9yRDysinurDBB960/FukSeG9ct7vSLx3spgLzSb6M8smcjn++p4I/xr1FhY/GnwVEitBaeMNKTZHuIVZQefLJ7I5yVP8DEg8Gl7RYOt7eP8Kpv/dff57PzJcHiKfsn/Ejt5r+tjwqOW4UAJcTKB0AkIxUqy3X/AD8z/wDf1v8AGnXVpc2N5NZ3lvLb3EEhjlikXa8bA4KkHoQabg9a9+MYvWx5LnJaXH+bc/8APzP/AN/W/wAad9ou/wDn7uf+/wA3+NMBNITg1qqcexPPLuDbmJZmLMepJyTSAU5Vd1Z0R2RfvMqkhfqe1avhfwz4g8UXE1v4d0e81SSBQ8ot03BAeASegzV8ySJs2ZNSWdtNd3kNpboHmmkWONcgZZjgDJ4HJ612Pg3w9oVtNcyfEG18RafBv8i0+zwiISSqTvBdxg7cdF5rtvCfwYjfxlLe+Ib7UdC8Kxwf2jp80lss1zewjlQFX5QexJ9uOcjGpWST5d0jSFO7XNsYPjj4O6n4c0JNRsfEGma/cxQCfULCwilM9mh4LMCOVB6nj1xjmuT+Hdt4ZvtddPFUupLpscJdvsBQPuyAMswKqvJOT6V9OeFvEHw08Nac3ibwjomq3OpbD5T6nqLKzIhCcKhwclsbec4PYVzNz8SrHxtos3hxJrTwWtycz/Y9KV7SSQt8sMhC7l3cnzDkZPSvDhmtacORR97vsl3+49V4Cmp817R89/LY8xvPhL4i1nWYpPBGh6nc6Fe4+xXeoTQxBuPmy5KqQD0OOfwrr9O/Zwls7N73xr470XSIYlLywWEb3sqgdRkbVz9M13d9oN1o2m2FrP4m0y+ijSJ7iOzt5Zfs8eT8zOilQhz1IH3eO9SfF+70+38Kx6bpfiKfVJCXW6eFkbAIGBhe2c980YbNa1Sm5SWi6r+vyCtl9ONRRi9X3OU8MeEvBmj22pa9a6nbXul2YVLaZj9muRthKBmJ4ByQxGCDj34+eHvLk3NxIl7OWklZnkWQqZTuPzHHXOc/jXt3w3FtfQ3OiFbK8tbXT5r64kvIgJEjRgXBGRu43EA7ucDFd98Q/wBmHQ9Z0+LXPhzeyaPLcQrOml37tJCwZQwCyctGcHodw+ldmExFKpNt7/1uYYmhUpJI+UzfX/8Az/3nAx/x8P0/OoXvL4k/6bdHjH+vb/GtLxZ4d1nwrrs2ia9afZL6HBZBIsgIPQhlJBB+tZJ613uEHsjjUpdxDc3Z/wCXu44/6at/jUBMssmCWkdj7lmJ/makZSeleufCLwvZeHNJ/wCFk+LgIbaBfN0uCRcl26Ccr3GeEH8TfN0HPFi8RDC03NrXZLq32OjD0p158t/+AbExj+EXwkay+VfFmukNMOpg44X6RqxJ/wBtvavPvhxbQab9s8ZalH5lrowBt0f/AJeL1v8AVJ74Pzn6Cq2r32tfEPxuJljZri6fy7aEnKwRDJ5PoBlmP1qfxbdLqN1p3g7wwj3NhYv5NuUHN7dOcPL+J+VfQV51GhKEXGo/fqayfZdv0XzZ2Tqxk1KK92GkfN9/1HfD7TLrxB4mudZvEN2to/2mcsM+bOxJUH8cuR6LjvTPizrE11qceiq4K2pJnx/FKeoP0AA/OvWtSsrP4T/Df/j5jk1EAhSI8ie6YfMR6quBjthV/vV88IZbm4e4mZnkkYszE5JJq8NNYyq6kfhjoiMQnhqXI/ierCGMhQtWMFVwfSpo0AAzSXPC9O1e1y2R5XNdlWNwTzmmyrwcUi5zmn43VnuW9DufgX4wXwx4qS11AyNpd9+6mAb/AFTfwyAe3cdxn2r1P9pX4V6hEB480qASWkqqupLHg7XP3bjjqrjAPvg/xV86QRlZQwOCDkYOK+v/AICfFXT9Z8Et4O1+VJtRigKQLLyt1DjDRn3x0HcZHpXz+PjPC4hYmmvXzPYws1Xo+wl8j5asdQ1S702PwdDbRXaXF4r2gk+/BKeGCHOAG7g8d6fAviDwR4uLJ/omp2ZG5c7kkRlDYOPvIykf/rra+LHg2Xwrrn9p6O8g0iS4/wBFmSUl7WT7wjZuuQBlW/iA9Qa5i3a5vLh7m8uZrq4lbdJLK5dnPqSeTXZGvCrT5oW5JbrzMHTlCdpX5l+R7rJoug/G/RRf6Y8WmeMrWMLKkzYFwBwEkPf0SX6K3Yjx3xb4V1nwtqMmna3p89jdRn54pVwR/iPccGtnwnPe6PqdvqenTyW13AcpKh59wfUHuDxXsur+KvDnxS0OHRfG1r/Z+pwLss9ThABU9gCeCM/8s34/ukGjAY+GCi6c7uHTvH/NfiLF4SeJkpwspdfP/JnzEwrV8F6Xb634v03Srq4jgt7ibEjyNtXaASRn3xitf4heANd8IzNNcIl9pbNti1C1BMJ9A+eY2/2Wx7Z61yMET3F7bwJL5LyTIiyE42EsBn8M168q0K1FypS3W5wQpunVSqLbofS2sa/oNpbR6fa6/MvkAIltpeIYIh0xhcL07nJPfNM03w1Nq1hGlnp8ctisjymS4jKKGcDJ/d7S5OBxz+HWu28P/CDQdAhjW2s3vdRUDdeXRMsjP3KqflTnptXPvXCT+LtKTxreeHtD14m6gP71hJmOZwcsino+MYPryBkA181Swrpe/Kbfc+gqYuNRezjTS9Sa78VeL9A0W7srg402O4SLTbkwGNIflG5I2IJI4Py7uPTnNXvDnxcsRYTW+p6VdXt7BAcyWU7I0+JOsrFWcruKDbHgHoc5q54t8Y6h8S9BTwtp9hZnVIGzJAGw5wMeZEn8S46gZK9xjmk8JaDfeGvE0V14vtdJs7OLTVjSW9AhHnLGCjg4JfEig7cHkA8V6697XoeS0oqz3OH8m8mgex8MaWHlkDhJZbZUEJkYO6L82Nu7sckVy+oaN4j8MXF3ba5p9rK94gUz+Xl4+c5RxjHToOK+jNO8V+AtN061hhW41rUkXfNPCnlxPKxBY735OWz0FTazr2j+ILErrunaTBp4wT5qjgDnl24/lXl+ykpPmVk7+p6KrR5Vyu7VjxTwPqZiGsaNLrfmNfG3eGKF2cqR94EID8wAUDPUdOc19KaLo3grRNDS5ktBdXsq75khgyoc8nk4H19815nqnxr+FHg2J4dI8i9uO8elWqnJ95Dhf1NeV+M/2lNf1Nnj8PaDaabGeBLdOZ5ceuBhR+RrroxqpWijmrSpuTk2etXL2miapfappejWktxcW72zG8jDokbHkBBxntkmvOPGXjjxJ4iupNMuvFl1OsUbObKzl2oiIOfkjwMAD+KvEvEXirxT4jdm1rXLy5Rv+WW/ZH/3wuF/SsRIimQrsoIwQDjIropYWcFdWuYTrwk9TX1y/ttQv1ltI5Ejjj2ZcAFjuJJwPrVaGIyMAKm8O6LqmuaimmaNYT3t0/IjiXOB/eJ6KB6kgV7V4T8LeFvh5HFq3ie5g1jXlHmW9lDh4YSOhAPEjA/xNhB23GumrjqOFSU9X2W7/wAvUyp4WpXbcdF36DPBfweh0LQ08cfEYR2mlRxia306YkPcZ5VpQOVjPZPvP04HXjfHXiPXPid4rtdPsbdltml8uxsyQm44++/YfKOB0UDArv8A4rxfELxH4Xt/Gfii3ax0SS5EVjbTTBGYsOJAjYZ84xv/ACAHNeNXST206XFrPLbzRMHjliYqyMOhBHINeVOsq9f22l1oluo/8HuzthD2dL2a2692TTXeseELjWfDsltBbX0wW3uJ1bdJHH1KIwONrgrk9cV9G/so/CTT7/Rl8X60RBNNG66cp4KRkYM2PUjIU+mT3FeHfDLwZdeLtal1vWpZ5rCOQtI8zFnvJc/cyeSBxuP4dTx2/wAWfi5qOjRr4U8N6gYWiyt5LD8uOMCIEdAO+O+B2rlxtadaXsKPxP4n0NcPSUI+1m7JfCcT8edel1zxvPZxu/8AZ+mu1taoTngHlj7sRn8h2rirSMAA4qMzSXMzSyElmOSSauwLgA4r3cDQVGkoLoeVja/tKjk+o7AUCqt6QVwOKsSsf1qpcevrXZN6WOSmtbldetSLzUIOKcrdMYrBG7VydsdhUPnz28yTQSNHIh3KynBBFSx4K8n8KbPGOoonBSWoQm4vQ9f8C+J7TxdZS6dqFpbyXjW5ivLWRsR3iDncB2cYDccgjcO4GL4j8FTeHbiK6tJHu9HuDtgnYDfE3/PKUDgP6EcOOR3A8zheezuUurWVopo23I6nBBr3P4YePdP8QD+zdXFpBqMsYhkimwLe+X0IPAbOD255XBrwMVhp4a86a93qj2KFeNeyn8Rb+FWl6A+oXmo+JYJLnTtLsXvZbVDgzlc4XjnHB44zwM1v23jz4d+KI7rTPEvgjTvBEj2zvpmpWUpaNmA+WKdQnOcjnB79Kpa14b1LRbo6z4eU3NvEjRz2UrEuIyfmVjjLKMZD4yOjDGScnTbvRLnULbGg3GnWsTxLOLlgyOGcfdIJ4xx26ivJ578090/PY7pU9UtmdDo1rrmm2AvLAzT2Dx7HjuELwMv93eQRt/2WDL9K5PxH4F8K667OkEvhPUJMkKqF7SQ+yZ4/7Zsf90V6HqXxA+JaeNHm0bV1TSLW4SK00NbeNoLmD5QQ3y5+bnkHj8K79dG0bxD491Tw5pyQR2o/eyK0YeOJTGrlSvQ/M4A9AfaueOMqYa04PV72/Xo/61NJQjUvGpHRf16nzd4rvPjpa+HX0V/EGoatoiR+U02muspMYGNrsqiYDHGHArx8QmNhtykkZyCDhlI/ka+1F8AWYnc6VPf6VeQFt4tnLpHsOGOxvujP90rWbrPgXW9TZhqOk+HfFKj+KZRHcAfVuf8AyJXq4XiCna04r8vz0/E462WN6wl+v9fcfMHh/wAS3Mes2E1/NKk1vcRyJdISG+VgcnHOfcV1Ot6mkdpJ4inNzqEM108UU5fJkbrgF+ehHavRdY+Efhl8i/8ABHifR27vYyPNGPzEo/8AHqxV+DPgqWQbfF+sWJHRbyyiOP8Ax9D+lejDNMPJqzaXo3+VzleArJapN+TR5tL478QMhj06OCxU8BgvmP8Am3A/AVzmqXGp6nL5uqX11eP2M0hbH0B4H4V9IaB8A/CtzzJ8SLYJjgGyUH/0aao6v8EPCVpMyy/EIy4P3bewQk/nL/SvXdbAQpe057/J/wCRwKji5T5OS33f5nzosCinFVUZ7CvoKw+EPg8v+5tPGmvOOiwW/lofxSNv/Qq67w/8Nls2V9M+GOl6eynK3OrzCWQe+12kOf8AgAryq2fYan8MW/w/Ox2wyutL4ml+P5HzV4X8I+JvFEhXQdEvL1B9+ZU2wp/vSNhF/E16BpHwl0zTJIpPGOurJMxyum6UfMd/Yy4/9AVvqK97ufCmszoja54guGt1ztgs08qIY6gM2Tx/shag1mP4d+CxaW2vaw2lX2oRCdYbaze6mWInAlmbkhT7n1rxa/EFevLkoq3pq/vf6I76eW0KK5qjv/XY5TRNM1SaFPDvg3w+NKtpeTb20Ye4k/2nJJ/76kLY9BU954I1b4c6jZ+NNf8ADlprWnWlysmoQm4W4cr0LHnJdMhhnK5GDjNdBJqsWgXureEZ9WY6H4msgtrqVnKY3jlKnY6sOQGHGM4yB/ergbO2sPAOmanIZpEg1Cya3NqZyyXEpGFcAnqcnn0OT0rzYVZSd+r/AB767nXOLlol7qOo+JjWXiG9l1e3hn8b6hr0MiaVd6g2yw0O1YDlQuNrc5BxuYjHUHPkum+BItb8Uzadb6sl1pVpsW6volK75MfNDH1BIOcsCQAR34rrdP8AC+utp7aZHey2ejzbZZLZRtmYkZKhuscbZLY6nJxgHJ5z4g/Eew8NacfDfhEQ/ao18t7mEAR24HaPHVvfoO2TyPRwyqt8lN3f5ev+S9TmnGnFc0lZFv4teMrLwbYDwx4dSCHUEj8oiA/JZpj7o/2/1HX7x48GjjeaUySEs7HJJ705FluZ2mmZndzlmJySa1La1wAcV9JgcDGhGy1fV9zxcZjXUeuwlpDjHFXGTgDpT41Cr0pHbnpXrKNkeVz8zKsoxx2qrck8AVZnPWqs54rKZvArA9qB3pVHJoHWsTYVWxz0qZXLdahHBpRkGqTE0PZM8ioHiIYMp2sOhFW4+9PaMEU3FSRCm4s9P+F/xim0xYNI8WiS5tEwkV+gzNAB0B5G9fqcjse1euTeH9B8XadJcaTfWRjuht86DLW8hI6SL1jY+oAPcqa+Tngz2rU8K+JPEPhO/F5oOpzWjYw6A5Rx6Mp4I9iDXh4zJ1JudF8svwPWw2Z2XLU1R7tfaB498P3aWM2q29vAx2wXVxD5hf8A3ZAdjn6jd6irun6vd+GLLVNH0C/nn8T3ksbvNKSZSAd7yMSMEHkceoHaofBX7RGl39n/AGZ4x08WjMNrSRxCS2lH+3Gc4+oz9BWjLrWnTXTX2imKW06K9ofOjC+m1uV+gZfpXz1ejWpu1WFvyfz/AEPYpThUV4Sv+Z2t/wCKLfU7W+l0t3F94qa3gCrkfZ4Su6cg+pCkH3Iq/oOseI9A8O61Fez6Vrs1qYotFs5LVYWVnPCPKvzMPmHPUDuc1574GuPDul6vJdLPcM7ltkJl+SEsfm2I+CufRS1b9hLdXfj1bp9Q02PRvNFwglZ4pi4TaqkOAuM85HpXF7OULpbb6/l92hpKEJb6M7jwd4k127OrXGv+HpLCSztVuI7DTJvtMrknaAjPjdnax2nGM1t+HPiDaalrC6edJ8RWxKncNV0026gkhUAfJDZYgcV5f8RtXu7LU57eCLxEtveW8Si90VSzIFJOAy8g5Pp0NQ6VrUd54T1iJtQ8YeI0S1SOcajG6z2a7wQY8KrEggNkZI2itaKdnNxtfsc9WFmkpHrt/wDEnw7YeIbrQGilfU7dgn2c6VMgnc4+WKQrtbr1PGO9M0r4iaRqsOrm3e+iudHs2u7u3TS2jYKuQVRnwJDkY446V5X4a+IWuvcDS7PxpceKZJo/LtIG03FzFIehkdQBgdywHr7V3nxpvpdDt7HUI4ZT9qtZ7KcQQNIWLhCoIUE9VPNbupU5eXX7/wBGkYRpLm3R0fgnxJN4o0qe+m0rVtOiWYpEmpRrHM67RliqkgDJOPaseTXLKPQLKS6nii1VriazaNztW5mQt8nPCsVXK9j0rrIJXOjWc858stbxsxc7cHaM9a8N+IUMWoeNJNHlmtrjQr27ivZ54rsl7WRVAOxYwTuJUEHIxk1yzpKrJqx009Enc6TX/GenXeiy+GYJQbzSreCaWXszTBw+B7Ekn8K8q8S+MtIu9auL/V4Y7HUpII7e6huRtIMYKgoT95T7ZrR8S6Pp6W6pomq6g169wWu76TYr3EeQfLZVycfKP7p/Oq/inV9NjjW48SXOn2yKMqswC5HsgyzH67hVU6EU11v23/XqbLRaaepk2Ult4jsCLe2lGnW1mtpZsSVG4HO/cemCF2gc8E45phsNN0SQ+JPFervd3aL8t3dkYU+kMQ4B+gz/ALtcd4k+LlrbobXwzaNcuo2rc3KYRR/sx9Pz/KvMdY1HWfEN8bzV72a6lPTeeAPQDsK9vCZXWm9fdX4nBiMfSh5v8DtviN8V77XY5tJ0BJNP0t/lkctmacf7TdgfQfjmvOYoCzZPJPUmtC3sCccYq9FZheor6fC4GNKPLFWPAxOOdR3bKtlAAuSBV9VAFPjiCrwKUjn0r0FDlR5sp8zIzkjioXztweCetWJGA4qs5OT1xSkVArScDmq054FWpevtVO4POM5rmmzqhqMQc9KXHNOjXJNSBOKyNiDB308oS2KkCc9KmCDOeOKpEtkaDFTICRj9acidDtzUyJz0rVGMmVtpJ4qT7OWFWY4sHIqdUGORVqPcylLsZcln260ln9u0+cXFhd3FrKOjxOVP6VrhRj7opNq91FKVGEtGVGtKOqZes/HniOABb5bTU0HBM8OHI/3lwfzzW9p3xLs4lCyadqNkT977POHT64IB/WuS8pG7AU02kR9K8+rlGHnra3od9LNa8NL3PUtM+JeiZBfVpUOc4n0/kfioP867Pw/8XNJtic+KLWMEAD5rhMj6V87mxjPG4Uw2CZ4cVxzyKD2kzpjnDfxRR9reEfiT8P1jluLrxvaxSHutzIuf0z+tZXjX4veA18xI/FUN0m77pe5f8QBxXx+tmyghZKQ6eG5aTmsv7Eb0cmX/AGpBO/Kj3PXPjF4QUsYppbh89IbHr/wKQ5rjdb+M8U4AsdClkZfum5m+X/vlQP5158NMjzy4qRdNjB+8DW9PI6Kd5a+rM55xP7Ohoan8RvGWooYobtNPiIxttYwhx/vfe/WuZe1ubyczXU0s0jH5nkYsT+JroIrOJAMcn6VKI0H8Ir1KGApUvhSR51bMKlTdmPbaYKvR2yRjoDVwlQeBUTnceld0YQicMqkpbjPlAIApAeCMUoXrxTgvtWjkiLEZprcc1Ljio3+lZyY0iBz3qu5+tTy9KrNWMpG8EQzdKpT81elXNU5lyK55s6qZ/9k=" alt="FZR Skimmer">
+      <div>
+        <h1>FZR Skimmer</h1>
+        <p class="sub">CW receiver for split pile-ups and contests &middot; Perseus SDR and sound card &middot; IW1FZR Amateur Radio Tools</p>
+      </div>
+    </div>
+    <h3 style="margin-top:22px">📚 FZR Skimmer Documentation — Quick Index</h3>
+    <div class="fzr-nav-buttons">
+      <a href="#installazione-en" class="fzr-btn btn-dl">💾 Installation</a>
+      <a href="#manuale-utente-en" class="fzr-btn btn-manuale">📖 Manual</a>
+      <a href="#dxpedition-en" class="fzr-btn btn-com0com">🌍 DXpedition mode</a>
+      <a href="#contest-en" class="fzr-btn btn-contest">🏆 Contest mode</a>
+      <a href="#registrare-en" class="fzr-btn btn-mac">⏺️ Recording</a>
+      <a href="#problemi-en" class="fzr-btn btn-faq">❓ Troubleshooting</a>
+    </div>
+  </div>
+
+  <section id="manuale-utente-en" class="fzr-section">
+    <h2>📖 FZR Skimmer User Manual</h2>
+    <p><strong>FZR Skimmer</strong> is a CW receiver for working <strong>split pile-ups</strong> and <strong>contests</strong> with the Perseus SDR (or any radio through the PC sound card). The audio stays locked on the DX while the waterfall scrolls freely across the whole received band; the decoded CW text appears next to each signal, with 5NN highlighted, and after every report sent by the DX the program marks where the worked station answered: that is, where the DX is listening.</p>
+    <p class="fzr-img"><em>[Image: FZR Skimmer main screen]</em></p>
+    <div class="fzr-toc-grid">
+      <div>
+        <h4>🚀 Getting started</h4>
+        <ul>
+          <li><a href="#requisiti-en">What you need</a></li>
+          <li><a href="#installazione-en">Installation</a></li>
+          <li><a href="#registrazione-en">Registration and free trial</a></li>
+          <li><a href="#ricevitori-en">Receivers</a></li>
+          <li><a href="#calibrazione-en">Frequency calibration</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>🎛️ Using it</h4>
+        <ul>
+          <li><a href="#schermata-en">The screen</a></li>
+          <li><a href="#dxpedition-en">DXpedition mode (split pile-ups)</a></li>
+          <li><a href="#contest-en">Contest mode (S&amp;P)</a></li>
+          <li><a href="#nominativi-en">Callsigns and decoding</a></li>
+          <li><a href="#rbn-en">Reverse Beacon Network</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>🛠️ More</h4>
+        <ul>
+          <li><a href="#registrare-en">Recording and playback</a></li>
+          <li><a href="#tastiera-en">Mouse and keyboard</a></li>
+          <li><a href="#tablet-en">Use from a tablet</a></li>
+          <li><a href="#problemi-en">Troubleshooting</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="requisiti-en" class="fzr-section">
+    <h2>🧰 What you need</h2>
+    <ul>
+      <li>A PC with <strong>Windows 10 or 11</strong> (FZR Skimmer is 32-bit and also runs on 64-bit Windows).</li>
+      <li><strong>Microsoft Edge</strong> (already in Windows) or Google Chrome: they only draw the window.</li>
+      <li>A receiver: <strong>Perseus</strong> (the best way), or a radio connected to the sound card, or an IQ receiver (SoftRock and similar), or a receiver with an HDSDR ExtIO plugin (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> and others).</li>
+      <li>For the Perseus: the files <code>perseususb.dll</code> and <code>perseus*.sbs</code>, which CW Skimmer or Perseus software users already have (<strong>prepara_cartella.bat</strong> copies them from there). Otherwise they are all in the official package <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a (Microtelecom)</a>; the Perseus USB driver is in the <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">Perseus driver 2026a1</a> package. Help: <a href="https://groups.io/g/Perseus-SDR" target="_blank" rel="noopener">Perseus users group</a>.</li>
+      <li>Optional: an Internet connection for the Reverse Beacon Network and the online registration check.</li>
+    </ul>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="installazione-en" class="fzr-section">
+    <h2>💾 Installation</h2>
+    <ol>
+      <li>Download the <strong>FZRSkimmer</strong> zip and unpack it anywhere, for example in <code>C:\FZRSkimmer</code>.</li>
+      <li><strong>No CW Skimmer or Perseus software?</strong> Install the USB driver from the <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">Microtelecom driver package</a> (if Windows does not already recognise the Perseus), then download the <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a</a> package and copy <code>perseususb.dll</code> and all the <code>perseus*.sbs</code> files into the FZR Skimmer folder, next to FZRSkimmer.exe. You can then skip the next step.</li>
+      <li>Run <strong>prepara_cartella.bat</strong> once: it copies the Perseus files into the folder from CW Skimmer, HDSDR or the Perseus software, and the <code>MASTER.SCP</code> callsign list from N1MM if present. If you skip it, FZR Skimmer looks for those files in the CW Skimmer folders anyway.</li>
+      <li><strong>Close CW Skimmer, HDSDR and the Perseus software</strong>: only one program at a time can use the Perseus.</li>
+      <li>Start <strong>FZRSkimmer.exe</strong>: the program window opens. The interface is in English or Italian (<strong>EN/IT</strong> button at the top right).</li>
+    </ol>
+    <div class="fzr-callout">To close, use the <strong>Quit</strong> button at the top right or just close the window: either way the Perseus is released and the program ends.</div>
+    <p>All settings (band, DX, memories, filter, sensitivity, colours, receiver, mode, language) are saved automatically in <code>fzrskimmer.json</code> next to the exe. The program log is <code>fzrskimmer.log</code>, in the same folder: it is the first file to look at if something goes wrong.</p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="registrazione-en" class="fzr-section">
+    <h2>🔑 Registration and free trial</h2>
+    <p>FZR Skimmer uses <strong>the same registration as ADIF FZR</strong>: same callsign, same key. If ADIF FZR is already registered on the same PC, FZR Skimmer finds the licence by itself and asks nothing.</p>
+    <ul>
+      <li>Unregistered, the receiver runs <strong>5 minutes per start</strong>, then stops and the registration window appears.</li>
+      <li><strong>Playback of recordings</strong> is always free.</li>
+      <li><strong>Register</strong> button at the top: type your callsign and paste the key, or press <strong>Check online</strong> if your callsign is already enabled on the site.</li>
+      <li><strong>Request a key</strong> opens the request page on iw1fzr.it; or fill in the form below. Registration is free and the same key works for ADIF FZR.</li>
+    </ul>
+    <div class="fzrk" id="fzrk-ken">
+    <h3>🔑 Request your registration key</h3>
+    <p class="sub">Registration is free and <b>one key works for both ADIF FZR and FZR Skimmer</b>. Without a key ADIF FZR runs a 30-day trial, FZR Skimmer 5 minutes per start. Donors get a <span style="color:#ff6b6b">&hearts;</span> next to their call. Fill in and send: you will receive the key by email.</p>
+    <form class="fzrk-form" data-err="Send error: " action="https://www.iw1fzr.it/adiffzr/richiedi.php" method="POST">
+      <input type="hidden" name="ajax" value="1">
+      <input type="text" name="sito_web" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <label for="ken-call">Callsign *</label>
+      <input id="ken-call" name="call" type="text" required placeholder="e.g. IU1PJO" autocomplete="off" style="text-transform:uppercase">
+      <label for="ken-nome">Name</label>
+      <input id="ken-nome" name="nome" type="text" placeholder="your name">
+      <label for="ken-email">Email *</label>
+      <input id="ken-email" name="email" type="email" required placeholder="your@email">
+      <label for="ken-tel">Phone</label>
+      <input id="ken-tel" name="telefono" type="tel" placeholder="+39 …">
+      <label for="ken-prog">Software</label>
+      <select id="ken-prog" name="programma"><option value="ADIF FZR + FZR Skimmer">ADIF FZR + FZR Skimmer (same key)</option><option value="FZR Skimmer">FZR Skimmer</option><option value="ADIF FZR">ADIF FZR</option></select>
+      <label for="ken-tipo">Key type</label>
+      <select id="ken-tipo" name="tipo"><option value="Registrato / Registered">Registered — all features</option><option value="Donatore / Donor">Donor — support + heart ♥</option></select>
+      <div class="rowck">
+        <input id="ken-kofi" name="kofi" type="checkbox" value="1">
+        <label for="ken-kofi" style="margin:0;font-weight:400;color:var(--txt)">I already donated on Ko-fi</label>
+      </div>
+      <label for="ken-note">Message (optional)</label>
+      <textarea id="ken-note" name="note" placeholder="any notes…"></textarea>
+      <button type="submit">✉️ Send request</button>
+    </form>
+    <div class="ok">✅ Request sent! You'll receive your key by email as soon as possible. 73!</div>
+    <div class="kofi">☕ Support the project: <a href="https://ko-fi.com/D3B421DISC" target="_blank" rel="noopener">ko-fi.com/iw1fzr</a></div>
+    <div class="note">You receive the key by email. In <i>FZR Skimmer</i>: <b>Register</b> button at the top, paste the key and press <b>Register</b>. In <i>ADIF FZR → Help → Software registration</i>: paste it and press <b>Register</b>. In both you can also press <b>Check online</b> for automatic activation (if your callsign is already enabled). The key is bound to your callsign.</div>
+  </div>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="ricevitori-en" class="fzr-section">
+    <h2>📻 Receivers</h2>
+    <p>The receiver is chosen at the bottom, under <strong>Receiver</strong>, without restarting the program.</p>
+    <table class="fzr-table"><thead><tr><th>Receiver</th><th>When to use it</th><th>What to set</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>The best way: you see and decode up to 96 kHz of band (48 kHz is enough for almost every pile-up).</td><td><strong>Perseus centre kHz</strong>, <strong>Sample rate</strong>. If stations appear mirrored, tick <strong>Swap I/Q</strong>.</td></tr><tr><td><strong>Radio audio</strong></td><td>Any radio: its audio output goes into the PC sound card (for example the IC-7600 USB Audio CODEC). Only the radio passband, 2–3 kHz, is seen.</td><td><strong>Input</strong>, <strong>Radio frequency kHz</strong> (the one shown by the radio), <strong>Offset</strong>: the CW pitch, e.g. 600, if the radio shows the signal frequency like Icom in CW; 0 if it shows the carrier.</td></tr><tr><td><strong>IQ from sound card</strong></td><td>Receivers sending I and Q on the left and right channels (SoftRock and similar).</td><td><strong>Input</strong>, <strong>LO kHz</strong> (centre frequency), <strong>Sample rate</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>experimental</em></td><td>Any receiver with a <strong>32-bit</strong> HDSDR ExtIO plugin: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube and others. If the receiver works in HDSDR, it works here. The receiver driver must be installed (for SDRplay, the SDRplay API).</td><td><strong>Plugin</strong>: the program looks for it in the HDSDR, SDRplay and Airspy folders and in its own; otherwise <strong>Browse…</strong> and pick the <code>ExtIO_….dll</code> file. <strong>Sample rate</strong>: the list comes from the plugin, choose 192 kHz or less; if the receiver only offers high rates (SDRplay at 2 MHz) the program reduces them below 200 kHz by itself (÷ n next to the value). <strong>Receiver settings</strong> opens the plugin window (gain, antenna, AGC). <strong>Centre kHz</strong>.</td></tr><tr><td><strong>Recording (WAV)</strong></td><td>Play back an IQ recording.</td><td>See <a href="#registrare-en">Recording and playback</a>.</td></tr></tbody></table>
+    <p>If the receiver does not start, press <strong>Restart receiver</strong>: it closes and reopens the Perseus without closing the program (a couple of seconds of silence; settings are kept). The program already retries 3 times by itself at start-up.</p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="calibrazione-en" class="fzr-section">
+    <h2>🎯 Frequency calibration</h2>
+    <p>If the receiver reads slightly off the true frequency (the Perseus sometimes by a few tens of Hz), correct it with <strong>Correction ppm</strong>, at the bottom next to the sample rate. The error comes from the receiver crystal and is proportional to frequency: that is why it is set in <strong>ppm</strong> (parts per million) and a single correction works on every band. 1 ppm is 7 Hz at 7 MHz, 14 Hz at 14 MHz, 28 Hz at 28 MHz.</p>
+    <p>The easy way is the <strong>Calibrate…</strong> button, which runs a test on a <strong>standard-frequency station</strong>:</p>
+    <ol>
+      <li>Pick a station you hear well right now: RWM 4996 / 9996 / 14996 kHz, WWV and BPM 5 / 10 / 15 MHz, CHU 3330 / 7850 / 14670 kHz. From Europe RWM and the 10 or 15 MHz carriers usually work well.</li>
+      <li>Press <strong>Measure</strong>: the program tunes to the station (the carrier goes into the DX audio, you can hear it), measures it for 6 seconds to a hundredth of a Hz and goes back where you were, with the same DX.</li>
+      <li>The <strong>current error</strong> in Hz, the <strong>signal strength</strong>, the <strong>stability</strong> and the measured correction in ppm are shown.</li>
+      <li>If it looks good press <strong>Apply the correction</strong>. It is never applied by itself: you decide.</li>
+      <li>To check, measure a second station on another frequency: it should say <em>"The receiver is already accurate"</em>.</li>
+    </ol>
+    <table class="fzr-table"><thead><tr><th>Message</th><th>What to do</th></tr></thead><tbody><tr><td>Signal too weak</td><td>Try another station or another frequency of the same one (it changes with the time of day).</td></tr><tr><td>Unstable measurement</td><td>Retry: strong fading or two stations on the same frequency (WWV and BPM are both on 5, 10, 15 MHz).</td></tr></tbody></table>
+    <div class="fzr-callout">The correction is stored per receiver: Perseus, ExtIO and IQ sound card each have their own. <strong>Reset</strong> removes it. With the IQ sound card, which cannot tune by itself, first bring the standard station inside the received band. The crystal drifts a little with temperature: calibrate after the receiver has been on for half an hour.</div>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="schermata-en" class="fzr-section">
+    <h2>🖥️ The screen</h2>
+    <p class="fzr-img"><em>[Image: the screen with numbered parts]</em></p>
+    <ul>
+      <li><strong>Top</strong>: frequency the RX is locked on, visible part of the band, last listening spot found, licence status, <strong>EN/IT</strong> language button and <strong>Quit</strong>.</li>
+      <li><strong>Mode</strong> (DXpedition / Contest) and <strong>Band</strong>: the 160…10 buttons recall the centre and DX stored for that band; <strong>Save memory</strong> stores the current ones.</li>
+      <li><strong>Waterfall controls</strong>: <strong>DX audio</strong> (turns on the audio in the PC), <strong>▲/▼ 5 kHz</strong>, <strong>Back to DX</strong>, <strong>Span</strong> of the view (from 1.5 kHz to the whole band), <strong>RX filter</strong> (100–800 Hz), <strong>Sensitivity</strong>, <strong>Colours/Brightness/Contrast</strong>, <strong>History</strong> (5, 10 or 20 seconds).</li>
+      <li><strong>Waterfall</strong> on the left: time runs from left to right (newest signals on the right), frequency is vertical with the scale on the right. The green stripe is the RX passband on the DX.</li>
+      <li><strong>Decoded text</strong> on the right, level with each signal. 5NN/599/TU on an orange background; sure callsigns in white on blue; callsigns corrected by the program marked with <strong>?</strong> and a dashed underline.</li>
+      <li><strong>DX line</strong> below the waterfall: everything the DX sends, in sequence.</li>
+      <li><strong>Bottom</strong>: settings (DX, UP zone, receiver, memory, RBN) and the status line.</li>
+    </ul>
+    <table class="fzr-table"><thead><tr><th>Sensitivity</th><th>Effect</th></tr></thead><tbody><tr><td>High</td><td>more weak callsigns, but more errors</td></tr><tr><td>Medium</td><td>the recommended starting point</td></tr><tr><td>Low</td><td>clean signals only</td></tr></tbody></table>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="dxpedition-en" class="fzr-section">
+    <h2>🌍 DXpedition mode (split pile-ups)</h2>
+    <p>This is what FZR Skimmer was born for. A typical setup: the radio relay switches on transmit and the Perseus receives; the audio stays locked on the DX while you scroll the waterfall to see where the pile-up is calling and where the worked station answers.</p>
+    <ul>
+      <li><strong>Set the DX</strong>: <strong>Ctrl + click</strong> on its signal in the waterfall, or type the frequency in <strong>DX kHz</strong>, or right click → <em>Set DX here</em>. To fine-tune it: <strong>Ctrl + wheel</strong> (50 Hz, with Shift 10 Hz) or the left/right arrows.</li>
+      <li><strong>UP zone</strong>: where to look for the listening frequency, in kHz above the DX. If the DX says "UP 1-5", type 1 and 5. It also keeps FT8 and other digital signals out.</li>
+      <li><strong>Listening spot</strong>: after every 5NN from the DX the program looks at who answers right after and draws an <strong>orange line</strong> on that frequency, with the offset from the DX. The latest ones stay as buttons under <strong>Listening</strong>: one click centres the waterfall there.</li>
+      <li>If the listening spot is outside the view, an orange button appears at the top or bottom of the waterfall: click it to go there.</li>
+    </ul>
+    <div class="fzr-callout">Detection works only when the DX sends a 5NN that the program manages to decode. Many DXs never repeat their own call: it is normal not to see it in the DX line.</div>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="contest-en" class="fzr-section">
+    <h2>🏆 Contest mode (S&amp;P)</h2>
+    <p>With <strong>Mode → Contest</strong> the <strong>station list</strong> opens and the listening search is switched off. The list can also be opened and closed by hand with <strong>☰ List</strong>.</p>
+    <ul>
+      <li>Stations are sorted by frequency, with callsign, a <strong>CQ</strong> tag if they are calling CQ or TEST, frequency, dB, speed and how long ago they were heard.</li>
+      <li>The list contains <strong>confirmed</strong> callsigns (decoded the same at least twice on the same signal, or right after CQ/TEST) and the RBN spots in the received band, in purple.</li>
+      <li><strong>Click a row</strong>: the audio goes to that station and the waterfall centres on it.</li>
+    </ul>
+    <p class="fzr-img"><em>[Image: Contest mode with the station list]</em></p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="nominativi-en" class="fzr-section">
+    <h2>🔤 Callsigns and decoding</h2>
+    <p>The decoder follows each CW signal on its exact frequency, measures the speed by itself and ignores short noise bursts. To make callsigns more reliable it uses three aids, in this order:</p>
+    <ol>
+      <li><strong>Reverse Beacon Network</strong>: if the decoded callsign matches one spotted nearby, it is sure.</li>
+      <li><strong>Repetition</strong>: callers repeat their call. When the same callsign is decoded twice on the same signal it becomes confirmed, and garbled readings of that signal (a wrong letter, a lost beginning) are shown corrected with <strong>?</strong>, even the earlier ones.</li>
+      <li><strong>Callsign file</strong>: if the folder contains <code>MASTER.SCP</code> (Super Check Partial, from supercheckpartial.com or the N1MM folder), <code>MASTER.DTA</code> (CW Skimmer) or <code>callsign.dat</code> / <code>nominativi.txt</code> with one call per line, known calls are highlighted and those one letter off are suggested with <strong>?</strong>.</li>
+    </ol>
+    <p>Words glued together by a too-short space (<code>CQCQDE</code>, <code>DL1ABCTEST</code>, <code>TU5NN203</code>) are split automatically.</p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="rbn-en" class="fzr-section">
+    <h2>📡 Reverse Beacon Network</h2>
+    <ul>
+      <li><strong>RBN</strong> button (next to List) or the <strong>RBN</strong> box at the bottom: connects to and disconnects from telnet.reversebeacon.net, CW only. Your registration callsign is used; if you are not registered a <strong>Callsign</strong> field appears.</li>
+      <li><strong>Spot</strong> button: shows or hides the labels on the waterfall. Spots appear in purple on the <strong>left edge</strong>, at their frequency, with dB; they fade with time and disappear after 15 minutes.</li>
+      <li>The RBN spots stations calling CQ: the DX and contest stations, hardly ever the callers in a pile-up.</li>
+    </ul>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="registrare-en" class="fzr-section">
+    <h2>⏺️ Recording and playback</h2>
+    <p>Top right:</p>
+    <ul>
+      <li><strong>💾 Save last m:ss</strong>: FZR Skimmer always keeps the last minutes received in memory; the button writes them to disk without stopping the receiver. Handy to check calmly whether the DX put you in the log. How many minutes is chosen at the bottom under <strong>Memory</strong> (off, 1, 2, 5, 10 minutes; at 96 kHz about 23 MB of RAM per minute).</li>
+      <li><strong>⏺ Record</strong>: records to disk from now until pressed again (about 35 MB per minute at 96 kHz). Changing band closes the file and starts a new one.</li>
+      <li><strong>📂</strong>: opens the <code>registrazioni</code> (recordings) folder.</li>
+    </ul>
+    <p>Files are 24-bit IQ WAVs with centre and DX written inside and in the name (e.g. <code>FZR_20261017_121500Z_18085.000kHz_DX18080.00.wav</code>); HDSDR, SDR Console and CW Skimmer open them too.</p>
+    <p><strong>To play back</strong>: <strong>Receiver → Recording (WAV)</strong>. The Perseus stops and the playback bar appears: ▶/⏸ (also the space bar), <strong>−15 s</strong>, position slider, list of recordings and <strong>Browse…</strong> to open any IQ WAV. Waterfall, decoding and listening search work as live. CW Skimmer recordings do not store the frequency: type it in <strong>Centre kHz</strong> and it is remembered for that file. <strong>Back to receiver</strong> restarts the Perseus.</p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="tastiera-en" class="fzr-section">
+    <h2>⌨️ Mouse and keyboard</h2>
+    <table class="fzr-table"><thead><tr><th>Command</th><th>Effect</th></tr></thead><tbody><tr><td>Wheel / drag</td><td>scrolls the waterfall (audio stays on the DX)</td></tr><tr><td>Ctrl + click</td><td>DX exactly there (10 Hz step)</td></tr><tr><td>Ctrl + wheel</td><td>moves the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Right click (or long press on a tablet)</td><td>menu: Set DX here, Marker here / Remove this marker, Remove all markers, Centre view here</td></tr><tr><td>PgUp / PgDn</td><td>±5 kHz</td></tr><tr><td>Up / down arrows</td><td>scroll the view</td></tr><tr><td>Left / right arrows</td><td>move the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Home</td><td>back to the DX</td></tr><tr><td>Space bar</td><td>pause / resume in playback</td></tr><tr><td>Double click on Brightness or Contrast</td><td>default value</td></tr></tbody></table>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="tablet-en" class="fzr-section">
+    <h2>📱 Use from a tablet</h2>
+    <p>FZR Skimmer can also be watched from a tablet or phone on the home network: open in the browser the address written in <code>fzrskimmer.log</code>, like <code>http://192.168.x.x:8073</code>. Closing the tablet browser does not stop anything: to switch off use <strong>Quit</strong>. Closing the window on the PC, instead, switches everything off.</p>
+    <div class="fzr-callout warning">Do not open port 8073 to the Internet: the interface has no password. To use it away from home, go through a VPN.</div>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="problemi-en" class="fzr-section">
+    <h2>❓ Troubleshooting</h2>
+    <details>
+      <summary>🔴 The receiver does not start</summary>
+      <div class="details-body"><p>Close CW Skimmer, HDSDR and the Perseus software; press <strong>Restart receiver</strong>. Check in Task Manager that no other FZR Skimmer is running.</p></div>
+    </details>
+    <details>
+      <summary>🔴 ExtIO: «No ExtIO plugin found» or «cannot load the plugin»</summary>
+      <div class="details-body"><p>Install the receiver's <strong>32-bit</strong> HDSDR plugin and its driver, then <strong>Plugin → Browse…</strong>. Close HDSDR: only one program at a time can use the receiver.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Signals slightly off frequency (e.g. RBN spots do not line up)</summary>
+      <div class="details-body"><p>Calibrate the receiver: <a href="#calibrazione-en">Frequency calibration</a>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Stations mirrored around the centre</summary>
+      <div class="details-body"><p>Tick <strong>Swap I/Q</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 No audio</summary>
+      <div class="details-body"><p>Press <strong>DX audio</strong>: the browser turns audio on only after a click.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Too many wrong decodes</summary>
+      <div class="details-body"><p>Sensitivity <strong>Medium</strong> or <strong>Low</strong>; narrow the <strong>RX filter</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Waterfall too dark or too bright</summary>
+      <div class="details-body"><p><strong>Brightness</strong> and <strong>Contrast</strong> sliders, or another palette in <strong>Colours</strong>.</p></div>
+    </details>
+    <details>
+      <summary>🔴 Task Manager shows two FZRSkimmer.exe</summary>
+      <div class="details-body"><p>That is normal: the "single file" exe is made of two processes. On closing, both disappear within a few seconds.</p></div>
+    </details>
+    <details>
+      <summary>🔴 "Persi" (lost) growing in the log</summary>
+      <div class="details-body"><p>The PC cannot keep up: choose a lower sample rate (48 kHz).</p></div>
+    </details>
+    <details>
+      <summary>🔴 Anything else</summary>
+      <div class="details-body"><p>Look at <code>fzrskimmer.log</code> in the program folder and send it to IW1FZR.</p></div>
+    </details>
+    <p><em>FZR Skimmer is a program by IW1FZR. The Perseus is a <a href="https://www.microtelecom.it/en/perseus-22" target="_blank" rel="noopener">Microtelecom</a> product; its files (perseususb.dll, .sbs) are not distributed with FZR Skimmer and must be taken from the manufacturer's site.</em></p>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  </div>
+
+</div>
+
+<!-- SCRIPT PER IL CAMBIO LINGUA SENZA RICARICARE LA PAGINA -->
+<script>
+function switchLang(lang) {
+  document.querySelectorAll('.lang-panel').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.lang-tab-btn').forEach(function(btn) { btn.classList.remove('active'); });
+  var p = document.getElementById('lang-' + lang);
+  if (p) p.classList.add('active');
+  var b = document.querySelectorAll('.lang-tab-btn');
+  if (lang === 'it' && b[0]) b[0].classList.add('active');
+  if (lang === 'en' && b[1]) b[1].classList.add('active');
+  document.documentElement.lang = lang;
+}
+(function() {
+  var h = (location.hash || '').toLowerCase();
+  var nav = (navigator.language || 'it').toLowerCase();
+  if (h.indexOf('-en') > 0 || h === '#en' || (!h && nav.indexOf('it') !== 0)) switchLang('en');
+})();
+</script>
+<script>
+// Richiesta chiave via AJAX verso richiedi.php (conferma a video). Il programma scelto viene
+// scritto anche in testa alle note, così arriva nella mail anche se il PHP non conosce il campo.
+(function(){
+  var forms=document.querySelectorAll('.fzrk-form');
+  for(var i=0;i<forms.length;i++)(function(f){
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      var btn=f.querySelector('button[type=submit]'), box=f.parentNode, ok=box.querySelector('.ok');
+      var fd=new FormData(f), prog=fd.get('programma')||'';
+      if(prog){fd.set('note','[Programma: '+prog+'] '+(fd.get('note')||''));}
+      if(btn)btn.disabled=true;
+      fetch(f.action,{method:'POST',body:fd,headers:{'Accept':'application/json'}})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if(d&&d.success){f.style.display='none';if(ok){ok.style.display='block';ok.scrollIntoView({behavior:'smooth',block:'center'});}}
+          else{if(btn)btn.disabled=false;alert((f.getAttribute('data-err')||'Error: ')+((d&&d.message)||''));}
+        })
+        .catch(function(){var n=f.querySelector('[name=note]');if(n&&prog&&n.value.indexOf('[Programma:')<0)n.value='[Programma: '+prog+'] '+n.value;f.submit();});
+    });
+  })(forms[i]);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,410 @@
+<!-- wp:paragraph -->
+<p><strong>FZR Skimmer</strong> è un ricevitore CW per lavorare i <strong>pile-up in split</strong> e i <strong>contest</strong> con il Perseus (o con qualsiasi radio tramite la scheda audio). L'audio resta fermo sul DX mentre il waterfall scorre libero su tutta la banda ricevuta; accanto a ogni segnale compare il testo CW decodificato, con i 5NN evidenziati, e dopo ogni rapporto del DX il programma segna dove ha risposto la stazione lavorata: cioè dove il DX sta ascoltando.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: schermata principale di FZR Skimmer]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"indice"} -->
+<h2 class="wp-block-heading" id="indice">Indice</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><a href="#requisiti">Cosa serve</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#installazione">Installazione</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#registrazione">Registrazione e prova gratuita</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#ricevitori">Ricevitori</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#calibrazione">Calibrazione della frequenza</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#schermata">La schermata</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#dxpedition">Modo DXpedition</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#contest">Modo Contest</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#nominativi">Nominativi e decodifica</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#rbn">Reverse Beacon Network</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#registrare">Registrare e riascoltare</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#tastiera">Mouse e tastiera</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#tablet">Uso dal tablet</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#problemi">Problemi e soluzioni</a></li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:separator -->
+<hr class="wp-block-separator has-alpha-channel-opacity"/>
+<!-- /wp:separator -->
+
+<!-- wp:heading {"level":2,"anchor":"requisiti"} -->
+<h2 class="wp-block-heading" id="requisiti">Cosa serve</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>PC con <strong>Windows 10 o 11</strong> (FZR Skimmer è a 32 bit, gira anche sui Windows a 64 bit).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Microsoft Edge</strong> (c'è già in Windows) oppure Google Chrome: servono solo a disegnare la finestra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Un ricevitore: <strong>Perseus</strong> (il modo migliore), oppure una radio collegata alla scheda audio, oppure un ricevitore IQ (SoftRock e simili), oppure un ricevitore con plugin ExtIO per HDSDR (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> e altri).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per il Perseus: i file <code>perseususb.dll</code> e <code>perseus*.sbs</code>, che ha già chi usa CW Skimmer o il software del Perseus (<strong>prepara_cartella.bat</strong> li copia da lì). Altrimenti sono tutti nel pacchetto ufficiale <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a (Microtelecom)</a>; il driver USB del Perseus è nel pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">driver Perseus 2026a1</a>. Per aiuto: <a href="https://groups.io/g/Perseus-SDR" target="_blank" rel="noopener">gruppo utenti Perseus</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Facoltativo: un collegamento Internet per il Reverse Beacon Network e per la verifica online della registrazione.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"installazione"} -->
+<h2 class="wp-block-heading" id="installazione">Installazione</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scarica lo zip <strong>FZRSkimmer</strong> e scompattalo dove vuoi, per esempio in <code>C:\FZRSkimmer</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Senza CW Skimmer né software Perseus</strong>: installa il driver USB dal <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">pacchetto driver di Microtelecom</a> (se il Perseus non è già riconosciuto da Windows), poi scarica il pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a</a> e copia <code>perseususb.dll</code> e tutti i file <code>perseus*.sbs</code> nella cartella di FZR Skimmer, accanto a FZRSkimmer.exe. Il passo successivo allora non serve.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Avvia una volta <strong>prepara_cartella.bat</strong>: copia nella cartella i file del Perseus prendendoli da CW Skimmer, HDSDR o dal software Perseus, e l'elenco nominativi <code>MASTER.SCP</code> da N1MM se c'è. Se non lo fai, FZR Skimmer cerca comunque quei file nelle cartelle di CW Skimmer.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Chiudi CW Skimmer, HDSDR e il software del Perseus</strong>: il Perseus lo può usare un solo programma per volta.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Avvia <strong>FZRSkimmer.exe</strong>: si apre la finestra del programma.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Per chiudere usa il pulsante <strong>Esci</strong> in alto a destra, oppure chiudi la finestra: in entrambi i casi il Perseus viene liberato e il programma termina.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:paragraph -->
+<p>Tutte le impostazioni (banda, DX, memorie, filtro, sensibilità, colori, ricevitore, modo) si salvano da sole nel file <code>fzrskimmer.json</code> accanto all'exe. Il diario del programma è <code>fzrskimmer.log</code>, nella stessa cartella: è il primo file da guardare se qualcosa non va.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"registrazione"} -->
+<h2 class="wp-block-heading" id="registrazione">Registrazione e prova gratuita</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR Skimmer usa <strong>la stessa registrazione di ADIF FZR</strong>: stesso nominativo, stessa chiave. Se ADIF FZR è già registrato sullo stesso PC, FZR Skimmer trova la licenza da solo e non chiede nulla.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Senza registrazione il ricevitore funziona <strong>5 minuti per ogni avvio</strong>, poi si ferma e compare la finestra di registrazione.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La <strong>riproduzione delle registrazioni</strong> è sempre libera.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pulsante <strong>Registra</strong> in alto: scrivi il nominativo e incolla la chiave, oppure premi <strong>Verifica online</strong> se il tuo nominativo è già abilitato sul sito.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Richiedi una chiave</strong> apre la pagina di richiesta su iw1fzr.it; oppure compila il modulo qui sotto. La registrazione è gratuita e la stessa chiave vale per ADIF FZR.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"ricevitori"} -->
+<h2 class="wp-block-heading" id="ricevitori">Ricevitori</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il ricevitore si sceglie in basso, alla voce <strong>Ricevitore</strong>, senza riavviare il programma.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Ricevitore</th><th>Quando usarlo</th><th>Cosa impostare</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>Il modo migliore: vedi e decodifichi fino a 96 kHz di banda (48 kHz bastano per quasi tutti i pile-up).</td><td><strong>Centro Perseus kHz</strong>, <strong>Campionamento</strong>. Se le stazioni appaiono specchiate, spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td><strong>Audio della radio</strong></td><td>Qualsiasi radio: l'uscita audio entra nella scheda audio del PC (per esempio USB Audio CODEC dell'IC-7600). Vedi solo la banda passante della radio, 2–3 kHz.</td><td><strong>Ingresso</strong>, <strong>Frequenza radio kHz</strong> (quella che mostra la radio), <strong>Offset</strong>: la nota CW, es. 600, se la radio mostra la frequenza del segnale come gli Icom in CW; 0 se mostra la portante.</td></tr><tr><td><strong>IQ da scheda audio</strong></td><td>Ricevitori che mandano I e Q sui canali sinistro e destro (SoftRock e simili).</td><td><strong>Ingresso</strong>, <strong>LO kHz</strong> (frequenza centrale), <strong>Campionamento</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>sperimentale</em></td><td>Qualsiasi ricevitore che abbia un plugin ExtIO <strong>a 32 bit</strong> per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube e altri. Se il ricevitore funziona in HDSDR, funziona anche qui. Serve il driver del ricevitore installato (per SDRplay la SDRplay API).</td><td><strong>Plugin</strong>: il programma lo cerca nelle cartelle di HDSDR, SDRplay e Airspy e nella sua; altrimenti <strong>Sfoglia…</strong> e scegli il file <code>ExtIO_….dll</code>. <strong>Campionamento</strong>: l'elenco viene dal plugin, scegli 192 kHz o meno; se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo sotto i 200 kHz (÷ n accanto al valore). <strong>Impostazioni ricevitore</strong> apre la finestra del plugin (guadagno, antenna, AGC). <strong>Centro kHz</strong>.</td></tr><tr><td><strong>Registrazione (WAV)</strong></td><td>Riascoltare una registrazione IQ.</td><td>Vedi <a href="#registrare">Registrare e riascoltare</a>.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p>Se il ricevitore non parte, premi <strong>Riavvia ricevitore</strong>: chiude e riapre il Perseus senza chiudere il programma (un paio di secondi di silenzio; le impostazioni restano). Il programma riprova già da solo 3 volte all'avvio.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"calibrazione"} -->
+<h2 class="wp-block-heading" id="calibrazione">Calibrazione della frequenza</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Se il ricevitore legge un po' spostato rispetto alla frequenza vera (il Perseus a volte di qualche decina di Hz), si corregge con <strong>Correzione ppm</strong>, in basso accanto al campionamento. L'errore viene dal quarzo del ricevitore ed è proporzionale alla frequenza: per questo si scrive in <strong>ppm</strong> (parti per milione) e una sola correzione vale per tutte le bande. 1 ppm sono 7 Hz a 7 MHz, 14 Hz a 14 MHz, 28 Hz a 28 MHz.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Il modo comodo è il pulsante <strong>Calibra…</strong>, che fa un test su una <strong>stazione campione</strong>:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scegli una stazione che in quel momento senti bene: RWM 4996 / 9996 / 14996 kHz, WWV e BPM 5 / 10 / 15 MHz, CHU 3330 / 7850 / 14670 kHz. Dall'Italia di solito vanno bene RWM e le portanti a 10 o 15 MHz.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Premi <strong>Misura</strong>: il programma si sintonizza sulla stazione (la portante finisce nell'audio DX, la senti), la misura per 6 secondi con la precisione di un centesimo di Hz e torna dov'eri, con lo stesso DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Compaiono l'<strong>errore attuale</strong> in Hz, la <strong>forza del segnale</strong>, la <strong>stabilità</strong> e la correzione misurata in ppm.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se va bene premi <strong>Applica la correzione</strong>. Non viene applicata da sola: decidi tu.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per controllo, misura una seconda stazione su un'altra frequenza: deve dire <em>«Il ricevitore è già preciso»</em>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Messaggio</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Segnale troppo debole</td><td>Prova un'altra stazione o un'altra frequenza della stessa (cambia con l'ora del giorno).</td></tr><tr><td>Misura instabile</td><td>Riprova: fading forte o due stazioni sulla stessa frequenza (WWV e BPM sono entrambe su 5, 10, 15 MHz).</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>La correzione è memorizzata per ciascun ricevitore: Perseus, ExtIO e IQ da scheda audio hanno ognuno la sua. <strong>Azzera</strong> la toglie. Con la scheda IQ, che non si sintonizza da sola, prima porta la stazione campione dentro la banda ricevuta. Il quarzo cambia un po' con la temperatura: meglio calibrare a ricevitore acceso da una mezz'ora.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"schermata"} -->
+<h2 class="wp-block-heading" id="schermata">La schermata</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: la schermata con le parti numerate]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>In alto</strong>: frequenza su cui è fermo l'RX, zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Comandi del waterfall</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Filtro RX</strong> (100–800 Hz), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Waterfall</strong> a sinistra: il tempo scorre da sinistra verso destra (a destra i segnali appena arrivati), la frequenza è in verticale con la scala a destra. La fascia verde è la banda passante dell'RX sul DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Testo decodificato</strong> a destra, all'altezza di ogni segnale. 5NN/599/TU su fondo arancio; nominativi sicuri in bianco su fondo blu; nominativi corretti dal programma con il <strong>?</strong>, sottolineati a tratti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Riga DX</strong> sotto il waterfall: tutto quello che trasmette il DX, di seguito.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>In basso</strong>: impostazioni (DX, Zona UP, ricevitore, memoria, RBN) e la riga di stato.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2,"anchor":"dxpedition"} -->
+<h2 class="wp-block-heading" id="dxpedition">Modo DXpedition (pile-up in split)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>È il modo per cui FZR Skimmer è nato. Un esempio tipico: il relè della radio commuta in trasmissione, il Perseus riceve; l'audio resta fisso sul DX mentre tu scorri il waterfall per vedere dove chiama il pile-up e dove risponde la stazione lavorata.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Imposta il DX</strong>: <strong>Ctrl + clic</strong> sul suo segnale nel waterfall, oppure scrivi la frequenza in <strong>DX kHz</strong>, oppure tasto destro → <em>Imposta il DX qui</em>. Per ritoccarlo: <strong>Ctrl + rotellina</strong> (50 Hz, con Maiusc 10 Hz) o le frecce sinistra/destra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Zona UP</strong>: dove cercare l'ascolto, in kHz sopra il DX. Se il DX dice "UP 1-5", scrivi 1 e 5. Serve anche a escludere FT8 e altri segnali digitali.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ascolto rilevato</strong>: dopo ogni 5NN del DX, il programma guarda chi risponde subito dopo e traccia una <strong>linea arancio</strong> su quella frequenza, con lo scostamento dal DX. Le ultime frequenze restano come pulsanti in <strong>Ascolti</strong>: un clic e il waterfall si centra lì.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se l'ascolto è fuori dalla vista, compare un pulsante arancio in alto o in basso nel waterfall: cliccalo per andarci.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Il rilevamento scatta solo quando il DX passa un 5NN che il programma riesce a decodificare. Molti DX non ripetono il proprio nominativo: è normale non vederlo nella riga DX.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"contest"} -->
+<h2 class="wp-block-heading" id="contest">Modo Contest (S&amp;P)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Con <strong>Modo → Contest</strong> si apre l'<strong>elenco stazioni</strong> e la ricerca dell'ascolto si spegne. L'elenco si apre e chiude anche a mano con <strong>☰ Elenco</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Le stazioni sono in ordine di frequenza, con nominativo, etichetta <strong>CQ</strong> se stanno chiamando CQ o TEST, frequenza, dB, velocità e da quanto sono state sentite.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Ci finiscono i nominativi <strong>confermati</strong> (decodificati uguali almeno due volte sullo stesso segnale, oppure subito dopo CQ/TEST) e gli spot RBN della banda ricevuta, in viola.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic su una riga</strong>: l'audio va su quella stazione e il waterfall si centra lì.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: il modo Contest con l'elenco stazioni]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"nominativi"} -->
+<h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il decoder segue ogni segnale CW sulla sua frequenza esatta, misura da solo la velocità e ignora i disturbi brevi. Per rendere più sicuri i nominativi usa tre aiuti, in quest'ordine:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Reverse Beacon Network</strong>: se il nominativo decodificato coincide con uno spottato lì vicino, è sicuro.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ripetizione</strong>: chi chiama ripete il proprio call. Quando lo stesso nominativo esce due volte sullo stesso segnale diventa confermato, e le letture storpiate di quel segnale (una lettera sbagliata, l'inizio perso) vengono mostrate corrette con il <strong>?</strong>, anche quelle arrivate prima.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Elenco nominativi</strong>: se nella cartella c'è <code>MASTER.SCP</code> (Super Check Partial, da supercheckpartial.com o dalla cartella di N1MM), <code>MASTER.DTA</code> (CW Skimmer) oppure <code>callsign.dat</code> / <code>nominativi.txt</code> con un nominativo per riga, i call presenti vengono evidenziati e quelli che differiscono di una sola lettera vengono suggeriti con il <strong>?</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Le parole attaccate per uno spazio troppo corto (<code>CQCQDE</code>, <code>DL1ABCTEST</code>, <code>TU5NN203</code>) vengono separate da sole.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"rbn"} -->
+<h2 class="wp-block-heading" id="rbn">Reverse Beacon Network</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Pulsante <strong>RBN</strong> (accanto a Elenco) o casella <strong>RBN</strong> in basso: accende e spegne il collegamento a telnet.reversebeacon.net, solo CW. Si usa il nominativo della registrazione; se non sei registrato compare il campo <strong>Nominativo</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pulsante <strong>Spot</strong>: mostra o nasconde le etichette sul waterfall. Gli spot compaiono in viola sul <strong>bordo sinistro</strong>, sulla loro frequenza, con i dB; sbiadiscono con il tempo e spariscono dopo 15 minuti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>L'RBN spotta chi chiama CQ: il DX e le stazioni in contest, quasi mai i chiamanti di un pile-up.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"registrare"} -->
+<h2 class="wp-block-heading" id="registrare">Registrare e riascoltare</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>In alto a destra:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>💾 Salva ultimi m:ss</strong>: FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti; il pulsante li scrive su disco senza fermare il ricevitore. Comodo per controllare con calma se il DX ti ha messo a log. Quanti minuti tenere si sceglie in basso alla voce <strong>Memoria</strong> (spenta, 1, 2, 5, 10 minuti; a 96 kHz servono circa 23 MB di RAM al minuto).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>⏺ Registra</strong>: registra su disco da quel momento finché non lo premi di nuovo (circa 35 MB al minuto a 96 kHz). Cambiando banda il file si chiude e ne parte un altro.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>📂</strong>: apre la cartella <code>registrazioni</code>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>I file sono WAV IQ a 24 bit, con centro e DX scritti dentro e nel nome (es. <code>FZR_20261017_121500Z_18085.000kHz_DX18080.00.wav</code>); si aprono anche con HDSDR, SDR Console e CW Skimmer.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Per riascoltare</strong>: <strong>Ricevitore → Registrazione (WAV)</strong>. Il Perseus si ferma e compare la barra di riproduzione: ▶/⏸ (anche la barra spaziatrice), <strong>−15 s</strong>, cursore della posizione, elenco delle registrazioni e <strong>Sfoglia…</strong> per aprire qualsiasi WAV IQ. Waterfall, decodifica e ricerca dell'ascolto funzionano come dal vivo. Per le registrazioni di CW Skimmer, che non salvano la frequenza, scrivila in <strong>Centro kHz</strong>: viene ricordata per quel file. <strong>Torna al ricevitore</strong> riaccende il Perseus.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"tastiera"} -->
+<h2 class="wp-block-heading" id="tastiera">Mouse e tastiera</h2>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2,"anchor":"tablet"} -->
+<h2 class="wp-block-heading" id="tablet">Uso dal tablet</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR Skimmer si può guardare anche da un tablet o un telefono collegati alla rete di casa: apri nel browser l'indirizzo scritto in <code>fzrskimmer.log</code>, del tipo <code>http://192.168.x.x:8073</code>. Dal tablet chiudere il browser non spegne nulla: per spegnere usa <strong>Esci</strong>. Chiudendo invece la finestra sul PC si spegne tutto.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Non aprire la porta 8073 verso Internet: l'interfaccia non ha password. Per usarlo da fuori casa passa dalla VPN.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"problemi"} -->
+<h2 class="wp-block-heading" id="problemi">Problemi e soluzioni</h2>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Problema</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Il ricevitore non parte</td><td>Chiudi CW Skimmer, HDSDR e il software Perseus; premi <strong>Riavvia ricevitore</strong>. Controlla in Gestione attività che non ci sia un altro FZR Skimmer acceso.</td></tr><tr><td>ExtIO: «Nessun plugin ExtIO trovato» o «impossibile caricare il plugin»</td><td>Installa il plugin <strong>a 32 bit</strong> per HDSDR del ricevitore e il suo driver, poi <strong>Plugin → Sfoglia…</strong>. Chiudi HDSDR: il ricevitore lo usa un programma per volta.</td></tr><tr><td>I segnali sono un po' fuori frequenza (es. i nominativi dell'RBN non coincidono)</td><td>Calibra il ricevitore: <a href="#calibrazione">Calibrazione della frequenza</a>.</td></tr><tr><td>Stazioni specchiate rispetto al centro</td><td>Spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td>Nessun audio</td><td>Premi <strong>Audio DX</strong>: il browser accende l'audio solo dopo un clic.</td></tr><tr><td>Troppa decodifica sbagliata</td><td>Sensibilità <strong>Media</strong> o <strong>Bassa</strong>; restringi il <strong>Filtro RX</strong>.</td></tr><tr><td>Waterfall troppo scuro o chiaro</td><td>Cursori <strong>Luce</strong> e <strong>Contrasto</strong>, o un'altra tavolozza in <strong>Colori</strong>.</td></tr><tr><td>In Gestione attività ci sono due FZRSkimmer.exe</td><td>È normale: l'exe "a file unico" è composto da due processi. Alla chiusura spariscono tutti e due entro pochi secondi.</td></tr><tr><td>"Persi" che cresce nel log</td><td>Il PC non tiene il passo: scegli un campionamento più basso (48 kHz).</td></tr><tr><td>Qualcos'altro</td><td>Guarda <code>fzrskimmer.log</code> nella cartella del programma e mandamelo.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:separator -->
+<hr class="wp-block-separator has-alpha-channel-opacity"/>
+<!-- /wp:separator -->
+
+<!-- wp:paragraph -->
+<p><em>FZR Skimmer è un programma di IW1FZR. Il Perseus è un prodotto <a href="https://www.microtelecom.it/en/perseus-22" target="_blank" rel="noopener">Microtelecom</a>; i suoi file (perseususb.dll, .sbs) non sono distribuiti con FZR Skimmer e vanno presi dal sito del produttore.</em></p>
+<!-- /wp:paragraph -->

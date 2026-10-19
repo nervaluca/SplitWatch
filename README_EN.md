@@ -1,4 +1,4 @@
-# FZR Skimmer 1.18
+# FZR Skimmer 1.19
 
 by IW1FZR
 
@@ -67,6 +67,21 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.
+
+## Frequency calibration
+
+If the receiver reads slightly off (the Perseus sometimes by a few tens of Hz), correct it with
+**Correction ppm** at the bottom. The error comes from the crystal and is proportional to frequency,
+so it is set in ppm and applies by itself to all bands (1 ppm = 14 Hz at 14 MHz, 7 Hz at 7 MHz).
+
+The easy way is **Calibrate…**: pick a standard-frequency station you hear well (RWM 4996/9996/14996 kHz,
+WWV and BPM 5/10/15 MHz, CHU 3330/7850/14670 kHz) and press **Measure**. The program tunes to it,
+measures the carrier for 6 seconds to a hundredth of a Hz, goes back where you were and shows the
+current error, signal strength and stability. You apply it with **Apply the correction**; **Reset**
+removes it. A measurement on a second station should then say "already accurate".
+
+Works with Perseus, ExtIO and IQ sound card (each has its own value). With the IQ sound card, which
+cannot tune by itself, first put the standard station inside the received band.
 
 ## Mode: DXpedition or Contest
 

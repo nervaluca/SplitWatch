@@ -27,6 +27,7 @@ import numpy as np
 import websockets
 
 import dsp
+import calib
 import i18n
 import licenza
 from dsp import Engine
@@ -35,7 +36,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.18'
+VERSION = '1.19'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -218,6 +219,9 @@ class Hub:
         self.engine = None
         self.fs = None
         self.center = None
+        self.hw_center = None                  # centro come lo dice il ricevitore (senza correzione)
+        self.cal = None                        # misura di calibrazione in corso
+        self.cal_busy = False
         self.dx_abs = None
         self.status = 'Avvio…'
         self.src = None
@@ -363,6 +367,78 @@ class Hub:
                 time.sleep(2)
         self.src = None
         raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
+
+    PPM_KINDS = ('perseus', 'extio', 'iq')
+
+    def ppm(self):
+        """Correzione di frequenza (ppm) del ricevitore attuale."""
+        if self.src_kind not in self.PPM_KINDS:
+            return 0.0
+        return float(self.cfg.get('ppm', {}).get(self.src_kind, 0.0))
+
+    def tune(self, center):
+        """Porta il centro (frequenza vera) a center: il ricevitore riceve il valore corretto."""
+        if self.src:
+            self.src.set_lo(int(round(float(center) / (1 + self.ppm() * 1e-6))))
+
+    def set_ppm(self, v):
+        v = max(-200.0, min(200.0, float(v)))
+        self.cfg.setdefault('ppm', {})[self.src_kind] = round(v, 3)
+        save_cfg(self.cfg)
+        if self.fs and self.hw_center is not None:
+            self.cmd_q.put(('rate', self.fs, self.hw_center, 'cal'))
+        self.on_status(f'Correzione frequenza: {v:+.3f} ppm ({v * 14:+.1f} Hz a 14 MHz)')
+
+    def calibrate(self, khz):
+        """Misura una portante campione: sintonizza, ascolta 6 s, torna dove eri, propone la correzione."""
+        if self.cal_busy:
+            return
+        if self.src_kind not in self.PPM_KINDS or not self.src or not self.fs:
+            self.post_json({'type': 'cal', 'ok': False, 'why': 'serve il ricevitore acceso (Perseus, ExtIO o IQ)'})
+            return
+        true_hz = float(khz) * 1000
+        self.cal_busy = True
+
+        def run():
+            prev_hw, prev_dx = self.hw_center, self.dx_abs
+            tunable = isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource))
+            k = 1 + self.ppm() * 1e-6
+            try:
+                if tunable:
+                    target = int(round(true_hz / k - calib.OFFSET))
+                    self.src.set_lo(target)
+                    t0 = time.time()
+                    while abs((self.hw_center or 0) - target) > 2 and time.time() - t0 < 6:
+                        time.sleep(0.05)
+                    if abs((self.hw_center or 0) - target) > 2:
+                        raise RuntimeError('il ricevitore non si è sintonizzato')
+                elif abs(true_hz / k - self.hw_center) > self.fs * 0.45:
+                    raise RuntimeError(f'sintonizza il ricevitore in modo che {khz:g} kHz sia nella banda ricevuta')
+                self.cmd_q.put(('dx', true_hz))            # la portante finisce nell'audio: si sente il test
+                time.sleep(0.8)                            # lascia assestare il ricevitore
+                self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
+                m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm())
+                self.cal = m
+                t0 = time.time()
+                while not m.done and time.time() - t0 < calib.SECS + 6:
+                    time.sleep(0.1)
+                self.cal = None
+                if not m.done:
+                    raise RuntimeError('dati insufficienti dal ricevitore')
+                r = m.result()
+                r['type'] = 'cal'
+                log(f'Calibrazione {khz:g} kHz: {r}')
+                self.post_json(r)
+            except Exception as e:
+                self.post_json({'type': 'cal', 'ok': False, 'why': str(e)})
+            finally:
+                self.cal = None
+                if tunable and prev_hw:
+                    self.src.set_lo(int(prev_hw))
+                if prev_dx:
+                    self.cmd_q.put(('dx', float(prev_dx)))
+                self.cal_busy = False
+        threading.Thread(target=run, daemon=True).start()
 
     def extio_list(self):
         extra = [app_dir(), DATA_DIR, os.path.dirname(self.cfg.get('extio_path') or '') or None]
@@ -664,10 +740,11 @@ class Hub:
             last = n
             q = self.iq_q.qsize()
             msg = f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · motore {"sì" if self.engine else "no"}'
+            nodata = 'Nessun dato dal Perseus' if self.src_kind == 'perseus' else 'Nessun dato dal ricevitore'
             if rate == 0:
-                msg = 'Nessun dato dal Perseus · ' + msg
+                msg = nodata + ' · ' + msg
             log(msg)
-            txt = (self.status if rate else 'Nessun dato dal Perseus') + ' · ' + f'{rate/1000:.0f} k/s'
+            txt = (self.status if rate else nodata) + ' · ' + f'{rate/1000:.0f} k/s'
             self.post_json({'type': 'status', 'text': txt, 'en': i18n.en(txt)})
 
     def _dsp_loop(self):
@@ -695,6 +772,9 @@ class Hub:
                 blk = np.concatenate(chunks)
                 if self.src_kind != 'file':
                     self.rec.push(blk)
+                m = self.cal
+                if m is not None:
+                    m.feed(blk)
                 self.engine.feed(blk)
                 r, au, w, l = self.engine.take()
                 pend_rows += r
@@ -765,10 +845,19 @@ class Hub:
 
     def _apply(self, c):
         if c[0] == 'rate':
-            fs, center = c[1], c[2]
-            log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz')
+            fs, hw = c[1], c[2]
+            self.hw_center = hw
+            center = hw * (1 + self.ppm() * 1e-6)          # correzione del quarzo del ricevitore
+            log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz' + (f' (ricevitore {hw:.0f}, {self.ppm():+.3f} ppm)' if self.ppm() else ''))
             if fs <= 0:
                 self.on_status('Campionamento sconosciuto: attendo i dati…')
+                return
+            if len(c) > 3 and self.engine is not None and fs == self.fs:     # cambiata solo la correzione
+                self.center = center
+                self.engine.set_dx(self.dx_abs - center)
+                if self.src_kind != 'file':
+                    self.rec.set_format(fs, center)
+                self.post_json(self.cfg_msg())
                 return
             if self.dx_abs is None:
                 d = self.args.dx * 1000 if self.args.dx else self.cfg.get('dx')
@@ -794,7 +883,7 @@ class Hub:
             self.stations.clear()
             self.listen_hist.clear()
             if self.src_kind in ('perseus', 'extio'):
-                self.cfg['lo'] = int(center)
+                self.cfg['lo'] = int(round(hw))
                 save_cfg(self.cfg)
             elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
                 self.cfg['dial'] = self.src.dial
@@ -848,7 +937,8 @@ class Hub:
                 'rate_sel': int(self.cfg.get('audio_rate', 96000) if self.src_kind == 'iq' else
                                 self.cfg.get('extio_rate', 192000) if self.src_kind == 'extio' else self.cfg.get('campionamento', 96000)),
                 'ext_rates': [r for r in getattr(self.src, 'rates', [])] if isinstance(self.src, ExtIOSource) else [],
-                'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(), 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(),
+                'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS, 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
@@ -908,14 +998,14 @@ class Hub:
                 elif k == 'snr':
                     self.cmd_q.put(('snr', float(c['v'])))
                 elif k == 'lo' and self.src:
-                    self.src.set_lo(int(c['hz']))
+                    self.tune(c['hz'])
                 elif k == 'band':
                     b = str(c['band'])
                     if b in BANDS:
                         m = self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3]}
                         self.cmd_q.put(('dx', float(m['dx'])))
                         if isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
-                            self.src.set_lo(int(m['centro']))
+                            self.tune(m['centro'])
                         elif isinstance(self.src, AudioCard):
                             self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
                             self.on_status(f'Sintonizza la radio su {m["dx"]/1000:.2f} kHz')
@@ -1011,6 +1101,11 @@ class Hub:
                     if os.path.isfile(c['path']):
                         self.cfg['extio_path'] = c['path']
                         self.switch_source('extio')
+                elif k == 'ppm':
+                    if self.src_kind in self.PPM_KINDS:
+                        self.set_ppm(c['v'])
+                elif k == 'calib':
+                    self.calibrate(float(c['khz']))
                 elif k == 'browse_extio':
                     path = await asyncio.get_running_loop().run_in_executor(None, self.pick_extio)
                     if path:
