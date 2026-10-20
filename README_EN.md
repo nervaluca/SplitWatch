@@ -1,4 +1,4 @@
-# FZR Skimmer 1.20
+# FZR Skimmer 1.22
 
 by IW1FZR
 
@@ -83,12 +83,23 @@ removes it. A measurement on a second station should then say "already accurate"
 Works with Perseus, ExtIO and IQ sound card (each has its own value). With the IQ sound card, which
 cannot tune by itself, first put the standard station inside the received band.
 
-## Mode: DXpedition or Contest
+## Mode: Normal, DXpedition, Contest or SSB
 
 Top left, **Mode**:
+- **Normal** – free listening, like CW Skimmer: the **Decoded text** panel opens on the right with the
+  text of every signal visible in the waterfall, top to bottom, with callsigns, CQ and 599/5NN/TU
+  highlighted. Click a row = RX on that signal. No listening search.
 - **DXpedition** – split pile-up: RX locked on the DX, search for where it listens (orange lines,
   Listening, UP zone).
 - **Contest** – S&P: the station list opens, the listening search is switched off and hidden.
+- **SSB** – phone pile-ups. RX locked on the DX plus a second receiver, **RX2**, in stereo:
+  DX in one ear and RX2 in the other (or both together), with the **DX ◀▶ RX2** knob to balance them.
+  - **Mouse wheel** on the waterfall: RX2 up and down by the chosen **Step** (100, 500, 1000 Hz).
+    Shift + wheel scrolls the view, Ctrl + wheel moves the DX.
+  - **Click** on a voice: RX2 goes there (passband centred where you click). **RX2 = DX** brings it back.
+  - Sideband **Auto** (LSB below 10 MHz, USB above) or fixed USB/LSB; 2.7 kHz filter.
+  - The passbands are drawn on the waterfall: DX green, RX2 light blue with its offset (UP +5.30).
+    CW decoding is off.
 
 ## Use
 

@@ -36,7 +36,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.21'
+VERSION = '1.22'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -795,7 +795,8 @@ class Hub:
                     pend_rows = []
                 if pend_audio:
                     a = np.concatenate(pend_audio)
-                    self.post_bin(b'\x02' + struct.pack('<d', 0.0) + a.tobytes())
+                    st = self.engine is not None and self.engine.ssb
+                    self.post_bin((b'\x03' if st else b'\x02') + struct.pack('<d', 0.0) + a.tobytes())
                     pend_audio = []
                 if pend_words or pend_listen:
                     band = self.rbn_band
@@ -863,6 +864,7 @@ class Hub:
             elif len(c) > 3 and self.engine is not None and fs == self.fs:     # cambiata solo la correzione
                 self.center = center
                 self.engine.set_dx(self.dx_abs - center)
+                self.ssb_apply()
                 if self.src_kind != 'file':
                     self.rec.set_format(fs, center)
                 self.post_json(self.cfg_msg())
@@ -885,6 +887,7 @@ class Hub:
                 self.engine.listen_on = self.cfg.get('modo', 'dx') == 'dx'
             else:
                 self.engine.set_dx(self.dx_abs - center)
+            self.ssb_apply()
             with self.lock:
                 self.rows_hist.clear()
             self.words_hist.clear()
@@ -901,6 +904,7 @@ class Hub:
             self.dx_abs = float(c[1])
             if self.engine:
                 self.engine.set_dx(self.dx_abs - self.center)
+                self.ssb_apply()
             if self.src_kind == 'file':
                 if isinstance(self.src, WavFile):
                     fd = self.cfg.setdefault('file_dx', {})
@@ -911,6 +915,14 @@ class Hub:
                 self.cfg['dx'] = self.dx_abs
                 self.rec.set_dx(self.dx_abs)
             save_cfg(self.cfg)
+            self.post_json(self.cfg_msg())
+        elif c[0] == 'rx2':
+            self.cfg['rx2_off'] = max(-200000.0, min(200000.0, round(float(c[1]))))
+            save_cfg(self.cfg)
+            self.ssb_apply()
+            self.post_json(self.cfg_msg())
+        elif c[0] == 'ssbcfg':
+            self.ssb_apply()
             self.post_json(self.cfg_msg())
         elif c[0] == 'bw':
             self.cfg['filtro'] = float(c[1])
@@ -932,6 +944,25 @@ class Hub:
             save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
 
+    def sb_eff(self):
+        """Banda laterale in uso: +1 USB, -1 LSB (automatica: LSB sotto i 10 MHz)."""
+        v = self.cfg.get('sb', 'auto')
+        if v == 'usb':
+            return 1
+        if v == 'lsb':
+            return -1
+        return -1 if (self.dx_abs or 0) < 10e6 else 1
+
+    def ssb_apply(self):
+        """Accende/spegne i due ricevitori SSB del motore (si chiama dal thread del calcolo)."""
+        e = self.engine
+        if e is None or self.center is None:
+            return
+        on = self.cfg.get('modo', 'dx') == 'ssb'
+        if on != e.ssb:
+            e.out_audio = []
+        e.set_ssb(on, self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)))
+
     def cfg_msg(self):
         e = self.engine
         lic = {'lic': (self.lic or {}).get('testo'), 'donor': bool((self.lic or {}).get('donor')),
@@ -946,7 +977,9 @@ class Hub:
                                 self.cfg.get('extio_rate', 192000) if self.src_kind == 'extio' else self.cfg.get('campionamento', 96000)),
                 'ext_rates': [r for r in getattr(self.src, 'rates', [])] if isinstance(self.src, ExtIOSource) else [],
                 'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(),
-                'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS, 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
+                'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
+                'passo': int(self.cfg.get('passo', 500)), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
@@ -1064,7 +1097,17 @@ class Hub:
                     save_cfg(self.cfg)
                     self.rbn_apply()
                     self.post_json(self.cfg_msg())
-                elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale'):
+                elif k == 'rx2':
+                    self.cmd_q.put(('rx2', float(c['off'])))
+                elif k == 'sb' and c.get('v') in ('auto', 'usb', 'lsb'):
+                    self.cfg['sb'] = c['v']
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('ssbcfg',))
+                elif k == 'passo' and int(c.get('v', 0)) in (100, 500, 1000):
+                    self.cfg['passo'] = int(c['v'])
+                    save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
+                elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale', 'ssb'):
                     self.cfg['modo'] = c['v']
                     save_cfg(self.cfg)
                     if self.engine:
@@ -1072,7 +1115,7 @@ class Hub:
                         self.engine.pending_listen = []
                     if c['v'] != 'dx':
                         self.listen_hist.clear()
-                    self.post_json(self.cfg_msg())
+                    self.cmd_q.put(('ssbcfg',))
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))
                     self.cfg['memoria_min'] = m

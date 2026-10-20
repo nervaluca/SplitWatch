@@ -1,4 +1,4 @@
-# FZR Skimmer 1.20
+# FZR Skimmer 1.22
 
 IW1FZR
 
@@ -159,13 +159,24 @@ Da riga di comando:
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
 
-## Modo: DXpedition o Contest
+## Modo: Normale, DXpedition, Contest o SSB
 
 In alto a sinistra, **Modo**:
+- **Normale** – ascolto libero, come CW Skimmer: a destra si apre il pannello **Testo decodificato**
+  con il testo di tutti i segnali visibili nel waterfall, dal più alto al più basso, con nominativi,
+  CQ e 599/5NN/TU evidenziati. Clic su una riga = RX su quel segnale. Niente ricerca dell'ascolto.
 - **DXpedition** – pile-up in split: RX fermo sul DX, ricerca di dove ascolta (linee arancio,
   Ascolti, Zona UP).
 - **Contest** – S&P: si accende l'elenco stazioni, la ricerca dell'ascolto si spegne e sparisce
   dalla schermata. Il modo resta memorizzato.
+- **SSB** – pile-up in fonia. RX fermo sul DX e un secondo ricevitore, **RX2**, in stereo:
+  DX in un orecchio e RX2 nell'altro (o insieme), con il potenziometro **DX ◀▶ RX2** per dosarli.
+  - **Rotellina** sul waterfall: RX2 su e giù del **Passo** scelto (100, 500, 1000 Hz).
+    Maiusc + rotellina scorre la vista, Ctrl + rotellina sposta il DX.
+  - **Clic** su una voce: RX2 va lì (banda passante centrata dove clicchi). **RX2 = DX** lo riporta sul DX.
+  - Banda laterale **Auto** (LSB sotto i 10 MHz, USB sopra) oppure USB/LSB fissa; filtro 2,7 kHz.
+  - Sul waterfall le bande passanti: DX verde, RX2 azzurro con lo scostamento (UP +5.30).
+    La decodifica CW è spenta.
 
 ## Elenco stazioni (contest, S&P)
 

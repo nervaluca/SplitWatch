@@ -260,6 +260,64 @@ def _hyst(E, on, off, prev):
     return np.where(idx >= 0, st[np.maximum(idx, 0), cols], prev[None, :]).astype(np.int8)
 
 
+class SsbRx:
+    """Ricevitore SSB: banda passante 200–2900 Hz sopra (USB) o sotto (LSB) la frequenza impostata.
+
+    Converte a ~8 kHz con un vero passa-basso (non basta la media: in un pile-up i vicini forti
+    rientrerebbero), poi riporta la voce in banda audio. Fase continua: si può spostare senza clic."""
+    MID, HALF = 1550.0, 1350.0
+
+    def __init__(self, fs, adec):
+        self.fs, self.d = float(fs), int(adec)
+        self.arate = self.fs / self.d
+        n = int(5.5 * self.fs / 250.0) | 1                      # Blackman: transizione 250 Hz (piatto fino a ±1350)
+        t = np.arange(n) - (n - 1) / 2
+        h = np.sinc(2 * (self.HALF + 125) / self.fs * t) * np.blackman(n)
+        self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
+        self.tail = np.zeros(n - 1, np.complex64)
+        self.ph_in = 0.0
+        self.ph_out = 0.0
+        self.pos = 0                                            # primo campione da tenere nel prossimo blocco
+        self.agc = 1e-6
+
+    def process(self, iq, off_hz, sb):
+        """iq al campionamento pieno -> audio reale a arate (float, AGC già applicato)."""
+        n = len(iq)
+        fmix = off_hz + sb * self.MID
+        ph = self.ph_in + (-2 * np.pi * fmix / self.fs) * np.arange(n)
+        self.ph_in = float((ph[-1] - 2 * np.pi * fmix / self.fs) % (2 * np.pi)) if n else self.ph_in
+        y = (iq * np.exp(1j * ph).astype(np.complex64)).astype(np.complex64)
+        z = np.concatenate([self.tail, y])
+        L = len(self.h)
+        idx = np.arange(self.pos, len(z) - L + 1, self.d)
+        if len(idx):
+            w = np.lib.stride_tricks.sliding_window_view(z, L)[idx]
+            b = (w @ self.h).astype(np.complex64)
+            self.pos = int(idx[-1] + self.d - (len(z) - (L - 1)))
+        else:
+            b = np.zeros(0, np.complex64)
+            self.pos -= n
+        self.tail = z[-(L - 1):].copy()
+        if not len(b):
+            return np.zeros(0, np.float64)
+        tt = self.ph_out + (2 * np.pi * sb * self.MID / self.arate) * np.arange(len(b))
+        self.ph_out = float((tt[-1] + 2 * np.pi * sb * self.MID / self.arate) % (2 * np.pi))
+        a = np.real(b * np.exp(1j * tt))
+        # AGC: attacco 2 ms, discesa ~0,4 s (voce)
+        env = np.abs(b).astype(np.float64)
+        g = np.empty(len(env))
+        ag = self.agc
+        att = math.exp(-1.0 / (0.002 * self.arate))
+        dec = math.exp(-1.0 / (0.4 * self.arate))
+        for i, v in enumerate(env.tolist()):
+            ag = v + (ag - v) * att if v > ag else ag * dec
+            if ag < 1e-7:
+                ag = 1e-7
+            g[i] = ag
+        self.agc = ag
+        return a / (g * 2.2)                              # margine: il limitatore finale non distorce
+
+
 class Engine:
     def __init__(self, fs, dx_off_hz=0.0, bfo=650.0):
         self.fs = float(fs)
@@ -321,6 +379,12 @@ class Engine:
         self._design_filter()
         self.bfo_ph = 0.0
         self.agc = 1e-6
+        # SSB: due ricevitori (DX e RX2) in stereo; la decodifica CW si spegne
+        self.ssb = False
+        self.sb = 1                                        # +1 USB, -1 LSB
+        self.rx2_off = self.dx_off + 5000.0
+        self.ssb_rx = None
+        self.decode_on = True
 
     # ------------------------------------------------------------------ comandi
     def _design_filter(self):
@@ -382,7 +446,32 @@ class Engine:
         self.n_in += cut
 
     # ------------------------------------------------------------------ audio DX
+    def set_ssb(self, on, sb=None, rx2_off=None):
+        self.ssb = bool(on)
+        if sb is not None:
+            self.sb = 1 if sb >= 0 else -1
+        if rx2_off is not None:
+            self.rx2_off = float(rx2_off)
+        self.decode_on = not self.ssb
+        if self.ssb:
+            if self.ssb_rx is None:
+                self.ssb_rx = (SsbRx(self.fs, self.adec), SsbRx(self.fs, self.adec))
+            for k in [k for k, c in self.channels.items()]:
+                del self.channels[k]
+        else:
+            self.ssb_rx = None
+
     def _audio(self, iq):
+        if self.ssb and self.ssb_rx:
+            a1 = self.ssb_rx[0].process(iq, self.dx_off, self.sb)
+            a2 = self.ssb_rx[1].process(iq, self.rx2_off, self.sb)
+            m = min(len(a1), len(a2))
+            if m:
+                st = np.empty(2 * m, np.float64)
+                st[0::2] = a1[:m]                         # canale 0 = DX, canale 1 = RX2 (il mix lo fa la pagina)
+                st[1::2] = a2[:m]
+                self.out_audio.append((np.tanh(st * 1.2) / 1.2 * 30000).astype('<i2'))
+            return
         n = len(iq)
         ph = self.nco_ph + (-2 * np.pi * self.dx_off / self.fs) * np.arange(n)
         y = iq * np.exp(1j * ph).astype(np.complex64)
@@ -450,6 +539,9 @@ class Engine:
                 self._emit_row(tA + i * fr_dt, p)
 
         tend = tA + m * fr_dt
+        if not self.decode_on:                          # SSB: solo waterfall
+            self.frame_no += m
+            return
         self.new_channels = []
         self._update_channels(tend)
         for ch in self.new_channels:

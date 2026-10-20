@@ -121,6 +121,10 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .dot.on{background:var(--dx)}
 .recgrp{margin-left:auto}
 body.contest .dxonly{display:none!important}
+body.ssb .cwonly{display:none!important}
+body:not(.ssb) .ssbonly{display:none!important}
+#rx2Txt{font:600 .9rem var(--f-mono);color:#7cc0ff;min-width:15em}
+#rMix{width:110px;accent-color:#7cc0ff}
 #modes button[aria-pressed="true"]{background:#2a2410;border-color:var(--hot);color:#ffe2a8}
 button.rec[aria-pressed="true"]{background:#4a1214;border-color:var(--bad);color:#ffe0e0}
 button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
@@ -137,7 +141,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.21</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.22</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt id="sDxLbl">RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -152,7 +156,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
   </header>
 
   <div class="ctrl" id="bandRow">
-    <div class="grp" id="modes"><span class="lbl">Modo</span><button data-m="normale" title="Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì">Normale</button><button data-m="dx" title="Pile-up in split: RX fermo sul DX, ricerca di dove ascolta">DXpedition</button><button data-m="contest" title="Contest / S&amp;P: elenco stazioni, niente ricerca dell'ascolto">Contest</button></div>
+    <div class="grp" id="modes"><span class="lbl">Modo</span><button data-m="normale" title="Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì">Normale</button><button data-m="dx" title="Pile-up in split: RX fermo sul DX, ricerca di dove ascolta">DXpedition</button><button data-m="contest" title="Contest / S&amp;P: elenco stazioni, niente ricerca dell'ascolto">Contest</button><button data-m="ssb" title="Pile-up in fonia: RX fermo sul DX e secondo RX (RX2) in stereo, spostato con la rotellina">SSB</button></div>
     <div class="grp" id="bands"><span class="lbl">Banda</span></div>
     <button id="bSave" title="Memorizza centro e DX attuali per questa banda">Salva memoria</button>
     <div class="grp recgrp" id="recGrp">
@@ -183,8 +187,15 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <div class="grp" id="spans"><span class="lbl">Larghezza</span>
       <button data-s="1.5">1,5</button><button data-s="3">3</button><button data-s="6">6</button><button data-s="12">12</button><button data-s="30">30</button><button data-s="0">Tutto</button>
     </div>
-    <div class="grp" id="bws"><span class="lbl">Filtro RX</span><button data-bw="100">100</button><button data-bw="200">200</button><button data-bw="300">300</button><button data-bw="500">500</button><button data-bw="800">800 Hz</button></div>
-    <div class="grp" id="snrs"><span class="lbl">Sensibilità</span><button data-v="4" title="Più nominativi deboli, più errori">Alta</button><button data-v="5">Media</button><button data-v="6" title="Solo segnali puliti">Bassa</button></div>
+    <div class="grp ssbonly" id="ssbset"><span class="lbl">RX2</span><span id="rx2Txt"></span>
+      <span class="lbl">Passo</span><span id="passi"><button data-p="100">100</button><button data-p="500">500</button><button data-p="1000">1000 Hz</button></span>
+      <button id="bRx2Dx" title="Porta RX2 sulla frequenza del DX">RX2 = DX</button>
+      <select id="selSb" aria-label="Banda laterale"><option value="auto">Auto (LSB &lt;10 MHz)</option><option value="usb">USB</option><option value="lsb">LSB</option></select>
+      <select id="selPan" aria-label="Cuffia"><option value="dxl">DX sinistra · RX2 destra</option><option value="rxl">RX2 sinistra · DX destra</option><option value="mono">DX e RX2 insieme</option></select>
+      <label class="rng" for="rMix" title="Potenziometro: a sinistra solo il DX, a destra solo RX2, in mezzo entrambi">DX <input type="range" id="rMix" min="0" max="100" step="1" value="50"> RX2</label>
+    </div>
+    <div class="grp cwonly" id="bws"><span class="lbl">Filtro RX</span><button data-bw="100">100</button><button data-bw="200">200</button><button data-bw="300">300</button><button data-bw="500">500</button><button data-bw="800">800 Hz</button></div>
+    <div class="grp cwonly" id="snrs"><span class="lbl">Sensibilità</span><button data-v="4" title="Più nominativi deboli, più errori">Alta</button><button data-v="5">Media</button><button data-v="6" title="Solo segnali puliti">Bassa</button></div>
     <div class="grp" id="wfset"><span class="lbl">Colori</span>
       <select id="selPal" aria-label="Tavolozza del waterfall"><option value="skimmer">Skimmer</option><option value="classica">Classica</option><option value="fosfori">Fosfori</option><option value="grigio">Grigio</option><option value="notte">Notte</option></select>
       <label class="rng" for="rLum">Luce <input type="range" id="rLum" min="-40" max="40" step="1"></label>
@@ -192,7 +203,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     </div>
     <button id="bRbn" aria-pressed="false" title="Reverse Beacon Network: acceso/spento (collegamento e spot)">RBN</button>
     <button id="bSpot" aria-pressed="true" title="Mostra o nasconde le etichette degli spot RBN sul waterfall">Spot</button>
-    <button id="bList" aria-pressed="false" title="Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione">☰ Elenco</button>
+    <button id="bList" class="cwonly" aria-pressed="false" title="Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione">☰ Elenco</button>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
     <div class="grp dxonly" id="chips"><span class="lbl">Ascolti</span></div>
   </div>
@@ -282,7 +293,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmtOff=o=>(o>=0?'+':'−')+Math.abs(o).toFixed(Math.abs(o)<10?2:1);
 let CFG=null;
 /* ---------------- lingua (italiano / inglese) ---------------- */
-const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "Normale": "Normal", "Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì": "Normal listening: the text of every signal scrolls alongside, with callsigns and 599 highlighted. Click a signal = RX there", "Nessun testo ancora": "No text yet", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
+const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "Pile-up in fonia: RX fermo sul DX e secondo RX (RX2) in stereo, spostato con la rotellina": "Phone pile-ups: RX locked on the DX plus a second RX (RX2) in stereo, moved with the mouse wheel", "Passo": "Step", "Porta RX2 sulla frequenza del DX": "Bring RX2 to the DX frequency", "DX sinistra · RX2 destra": "DX left · RX2 right", "RX2 sinistra · DX destra": "RX2 left · DX right", "DX e RX2 insieme": "DX and RX2 together", "Potenziometro: a sinistra solo il DX, a destra solo RX2, in mezzo entrambi": "Knob: left = DX only, right = RX2 only, middle = both", "Auto (LSB <10 MHz)": "Auto (LSB <10 MHz)", "Banda laterale": "Sideband", "Cuffia": "Headphones", "Normale": "Normal", "Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì": "Normal listening: the text of every signal scrolls alongside, with callsigns and 599 highlighted. Click a signal = RX there", "Nessun testo ancora": "No text yet", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
 let LANG='it';
 try{LANG=localStorage.getItem('fzr_lang')||((navigator.language||'it').toLowerCase().startsWith('it')?'it':'en')}catch(e){}
 const T=s=>LANG==='en'&&EN[s]!=null?EN[s]:s;              // testo fisso
@@ -369,19 +380,20 @@ function addRows(t0,n,nb,bytes){
    Se il browser non lo permette (http da tablet), si usa il vecchio metodo con dissolvenze. */
 let ac=null,audioOn=false,nextT=0,node=null,acRate=0;
 const WORKLET=`class R extends AudioWorkletProcessor{
-  constructor(){super();this.b=new Float32Array(1<<16);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;
+  // anello di coppie sinistra/destra (stereo: DX e RX2 in SSB; in CW i due canali sono uguali)
+  constructor(){super();this.b=new Float32Array(1<<17);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;
     this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.run=false;return}
-      for(let i=0;i<d.length;i++){this.b[this.w]=d[i];this.w=(this.w+1)&65535}this.n=Math.min(65535,this.n+d.length)}}
-  process(_,out){const o=out[0][0],T=sampleRate*0.12;
+      const k=d.length>>1;for(let i=0;i<k;i++){this.b[2*this.w]=d[2*i];this.b[2*this.w+1]=d[2*i+1];this.w=(this.w+1)&65535}this.n=Math.min(65535,this.n+k)}}
+  process(_,out){const oL=out[0][0],oR=out[0][1]||null,T=sampleRate*0.12;
     if(!this.run&&this.n>=T)this.run=true;
-    for(let i=0;i<o.length;i++){
-      let v=0;
-      if(this.run&&this.n>0){v=this.b[this.r];this.r=(this.r+1)&65535;this.n--;
+    for(let i=0;i<oL.length;i++){
+      let l=0,r=0;
+      if(this.run&&this.n>0){l=this.b[2*this.r];r=this.b[2*this.r+1];this.r=(this.r+1)&65535;this.n--;
         // troppo pieno (orologi diversi): salta un campione ogni tanto
         if(this.n>T*3&&(i&63)===0){this.r=(this.r+1)&65535;this.n--}
         this.g=Math.min(1,this.g+0.004)}
-      else{this.run=false;this.g=Math.max(0,this.g-0.004);v=0}
-      o[i]=v*this.g}
+      else{this.run=false;this.g=Math.max(0,this.g-0.004)}
+      oL[i]=l*this.g;if(oR)oR[i]=r*this.g}
     return true}}
 registerProcessor('fzr-rx',R);`;
 async function startAudio(){
@@ -392,7 +404,7 @@ async function startAudio(){
     acRate=rate;node=null;
     if(ac.audioWorklet&&window.isSecureContext){
       try{const url=URL.createObjectURL(new Blob([WORKLET],{type:'application/javascript'}));
-        await ac.audioWorklet.addModule(url);node=new AudioWorkletNode(ac,'fzr-rx',{outputChannelCount:[1]});node.connect(ac.destination)}
+        await ac.audioWorklet.addModule(url);node=new AudioWorkletNode(ac,'fzr-rx',{outputChannelCount:[2]});node.connect(ac.destination)}
       catch(e){node=null}
     }
   }
@@ -403,15 +415,21 @@ $('#bAudio').onclick=async()=>{
   if(audioOn){await startAudio()}else if(ac){await ac.suspend()}
   $('#bAudio').setAttribute('aria-pressed',audioOn);$('#bAudio').textContent=T(audioOn?'🔊 Audio DX':'🔈 Audio DX');
 };
-function playAudio(i16){
+let MIX=50,PAN='dxl';
+try{MIX=+(localStorage.getItem('fzr_mix')??50);PAN=localStorage.getItem('fzr_pan')||'dxl'}catch(e){}
+function playAudio(i16,stereo){
   if(!audioOn||!ac||!CFG)return;
-  const n=i16.length;if(!n)return;
-  const f=new Float32Array(n);for(let i=0;i<n;i++)f[i]=i16[i]/32768;
+  const n=stereo?i16.length>>1:i16.length;if(!n)return;
+  const f=new Float32Array(2*n),q=1/32768;
+  if(!stereo){for(let i=0;i<n;i++){const v=i16[i]*q;f[2*i]=v;f[2*i+1]=v}}
+  else{const gD=Math.min(1,(100-MIX)/50),gR=Math.min(1,MIX/50);
+    for(let i=0;i<n;i++){const d=i16[2*i]*q*gD,r=i16[2*i+1]*q*gR;
+      if(PAN==='dxl'){f[2*i]=d;f[2*i+1]=r}else if(PAN==='rxl'){f[2*i]=r;f[2*i+1]=d}else{const v=(d+r)*0.7;f[2*i]=v;f[2*i+1]=v}}}
   if(node){node.port.postMessage(f,[f.buffer]);return}
-  const buf=ac.createBuffer(1,n,CFG.arate),d=buf.getChannelData(0);d.set(f);
+  const buf=ac.createBuffer(2,n,CFG.arate),d=buf.getChannelData(0),d2=buf.getChannelData(1);for(let i=0;i<n;i++){d[i]=f[2*i];d2[i]=f[2*i+1]}
   const now=ac.currentTime;
   if(nextT<now+0.03||nextT>now+0.8){           // risincronizza con una breve dissolvenza (niente clic)
-    nextT=now+0.25;const k=Math.min(n,Math.round(CFG.arate*0.004));for(let i=0;i<k;i++)d[i]*=i/k}
+    nextT=now+0.25;const k=Math.min(n,Math.round(CFG.arate*0.004));for(let i=0;i<k;i++){d[i]*=i/k;d2[i]*=i/k}}
   const s=ac.createBufferSource();s.buffer=buf;s.connect(ac.destination);s.start(nextT);nextT+=n/CFG.arate;
 }
 
@@ -465,7 +483,8 @@ function connect(){
     }
     const dv=new DataView(e.data),k=dv.getUint8(0);
     if(k===1){const t0=dv.getFloat64(1,true),n=dv.getUint32(9,true),nb=dv.getUint32(13,true);addRows(t0,n,nb,new Uint8Array(e.data,17,n*nb))}
-    else if(k===2){playAudio(new Int16Array(e.data.slice(9)))}
+    else if(k===2){playAudio(new Int16Array(e.data.slice(9)),false)}
+    else if(k===3){playAudio(new Int16Array(e.data.slice(9)),true)}
   };
 }
 const send=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))};
@@ -553,6 +572,11 @@ function onCfg(m,again){
 
   setT($('#sDx'),`${(m.dx/1000).toFixed(2)} kHz`);
   renderBands(m);
+  if(rx2Local!=null&&Math.abs(m.rx2_off-rx2Local)<1)rx2Local=null;
+  if(rx2Local!=null)CFG.rx2_off=rx2Local;
+  PASSO=m.passo||500;document.querySelectorAll('#passi button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.p===PASSO)));
+  if(document.activeElement!==$('#selSb'))$('#selSb').value=m.sb||'auto';
+  showRx2();
 }
 function renderBands(m){
   const box=$('#bands');box.querySelectorAll('button').forEach(n=>n.remove());
@@ -613,11 +637,12 @@ $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
 let MODE=null;
 function applyMode(md,user){
   if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md!=='dx';   // normale e contest: niente ricerca dell'ascolto
-  document.body.classList.toggle('contest',ct);$('.scope').classList.toggle('withtext',md==='normale');
+  document.body.classList.toggle('contest',ct);document.body.classList.toggle('ssb',md==='ssb');$('.scope').classList.toggle('withtext',md==='normale');
   document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===md)));
   $('#sDxLbl').textContent=T(ct?'RX su':'RX fisso sul DX');$('#whoLbl').textContent=ct?'RX ›':'DX ›';
   if(ct){$('#offTop').hidden=$('#offBot').hidden=true}
-  if(user&&!first){setList(ct);flushUI()}      // cambiando modo: pannello acceso in normale (testo) e contest (stazioni), spento in DXpedition
+  if(user&&!first){setList(md==='normale'||md==='contest');flushUI()}
+  if(md==='ssb'&&LISTON)setList(false);      // cambiando modo: pannello acceso in normale (testo) e contest (stazioni), spento in DXpedition
   listDirty=true;$('#slist').setAttribute('aria-label',T(md==='normale'?'Testo decodificato':'Elenco stazioni'));
 }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{applyMode(b.dataset.m,true);send({cmd:'mode',v:b.dataset.m})});
@@ -728,9 +753,20 @@ function drawWF(){
     }
   }
   const DX=dxOff(),yd=yOf(DX);
+  if(MODE==='ssb'){
+    // bande passanti SSB (0,2–2,9 kHz sopra o sotto la frequenza): DX verde, RX2 azzurro
+    const sb=sbe(),pb=(o,col,lab)=>{const y0=yOf(o+sb*0.2),y1=yOf(o+sb*2.9),y=yOf(o);
+      c.fillStyle=col+'.10)';c.fillRect(0,Math.min(y0,y1),plotW,Math.abs(y1-y0));
+      c.fillStyle=col+'.60)';c.fillRect(plotW-6*dpr,Math.min(y0,y1),6*dpr,Math.abs(y1-y0));
+      c.strokeStyle=col+'.85)';c.lineWidth=1*dpr;c.setLineDash([6*dpr,4*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);
+      c.font=`700 ${11*dpr}px Consolas,monospace`;c.textBaseline=sb>0?'top':'bottom';c.fillStyle=col+'1)';c.fillText(lab,8*dpr,y+(sb>0?3:-3)*dpr)};   // etichetta fuori dalla banda passante
+    pb(DX,'rgba(88,217,139,','DX');
+    const o2=DX+(CFG.rx2_off||0)/1000;pb(o2,'rgba(124,192,255,',`RX2 ${o2-DX>=0?'+':'−'}${Math.abs(o2-DX).toFixed(2)}`);
+    c.textBaseline='bottom';
+  }else{
   const fh=Math.max(2*dpr,(CFG.bw_rx||500)/1000*H/view.span);
   c.fillStyle='rgba(88,217,139,.10)';c.fillRect(0,yd-fh/2,plotW,fh);
-  c.fillStyle='rgba(88,217,139,.55)';c.fillRect(plotW-6*dpr,yd-fh/2,6*dpr,fh);
+  c.fillStyle='rgba(88,217,139,.55)';c.fillRect(plotW-6*dpr,yd-fh/2,6*dpr,fh);}
   // zona UP
   if(MODE==='dx'){const u0=yOf(DX+CFG.up[0]),u1=yOf(DX+CFG.up[1]);
   c.fillStyle='rgba(255,176,32,.05)';c.fillRect(plotW-4*dpr,Math.min(u0,u1),4*dpr,Math.abs(u1-u0));}
@@ -768,6 +804,14 @@ function drawWF(){
 const HOT=/^(5NN|599|TU|5N|ENN|R5NN|5NNTU|TU5NN)$/, CALLRE=/^[A-Z0-9/]*\d[A-Z0-9/]*[A-Z]$/;
 function drawTX(){
   const c=tc,lh=16*dpr,padL=18*dpr;c.fillStyle='#0a1016';c.fillRect(0,0,TW,H);if(!CFG)return;
+  if(MODE==='ssb'){                                   // SSB: niente testo, solo dove sono DX e RX2
+    const DX=dxOff(),sb=sbe(),o2=DX+(CFG.rx2_off||0)/1000;c.textBaseline='middle';
+    const tag=(o,col,l1,l2)=>{const y=clamp(yOf(o+sb*SBM),22*dpr,H-22*dpr);c.fillStyle=col.replace('A','.14');c.fillRect(0,y-18*dpr,TW,36*dpr);
+      c.fillStyle=col.replace('A','1');c.fillRect(0,y-18*dpr,3*dpr,36*dpr);
+      c.font=`700 ${15*dpr}px Consolas,monospace`;c.fillText(l1,12*dpr,y-7*dpr);c.font=`500 ${12*dpr}px Consolas,monospace`;c.fillStyle='#9fb1c0';c.fillText(l2,12*dpr,y+9*dpr)};
+    tag(DX,'rgba(88,217,139,A)',`DX ${(CFG.dx/1000).toFixed(2)}`,`${sb>0?'USB':'LSB'} · ${L('canale','channel')} ${PAN==='rxl'?L('destro','right'):PAN==='mono'?L('centro','centre'):L('sinistro','left')}`);
+    tag(o2,'rgba(124,192,255,A)',`RX2 ${((CFG.dx+CFG.rx2_off)/1000).toFixed(2)}`,`${CFG.rx2_off>=0?'UP +':'DOWN −'}${Math.abs(CFG.rx2_off/1000).toFixed(2)} · ${L('passo','step')} ${PASSO} Hz`);
+    return}
   c.font=`500 ${12.5*dpr}px Consolas,monospace`;c.textBaseline='middle';
   const cw=c.measureText('M').width,maxC=Math.max(6,Math.floor((TW-padL-6*dpr)/cw));
   const t=tNewest,bw=CFG.bw,groups=new Map();
@@ -829,6 +873,23 @@ document.querySelectorAll('#snrs button').forEach(b=>b.onclick=()=>send({cmd:'sn
 $('#offTop').onclick=$('#offBot').onclick=()=>{const l=LISTEN[LISTEN.length-1];if(l)centerOn(l.f/1000)};
 // Ctrl + rotellina: sposta il DX (50 Hz, con Maiusc 10 Hz); la vista resta ferma
 let localDx=null,dxTimer=null;
+/* ---------------- SSB: secondo ricevitore ---------------- */
+let PASSO=500,rx2Local=null,rx2Timer=null;
+const SBM=1.55;                                      // centro della banda passante SSB (kHz dalla frequenza)
+const sbe=()=>CFG&&CFG.sb_eff<0?-1:1;
+function showRx2(){if(!CFG)return;const a=CFG.dx+CFG.rx2_off,o=CFG.rx2_off/1000;
+  setT($('#rx2Txt'),`${(a/1000).toFixed(2)} · ${o>=0?'UP +':'DOWN −'}${Math.abs(o).toFixed(2)} · ${sbe()>0?'USB':'LSB'}`)}
+function setRx2Abs(a){if(!CFG)return;rx2Local=Math.round(a)-CFG.dx;CFG.rx2_off=rx2Local;showRx2();
+  clearTimeout(rx2Timer);rx2Timer=setTimeout(()=>send({cmd:'rx2',off:rx2Local}),60)}
+function stepRx2(dir){if(!CFG)return;const a=CFG.dx+CFG.rx2_off,P=PASSO;
+  setRx2Abs((dir>0?Math.floor(a/P+1e-6)+1:Math.ceil(a/P-1e-6)-1)*P)}
+document.querySelectorAll('#passi button').forEach(b=>b.onclick=()=>{PASSO=+b.dataset.p;send({cmd:'passo',v:PASSO});
+  document.querySelectorAll('#passi button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
+$('#bRx2Dx').onclick=()=>{if(CFG)setRx2Abs(CFG.dx)};
+$('#selSb').onchange=e=>send({cmd:'sb',v:e.target.value});
+$('#selPan').value=PAN;$('#selPan').onchange=e=>{PAN=e.target.value;try{localStorage.setItem('fzr_pan',PAN)}catch(x){}};
+$('#rMix').value=MIX;$('#rMix').oninput=e=>{MIX=+e.target.value;try{localStorage.setItem('fzr_mix',String(MIX))}catch(x){}};
+$('#rMix').ondblclick=()=>{MIX=50;$('#rMix').value=50;try{localStorage.setItem('fzr_mix','50')}catch(x){}};
 function nudgeDx(dir,step){
   if(!CFG)return;
   const nd=Math.round((CFG.dx+dir*step)/step)*step;
@@ -839,6 +900,7 @@ function nudgeDx(dir,step){
 }
 wf.addEventListener('wheel',e=>{e.preventDefault();
   if(e.ctrlKey){nudgeDx(e.deltaY<0?1:-1,e.shiftKey?10:50);return}
+  if(MODE==='ssb'&&!e.shiftKey){stepRx2(e.deltaY<0?1:-1);return}     // SSB: la rotellina muove RX2 (Maiusc = scorre la vista)
   setLow(view.low+(e.deltaY<0?1:-1)*view.span/20*(e.shiftKey?.25:1))},{passive:false});
 let drag=null,menuAt=null,lpTimer=null;
 const offAt=cy=>{const r=wf.getBoundingClientRect();return view.low+view.span-(cy-r.top)/r.height*view.span};
@@ -848,7 +910,7 @@ function openMenu(cx,cy){const r=wf.getBoundingClientRect(),m=$('#menu');menuAt=
   $('#mClear').hidden=!marks.length;$('#mClear').textContent=`${T('Togli tutti i segnaposti')} (${marks.length})`;
   m.style.left=Math.max(0,Math.min(cx-r.left,r.width-210))+'px';m.style.top=Math.max(0,Math.min(cy-r.top,r.height-150))+'px'}
 // Ctrl + clic: DX esattamente lì (passo 10 Hz); la vista resta ferma
-function dxAt(cy){if(!CFG)return;const hz=Math.round((CFG.center+offAt(cy)*1000)/10)*10;
+function dxAt(cy){if(!CFG)return;const hz=Math.round((CFG.center+(offAt(cy)-(MODE==='ssb'?sbe()*SBM:0))*1000)/10)*10;
   CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(hz/1000).toFixed(2);clearTimeout(dxTimer);send({cmd:'dx',hz})}
 const closeMenu=()=>{$('#menu').hidden=true};
@@ -856,7 +918,9 @@ wf.addEventListener('contextmenu',e=>{e.preventDefault();openMenu(e.clientX,e.cl
 wf.addEventListener('pointerdown',e=>{closeMenu();if(e.button!==0)return;if(e.ctrlKey||e.metaKey){e.preventDefault();dxAt(e.clientY);return}wf.setPointerCapture(e.pointerId);drag={y:e.clientY,x:e.clientX,low:view.low,moved:false};
   lpTimer=setTimeout(()=>{if(drag&&!drag.moved){openMenu(drag.x,drag.y);drag=null}},600)});
 wf.addEventListener('pointermove',e=>{if(!drag)return;const dy=e.clientY-drag.y;if(Math.abs(dy)>5){drag.moved=true;clearTimeout(lpTimer)}if(drag.moved)setLow(drag.low+dy*view.span/(H/dpr))});
-wf.addEventListener('pointerup',()=>{clearTimeout(lpTimer);drag=null});
+wf.addEventListener('pointerup',e=>{clearTimeout(lpTimer);
+  if(drag&&!drag.moved&&MODE==='ssb'&&CFG){const a=CFG.center+(offAt(e.clientY)-sbe()*SBM)*1000;setRx2Abs(Math.round(a/100)*100)}   // clic: RX2 sulla voce cliccata
+  drag=null});
 wf.addEventListener('pointercancel',()=>{clearTimeout(lpTimer);drag=null});
 $('#mDx').onclick=()=>{if(CFG&&menuAt!=null)send({cmd:'dx',hz:Math.round((CFG.center+menuAt*1000)/10)*10});closeMenu()};
 $('#mMark').onclick=()=>{const i=markNear(menuAt);if(i>=0)marks.splice(i,1);else marks.push(menuAt);closeMenu()};
