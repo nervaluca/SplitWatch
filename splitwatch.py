@@ -30,13 +30,14 @@ import dsp
 import calib
 import i18n
 import licenza
+import rig as riglib
 from dsp import Engine
 from rbn import RBN
 from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.23'
+VERSION = '1.24'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -235,6 +236,11 @@ class Hub:
         self.hw_center = None                  # centro come lo dice il ricevitore (senza correzione)
         self.cal = None                        # misura di calibrazione in corso
         self.cal_busy = False
+        self.rig = None                        # radio comandata con Hamlib (rigctld)
+        self.rig_state = {'ok': False}
+        self.rig_last_f = None
+        self.rig_models = None
+        self.rig_models_exe = None
         self.dx_abs = None
         self.status = 'Avvio…'
         self.src = None
@@ -427,7 +433,7 @@ class Hub:
                         raise RuntimeError('il ricevitore non si è sintonizzato')
                 elif abs(true_hz / k - self.hw_center) > self.fs * 0.45:
                     raise RuntimeError(f'sintonizza il ricevitore in modo che {khz:g} kHz sia nella banda ricevuta')
-                self.cmd_q.put(('dx', true_hz))            # la portante finisce nell'audio: si sente il test
+                self.cmd_q.put(('dx', true_hz, 'cal'))     # la portante finisce nell'audio: si sente il test (la radio no)
                 time.sleep(0.8)                            # lascia assestare il ricevitore
                 self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
                 m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm())
@@ -452,7 +458,7 @@ class Hub:
                     while abs((self.hw_center or 0) - prev_hw) > 2 and time.time() - t0 < 6:
                         time.sleep(0.05)
                 if prev_dx:
-                    self.cmd_q.put(('dx', float(prev_dx)))
+                    self.cmd_q.put(('dx', float(prev_dx), 'cal'))
                 # la decodifica ha visto 6 s di un'altra banda: riparte pulita, come dopo un riavvio
                 if self.fs and self.hw_center is not None:
                     self.cmd_q.put(('rate', self.fs, self.hw_center, 'reset'))
@@ -915,6 +921,8 @@ class Hub:
             self.post_json(self.cfg_msg())
         elif c[0] == 'dx':
             self.dx_abs = float(c[1])
+            if len(c) < 3:                              # deciso in FZR Skimmer (non dalla manopola, non dalla calibrazione)
+                self.rig_follow_dx()
             if self.engine:
                 self.engine.set_dx(self.dx_abs - self.center)
                 self.ssb_apply()
@@ -933,6 +941,8 @@ class Hub:
             self.cfg['rx2_off'] = max(-200000.0, min(200000.0, round(float(c[1]))))
             save_cfg(self.cfg)
             self.ssb_apply()
+            if self.is_ssb() and self.cat().get('tx_rx2', True):
+                self.rig_tx(self.dx_abs + self.cfg['rx2_off'])     # SSB: il TX della radio segue RX2
             self.post_json(self.cfg_msg())
         elif c[0] == 'ssbcfg':
             self.ssb_apply()
@@ -956,6 +966,86 @@ class Hub:
             self.cfg['up'] = [lo, hi]
             save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
+
+    # -------------------------------------------------------------- radio (Hamlib / rigctld)
+    def cat(self):
+        return self.cfg.setdefault('cat', {})
+
+    def rig_apply(self):
+        """Accende, spegne o ricollega la radio con le impostazioni attuali."""
+        old, self.rig = getattr(self, 'rig', None), None
+        if old:
+            threading.Thread(target=old.stop, daemon=True).start()
+        self.rig_state = {'ok': False}
+        self.rig_last_f = None
+        c = self.cat()
+        if c.get('on'):
+            if old:
+                time.sleep(0.6)                     # la porta COM si libera
+            self.rig = riglib.Rig(c, on_state=self.on_rig, on_status=self.on_status)
+            self.rig.start()
+        self.post_json(self.rig_msg())
+
+    def rig_msg(self):
+        st = getattr(self, 'rig_state', {'ok': False})
+        return {'type': 'rig', 'on': bool(self.cat().get('on')), **st}
+
+    def rig_ctl(self):
+        """La radio è da comandare? (accesa, collegata, opzione attiva, non in riproduzione)"""
+        r = getattr(self, 'rig', None)
+        return r if (r and self.rig_state.get('ok') and self.cat().get('comanda', True)
+                     and self.src_kind != 'file') else None
+
+    def rig_mode_for(self):
+        if self.is_ssb():
+            return 'USB' if self.sb_eff() > 0 else 'LSB'
+        return 'CW'
+
+    def rig_follow_dx(self):
+        r = self.rig_ctl()
+        if r and self.dx_abs:
+            if self.src_kind == 'audio':
+                return                                # l'audio viene dalla radio: è lei che comanda
+            r.set_freq(self.dx_abs)
+
+    def rig_tx(self, hz):
+        r = self.rig_ctl()
+        if r and hz:
+            r.set_split_tx(hz)
+
+    def on_rig(self, st):
+        """Nuovo stato dalla radio (thread della radio)."""
+        self.rig_state = st
+        self.post_json(self.rig_msg())
+        r = self.rig
+        f = st.get('f')
+        if not st.get('ok') or not f or r is None:
+            return
+        moved = self.rig_last_f is not None and abs(f - self.rig_last_f) > 1 and not r.ours('f', f)
+        first = self.rig_last_f is None
+        self.rig_last_f = f
+        if not self.cat().get('segui', True) or self.src_kind == 'file':
+            return
+        if isinstance(self.src, AudioCard) and self.src_kind == 'audio':
+            if moved or first:
+                self.src.set_lo(float(f))              # «Frequenza radio» letta dalla radio: niente più a mano
+            return
+        if first:
+            # appena collegata: se la radio è in una banda HF la segue FZR Skimmer, altrimenti la porto io sul DX
+            if band_of(f):
+                moved = True
+            else:
+                if self.cat().get('comanda', True) and self.dx_abs:
+                    r.set_freq(self.dx_abs)
+                    r.set_mode(self.rig_mode_for())
+                return
+        if not moved:
+            return
+        # manopola della radio girata: il DX (o l'RX) di FZR Skimmer va lì
+        self.cmd_q.put(('dx', float(f), 'radio'))
+        if self.fs and self.center and abs(f - self.center) > self.fs * 0.42 and \
+                isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
+            self.tune(f + (self.fs * 0.2 if self.cfg.get('modo', 'dx') in ('dx', 'ssb') else 0))   # spazio UP sopra
 
     def is_ssb(self):
         return self.cfg.get('modo', 'dx') == 'ssb'
@@ -986,6 +1076,12 @@ class Hub:
         else:
             self.on_status('In riproduzione la frequenza centrale non si cambia: imposto solo il DX')
         return True
+
+    def ws_cmd_info(self):
+        exe = self.cat().get('exe')
+        self.rig_models, self.rig_models_exe = riglib.list_models(exe), exe
+        self.post_json({'type': 'cat_info', 'exe': exe, 'models': self.rig_models,
+                        'coms': riglib.list_com_ports(), 'cfg': self.cat()})
 
     def sb_eff(self):
         """Banda laterale in uso: +1 USB, -1 LSB (automatica: LSB sotto i 10 MHz)."""
@@ -1059,6 +1155,7 @@ class Hub:
         self.clients.add(ws)
         try:
             await ws.send(json.dumps(self.cfg_msg()))
+            await ws.send(json.dumps(self.rig_msg()))
             with self.lock:
                 rows = list(self.rows_hist)
             if rows:
@@ -1086,7 +1183,11 @@ class Hub:
                 elif k == 'band':
                     b = str(c['band'])
                     if b in BANDS:
-                        self.go_band(b)
+                        if self.go_band(b):
+                            r = self.rig_ctl()
+                            if r:
+                                r.split_off()
+                                r.set_mode(self.rig_mode_for())
                 elif k == 'save':
                     b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
                     if b:
@@ -1138,6 +1239,52 @@ class Hub:
                     self.cfg['sb'] = c['v']
                     save_cfg(self.cfg)
                     self.cmd_q.put(('ssbcfg',))
+                    r = self.rig_ctl()
+                    if r and self.is_ssb():
+                        r.set_mode(self.rig_mode_for())
+                elif k == 'tx' and c.get('hz'):
+                    if self.rig_ctl():
+                        self.rig_tx(float(c['hz']))
+                    else:
+                        self.on_status('Radio non collegata: attiva «Radio (CAT)» nelle impostazioni')
+                elif k == 'cat':
+                    v = c.get('v') or {}
+                    keep = ('on', 'modo', 'exe', 'model', 'nome', 'com', 'baud', 'host', 'tcp', 'segui', 'comanda', 'tx_rx2')
+                    self.cat().update({k2: v[k2] for k2 in keep if k2 in v})
+                    save_cfg(self.cfg)
+                    if c.get('apply', True):
+                        threading.Thread(target=self.rig_apply, daemon=True).start()
+                    else:
+                        self.post_json(self.rig_msg())
+                elif k == 'cat_info':
+                    def info(ws=ws):
+                        exe = self.cat().get('exe') or riglib.find_rigctld([app_dir(), DATA_DIR])
+                        if exe and not self.cat().get('exe'):
+                            self.cat()['exe'] = exe
+                            save_cfg(self.cfg)
+                        if not getattr(self, 'rig_models', None) or self.rig_models_exe != exe:
+                            self.rig_models, self.rig_models_exe = riglib.list_models(exe), exe
+                        self.post_json({'type': 'cat_info', 'exe': exe, 'models': self.rig_models,
+                                        'coms': riglib.list_com_ports(), 'cfg': self.cat()})
+                    threading.Thread(target=info, daemon=True).start()
+                elif k == 'browse_rigctld':
+                    def br():
+                        try:
+                            import tkinter as tk
+                            from tkinter import filedialog
+                            root = tk.Tk(); root.withdraw(); root.attributes('-topmost', True)
+                            pth = filedialog.askopenfilename(parent=root, title='rigctld.exe (Hamlib)',
+                                                             filetypes=[('rigctld', 'rigctld*.exe'), ('Programmi', '*.exe')])
+                            root.destroy()
+                        except Exception as e:
+                            self.on_status(f'Impossibile aprire la finestra dei file: {e}')
+                            return
+                        if pth:
+                            self.cat()['exe'] = os.path.abspath(pth)
+                            self.rig_models = None
+                            save_cfg(self.cfg)
+                            self.ws_cmd_info()
+                    threading.Thread(target=br, daemon=True).start()
                 elif k == 'passo' and int(c.get('v', 0)) in (100, 500, 1000):
                     self.cfg['passo'] = int(c['v'])
                     save_cfg(self.cfg)
@@ -1159,6 +1306,10 @@ class Hub:
                     if c['v'] != 'dx':
                         self.listen_hist.clear()
                     self.cmd_q.put(('ssbcfg',))
+                    r = self.rig_ctl()
+                    if r and was_ssb != self.is_ssb():
+                        r.split_off()                             # lo split della fonia non vale in CW (e viceversa)
+                        r.set_mode(self.rig_mode_for())
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))
                     self.cfg['memoria_min'] = m
@@ -1296,6 +1447,7 @@ class Hub:
         threading.Thread(target=self.stations_thread, daemon=True).start()
         threading.Thread(target=self.idle_thread, daemon=True).start()
         self.rbn_apply()
+        self.rig_apply()
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
@@ -1336,6 +1488,11 @@ class Hub:
         def run():
             try:
                 self.rec.stop_rec()                     # chiude bene il WAV in corso
+            except Exception:
+                pass
+            try:
+                if self.rig:
+                    self.rig.stop()                     # chiude anche rigctld se l'abbiamo aperto noi
             except Exception:
                 pass
             src, self.src = self.src, None

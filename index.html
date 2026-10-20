@@ -123,6 +123,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 body.contest .dxonly{display:none!important}
 body.ssb .cwonly{display:none!important}
 body:not(.ssb) .ssbonly{display:none!important}
+body:not(.cat) .catonly{display:none!important}
 #rx2Txt{font:600 .9rem var(--f-mono);color:#7cc0ff;min-width:15em}
 #rMix{width:110px;accent-color:#7cc0ff}
 #modes button[aria-pressed="true"]{background:#2a2410;border-color:var(--hot);color:#ffe2a8}
@@ -141,7 +142,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.23</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.24</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt id="sDxLbl">RX fisso sul DX</dt><dd id="sDx">—</dd></div>
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
@@ -190,7 +191,8 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <div class="grp ssbonly" id="ssbset"><span class="lbl">RX2</span><span id="rx2Txt"></span>
       <span class="lbl">Passo</span><span id="passi"><button data-p="100">100</button><button data-p="500">500</button><button data-p="1000">1000 Hz</button></span>
       <button id="bRx2Dx" title="Porta RX2 sulla frequenza del DX">RX2 = DX</button>
-      <button id="bLock" aria-pressed="true" title="DX bloccato: rotellina, clic e frecce non lo spostano (si cambia solo scrivendo la frequenza o con i pulsanti di banda)">🔒 DX</button>
+      <button id="bTxRx2" class="catonly" title="Mette il TX della radio (split) sulla frequenza di RX2 (tasto T)">TX = RX2</button>
+      <button id="bLock" aria-pressed="true" title="DX bloccato: Ctrl + rotellina e frecce non lo spostano per sbaglio; Ctrl+clic, tasto destro → Imposta il DX qui, la frequenza scritta e i pulsanti di banda sì">🔒 DX</button>
       <button id="bTestAudio" title="Suono di prova: prima nell'orecchio del DX, poi in quello di RX2. Se li senti tutti e due uguali, la cuffia o il mixer di Windows è in mono">🎧 Prova</button>
       <select id="selSb" aria-label="Banda laterale"><option value="auto">Auto (LSB &lt;10 MHz)</option><option value="usb">USB</option><option value="lsb">LSB</option></select>
       <select id="selPan" aria-label="Cuffia"><option value="dxl">DX sinistra · RX2 destra</option><option value="rxl">RX2 sinistra · DX destra</option><option value="mono">DX e RX2 insieme</option></select>
@@ -207,7 +209,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <button id="bSpot" aria-pressed="true" title="Mostra o nasconde le etichette degli spot RBN sul waterfall">Spot</button>
     <button id="bList" class="cwonly" aria-pressed="false" title="Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione">☰ Elenco</button>
     <div class="grp" id="wins"><span class="lbl">Scorrimento</span><button data-w="5">5 s</button><button data-w="10">10 s</button><button data-w="20">20 s</button></div>
-    <div class="grp dxonly" id="chips"><span class="lbl">Ascolti</span></div>
+    <div class="grp dxonly" id="chips"><span class="lbl">Ascolti</span><button id="bTxL" class="catonly" title="Mette il TX della radio (split) sull'ultimo ascolto rilevato (tasto T)">TX → ascolto</button></div>
   </div>
 
   <main class="scope">
@@ -219,6 +221,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
         <button id="mDx">Imposta il DX qui <small style="color:var(--dim)">Ctrl+clic</small></button>
         <button id="mMark">Segnaposto qui</button>
         <button id="mClear" hidden>Togli tutti i segnaposti</button>
+        <button id="mTx" hidden>TX qui (split)</button>
         <button id="mCenter">Centra la vista qui</button>
       </div>
     </div>
@@ -246,9 +249,44 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
     <label for="chkRbn" title="Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati"><input type="checkbox" id="chkRbn"> RBN</label>
     <label for="iCall" id="callBox" hidden title="Nominativo con cui collegarsi all'RBN">Nominativo <input class="short" id="iCall" style="width:6.5em" autocomplete="off" spellcheck="false"></label>
     <span id="rbnState" class="lic" style="font-weight:500"></span>
+    <label for="chkCat" title="Comando della radio con Hamlib (rigctld): la radio e FZR Skimmer si seguono"><input type="checkbox" id="chkCat"> Radio (CAT)</label>
+    <span id="rigTxt" class="lic" style="font-weight:500"></span>
+    <button id="bCat" title="Modello, porta COM e opzioni della radio">Radio…</button>
     <button id="bRestart" title="Riavvia il ricevitore senza chiudere il programma">Riavvia ricevitore</button>
     <button id="bGui" hidden>Impostazioni Perseus</button>
     <span id="status"><span class="dot" id="dot"></span>Connessione…</span>
+  </div>
+</div>
+
+<div class="modal" id="catBox" hidden>
+  <div class="dlg" role="dialog" aria-labelledby="catTitle" style="width:min(600px,100%)">
+    <h2 id="catTitle">Radio (CAT) con Hamlib</h2>
+    <p>FZR Skimmer comanda la radio tramite rigctld di Hamlib, in parallelo al Perseus: DX, banda e modo vanno alla radio, la manopola della radio sposta il DX, lo split va dove serve.</p>
+    <label><input type="radio" name="catModo" value="avvia" style="width:auto"> FZR Skimmer apre rigctld (porta COM della radio)</label>
+    <label><input type="radio" name="catModo" value="collega" style="width:auto"> Collegati a un rigctld già aperto (da un altro programma)</label>
+    <div id="catAvvia">
+      <label for="catExe">rigctld.exe</label>
+      <div style="display:flex;gap:6px"><input id="catExe" readonly placeholder="non trovato: installa Hamlib"><button id="catBrowse">Sfoglia…</button></div>
+      <label for="catModel">Modello della radio (scrivi per cercare, es. 7600)</label>
+      <input id="catModel" list="catModels" autocomplete="off" spellcheck="false"><datalist id="catModels"></datalist>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label for="catCom">Porta COM</label><select id="catCom" style="width:100%"></select></div>
+        <div style="flex:1"><label for="catBaud">Velocità</label><select id="catBaud" style="width:100%"><option>4800</option><option>9600</option><option selected>19200</option><option>38400</option><option>57600</option><option>115200</option></select></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div style="flex:2" id="catHostBox"><label for="catHost">Computer di rigctld</label><input id="catHost" placeholder="127.0.0.1"></div>
+      <div style="flex:1"><label for="catTcp">Porta di rete</label><input id="catTcp" type="number" placeholder="4532"></div>
+    </div>
+    <label><input type="checkbox" id="catComanda" style="width:auto"> La radio segue FZR Skimmer (DX, banda, modo CW/USB/LSB)</label>
+    <label><input type="checkbox" id="catSegui" style="width:auto"> FZR Skimmer segue la manopola della radio</label>
+    <label><input type="checkbox" id="catTxRx2" style="width:auto"> SSB: il TX della radio (split) segue RX2</label>
+    <div id="catMsg" class="regmsg"></div>
+    <div class="dlgbtns">
+      <button id="catOn" class="ok">Collega la radio</button>
+      <button id="catOff">Scollega</button>
+      <button id="catClose">Chiudi</button>
+    </div>
   </div>
 </div>
 
@@ -295,12 +333,12 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmtOff=o=>(o>=0?'+':'−')+Math.abs(o).toFixed(Math.abs(o)<10?2:1);
 let CFG=null;
 /* ---------------- lingua (italiano / inglese) ---------------- */
-const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "DX bloccato: rotellina, clic e frecce non lo spostano (si cambia solo scrivendo la frequenza o con i pulsanti di banda)": "DX locked: wheel, clicks and arrows do not move it (change it only by typing the frequency or with the band buttons)", "Suono di prova: prima nell'orecchio del DX, poi in quello di RX2. Se li senti tutti e due uguali, la cuffia o il mixer di Windows è in mono": "Test tone: first in the DX ear, then in the RX2 ear. If both sound the same, the headphones or the Windows mixer are mono", "🎧 Prova": "🎧 Test", "DX bloccato: per spostarlo premi 🔒 DX oppure scrivi la frequenza": "DX locked: to move it press 🔒 DX or type the frequency", "Pile-up in fonia: RX fermo sul DX e secondo RX (RX2) in stereo, spostato con la rotellina": "Phone pile-ups: RX locked on the DX plus a second RX (RX2) in stereo, moved with the mouse wheel", "Passo": "Step", "Porta RX2 sulla frequenza del DX": "Bring RX2 to the DX frequency", "DX sinistra · RX2 destra": "DX left · RX2 right", "RX2 sinistra · DX destra": "RX2 left · DX right", "DX e RX2 insieme": "DX and RX2 together", "Potenziometro: a sinistra solo il DX, a destra solo RX2, in mezzo entrambi": "Knob: left = DX only, right = RX2 only, middle = both", "Auto (LSB <10 MHz)": "Auto (LSB <10 MHz)", "Banda laterale": "Sideband", "Cuffia": "Headphones", "Normale": "Normal", "Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì": "Normal listening: the text of every signal scrolls alongside, with callsigns and 599 highlighted. Click a signal = RX there", "Nessun testo ancora": "No text yet", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
+const EN={"pile-up in split": "split pile-ups", "RX fisso sul DX": "RX locked on DX", "Vista": "View", "Ultimo ascolto rilevato": "Last listening spot", "Registra": "Register", "Esci": "Quit", "Modo": "Mode", "Banda": "Band", "Salva memoria": "Save memory", "💾 Salva ultimi": "💾 Save last", "⏺ Registra": "⏺ Record", "Riproduzione": "Playback", "Sfoglia…": "Browse…", "Torna al ricevitore": "Back to receiver", "🔈 Audio DX": "🔈 DX audio", "🔊 Audio DX": "🔊 DX audio", "Torna al DX": "Back to DX", "Larghezza": "Span", "Tutto": "All", "Filtro RX": "RX filter", "Sensibilità": "Sensitivity", "Alta": "High", "Media": "Medium", "Bassa": "Low", "Colori": "Colours", "Classica": "Classic", "Fosfori": "Phosphor", "Grigio": "Grey", "Notte": "Night", "Luce": "Brightness", "Contrasto": "Contrast", "☰ Elenco": "☰ List", "Scorrimento": "History", "Ascolti": "Listening", "Imposta il DX qui": "Set DX here", "Ctrl+clic": "Ctrl+click", "Segnaposto qui": "Marker here", "Togli tutti i segnaposti": "Remove all markers", "Togli questo segnaposto": "Remove this marker", "Centra la vista qui": "Centre view here", "Zona UP da": "UP zone from", "a": "to", "Ricevitore": "Receiver", "Audio della radio": "Radio audio", "IQ da scheda audio": "IQ from sound card", "Registrazione (WAV)": "Recording (WAV)", "Ingresso": "Input", "Centro Perseus kHz": "Perseus centre kHz", "Frequenza radio kHz": "Radio frequency kHz", "Centro kHz": "Centre kHz", "LO kHz": "LO kHz", "Campionamento": "Sample rate", "Inverti I/Q": "Swap I/Q", "Memoria": "Memory", "spenta": "off", "Nominativo": "Callsign", "Riavvia ricevitore": "Restart receiver", "Impostazioni Perseus": "Perseus settings", "Connessione…": "Connecting…", "Registra FZR Skimmer": "Register FZR Skimmer", "Chiave di registrazione": "Registration key", "(la stessa di ADIF FZR, da incollare)": "(the same as ADIF FZR, paste it here)", "Verifica online": "Check online", "Richiedi una chiave": "Request a key", "Continua la prova": "Continue trial", "Ferma il ricevitore e chiude FZR Skimmer": "Stops the receiver and closes FZR Skimmer", "Pile-up in split: RX fermo sul DX, ricerca di dove ascolta": "Split pile-up: RX locked on the DX, finds where it is listening", "Contest / S&P: elenco stazioni, niente ricerca dell'ascolto": "Contest / S&P: station list, no listening search", "Memorizza centro e DX attuali per questa banda": "Store current centre and DX for this band", "Salva su disco quello che è passato negli ultimi minuti (il ricevitore non si ferma)": "Save the last minutes to disk (the receiver keeps running)", "Registra su disco da adesso finché non premi di nuovo": "Record to disk from now until pressed again", "Apri la cartella delle registrazioni": "Open the recordings folder", "Pausa / riprendi (barra spaziatrice)": "Pause / resume (space bar)", "Indietro di 15 secondi": "Back 15 seconds", "Posizione nella registrazione": "Position in the recording", "Registrazione": "Recording", "Apri un WAV IQ (CW Skimmer, HDSDR, SDR Console…)": "Open an IQ WAV (CW Skimmer, HDSDR, SDR Console…)", "Più nominativi deboli, più errori": "More weak calls, more errors", "Solo segnali puliti": "Clean signals only", "Tavolozza del waterfall": "Waterfall palette", "Reverse Beacon Network: acceso/spento (collegamento e spot)": "Reverse Beacon Network on/off (connection and spots)", "Mostra o nasconde le etichette degli spot RBN sul waterfall": "Show or hide RBN spot labels on the waterfall", "Elenco delle stazioni decodificate e spottate (contest, S&P): clic = audio su quella stazione": "Decoded and spotted stations (contest, S&P): click = audio on that station", "Testo decodificato": "Decoded text", "Elenco stazioni": "Station list", "Nota CW se la radio mostra la frequenza del segnale (Icom in CW); 0 se mostra la portante USB": "CW pitch if the radio shows the signal frequency (Icom in CW); 0 if it shows the USB carrier", "Tiene in memoria gli ultimi minuti per «Salva ultimi». A 96 kHz circa 23 MB di RAM al minuto, a 192 kHz il doppio": "Keeps the last minutes in memory for «Save last». About 23 MB of RAM per minute at 96 kHz, twice at 192 kHz", "Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati": "Reverse Beacon Network CW spots: on the waterfall and to confirm decoded calls", "Nominativo con cui collegarsi all'RBN": "Callsign used to log into the RBN", "Riavvia il ricevitore senza chiudere il programma": "Restart the receiver without closing the program", "Prova terminata": "Trial over", "Non registrato · riproduzione libera": "Not registered · playback is free", "⏳ Prova di 5 minuti terminata": "⏳ 5-minute trial over", "Il ricevitore è stato fermato. La registrazione è gratuita: richiedi la chiave e incollala qui, oppure, se sei già abilitato sul sito, usa «Verifica online». Vale la stessa chiave di ADIF FZR.": "The receiver has been stopped. Registration is free: request a key and paste it here or, if you are already enabled on the site, use «Check online». The ADIF FZR key works too.", "Senza registrazione FZR Skimmer funziona 5 minuti per ogni avvio. La registrazione è gratuita: richiedi la chiave e incollala qui. Vale la stessa chiave di ADIF FZR.": "Without registration FZR Skimmer runs 5 minutes per start. Registration is free: request a key and paste it here. The ADIF FZR key works too.", "FZR Skimmer chiuso": "FZR Skimmer closed", "FZR Skimmer chiuso: puoi chiudere questa finestra": "FZR Skimmer closed: you can close this window", "Verifico…": "Checking…", "Verifico online…": "Checking online…", "Perseus dal vivo": "Perseus live", "audio della radio": "radio audio", "riproduzione registrazione": "recording playback", "Predefinito di Windows": "Windows default", "(predefinita)": "(default)", "Riavvio del ricevitore…": "Restarting the receiver…", "Cambio ricevitore…": "Switching receiver…", "RX su": "RX on", "Stazioni": "Stations", "Nessuna stazione ancora": "No stations yet", "… salvo": "… saving", "nessuna registrazione": "no recordings", "Apro la registrazione…": "Opening the recording…", "Scegli il file nella finestra che si è aperta sul PC…": "Pick the file in the window that opened on the PC…", "Riaccendo il ricevitore…": "Restarting the receiver…", "Connessione persa: riprovo…": "Connection lost: retrying…", "spento": "off", "connessione…": "connecting…", "collegato": "connected", "serve il nominativo": "callsign needed", "DX bloccato: Ctrl+clic, tasto destro o la frequenza scritta lo spostano; rotellina e frecce no (🔒 DX per sbloccare)": "DX locked: Ctrl+click, right click or typing move it; wheel and arrows do not (🔒 DX to unlock)", "DX bloccato: Ctrl + rotellina e frecce non lo spostano per sbaglio; Ctrl+clic, tasto destro → Imposta il DX qui, la frequenza scritta e i pulsanti di banda sì": "DX locked: Ctrl + wheel and arrows cannot move it by mistake; Ctrl+click, right click → Set DX here, typing and band buttons can", "FZR Skimmer comanda la radio tramite rigctld di Hamlib, in parallelo al Perseus: DX, banda e modo vanno alla radio, la manopola della radio sposta il DX, lo split va dove serve.": "FZR Skimmer controls the radio through Hamlib rigctld, alongside the Perseus: DX, band and mode go to the radio, the radio dial moves the DX, split goes where it is needed.", "Comando della radio con Hamlib (rigctld): la radio e FZR Skimmer si seguono": "Radio control with Hamlib (rigctld): the radio and FZR Skimmer follow each other", "Radio (CAT)": "Radio (CAT)", "Radio…": "Radio…", "Modello, porta COM e opzioni della radio": "Radio model, COM port and options", "TX qui (split)": "TX here (split)", "Mette il TX della radio (split) sulla frequenza di RX2 (tasto T)": "Puts the radio TX (split) on the RX2 frequency (T key)", "Mette il TX della radio (split) sull'ultimo ascolto rilevato (tasto T)": "Puts the radio TX (split) on the last listening spot found (T key)", "TX → ascolto": "TX → listening", "Radio (CAT) con Hamlib": "Radio (CAT) with Hamlib", " FZR Skimmer apre rigctld (porta COM della radio)": " FZR Skimmer starts rigctld (radio COM port)", "FZR Skimmer apre rigctld (porta COM della radio)": "FZR Skimmer starts rigctld (radio COM port)", "Collegati a un rigctld già aperto (da un altro programma)": "Connect to an rigctld already running (from another program)", "Modello della radio (scrivi per cercare, es. 7600)": "Radio model (type to search, e.g. 7600)", "Porta COM": "COM port", "Velocità": "Speed", "Computer di rigctld": "rigctld computer", "Porta di rete": "Network port", "La radio segue FZR Skimmer (DX, banda, modo CW/USB/LSB)": "The radio follows FZR Skimmer (DX, band, CW/USB/LSB mode)", "FZR Skimmer segue la manopola della radio": "FZR Skimmer follows the radio dial", "SSB: il TX della radio (split) segue RX2": "SSB: the radio TX (split) follows RX2", "Collega la radio": "Connect the radio", "Scollega": "Disconnect", "nessuna porta COM": "no COM port", "DX bloccato: rotellina, clic e frecce non lo spostano (si cambia solo scrivendo la frequenza o con i pulsanti di banda)": "DX locked: wheel, clicks and arrows do not move it (change it only by typing the frequency or with the band buttons)", "Suono di prova: prima nell'orecchio del DX, poi in quello di RX2. Se li senti tutti e due uguali, la cuffia o il mixer di Windows è in mono": "Test tone: first in the DX ear, then in the RX2 ear. If both sound the same, the headphones or the Windows mixer are mono", "🎧 Prova": "🎧 Test", "DX bloccato: per spostarlo premi 🔒 DX oppure scrivi la frequenza": "DX locked: to move it press 🔒 DX or type the frequency", "Pile-up in fonia: RX fermo sul DX e secondo RX (RX2) in stereo, spostato con la rotellina": "Phone pile-ups: RX locked on the DX plus a second RX (RX2) in stereo, moved with the mouse wheel", "Passo": "Step", "Porta RX2 sulla frequenza del DX": "Bring RX2 to the DX frequency", "DX sinistra · RX2 destra": "DX left · RX2 right", "RX2 sinistra · DX destra": "RX2 left · DX right", "DX e RX2 insieme": "DX and RX2 together", "Potenziometro: a sinistra solo il DX, a destra solo RX2, in mezzo entrambi": "Knob: left = DX only, right = RX2 only, middle = both", "Auto (LSB <10 MHz)": "Auto (LSB <10 MHz)", "Banda laterale": "Sideband", "Cuffia": "Headphones", "Normale": "Normal", "Ascolto normale: il testo di tutti i segnali scorre a fianco, con nominativi e 599 evidenziati. Clic su un segnale = RX lì": "Normal listening: the text of every signal scrolls alongside, with callsigns and 599 highlighted. Click a signal = RX there", "Nessun testo ancora": "No text yet", "Impostazioni ricevitore": "Receiver settings", "ricevitore ExtIO": "ExtIO receiver", "Plugin": "Plugin", "nessun plugin trovato": "no plugin found", "Plugin ExtIO a 32 bit del ricevitore (lo stesso che si usa con HDSDR)": "The receiver's 32-bit ExtIO plugin (the same one used with HDSDR)", "Scegli il file ExtIO_….dll del ricevitore": "Pick the receiver's ExtIO_….dll file", "Correzione ppm": "Correction ppm", "Calibra…": "Calibrate…", "Calibrazione frequenza": "Frequency calibration", "Scegli una stazione campione che senti bene: il programma si sintonizza, misura la sua portante per 6 secondi e torna dov'eri. La correzione vale per tutte le bande.": "Pick a standard-frequency station you hear well: the program tunes to it, measures its carrier for 6 seconds and goes back where you were. The correction applies to all bands.", "Stazione campione": "Standard station", "Misura": "Measure", "Applica la correzione": "Apply the correction", "Azzera": "Reset", "Chiudi": "Close", "Correzione azzerata": "Correction reset", "Correzione dell'errore di frequenza del ricevitore, in parti per milione: vale per tutte le bande. Positivo = le frequenze mostrate salgono": "Receiver frequency error correction, in parts per million: applies to all bands. Positive = displayed frequencies go up", "Misura l'errore di frequenza su una stazione campione (RWM, WWV, BPM, CHU)": "Measure the frequency error on a standard station (RWM, WWV, BPM, CHU)"};
 let LANG='it';
 try{LANG=localStorage.getItem('fzr_lang')||((navigator.language||'it').toLowerCase().startsWith('it')?'it':'en')}catch(e){}
 const T=s=>LANG==='en'&&EN[s]!=null?EN[s]:s;              // testo fisso
 const L=(it,en)=>LANG==='en'?en:it;                         // testo con numeri dentro
-const NOTR=new Set(['calMsg','calRes','calSel','status','dxText','slist','licTxt','pFile','selDev','regMsg','sDx','sView','sLast','bufTxt','recTxt','pTime','rbnState','tag']);
+const NOTR=new Set(['rigTxt','catMsg','catModels','catCom','catExe','calMsg','calRes','calSel','status','dxText','slist','licTxt','pFile','selDev','regMsg','sDx','sView','sLast','bufTxt','recTxt','pTime','rbnState','tag']);
 let i18nNodes=null;
 function collectI18n(){
   i18nNodes={text:[],attr:[]};
@@ -480,6 +518,8 @@ function connect(){
       else if(m.type==='stations'){STATIONS=m.list;listDirty=true}
       else if(m.type==='spots'){SPOTS=m.spots||[];setT($('#rbnState'),rbnTxt(m.state))}
       else if(m.type==='cal'){onCal(m)}
+      else if(m.type==='rig'){onRig(m)}
+      else if(m.type==='cat_info'){onCatInfo(m)}
       else if(m.type==='reg'){const r=$('#regMsg');r.textContent=(m.ok?'✓ ':'✗ ')+m.msg;r.className='regmsg '+(m.ok?'ok':'err');if(m.ok)setTimeout(()=>{$('#regBox').hidden=true},1500)}
       return;
     }
@@ -636,6 +676,43 @@ function onCal(m){const msg=$('#calMsg');
     msg.textContent='✗ '+L(W[0],W[1]);$('#calApply').hidden=true}
 }
 $('#selMem').onchange=e=>send({cmd:'memory',min:+e.target.value});
+/* ---------------- radio (Hamlib) ---------------- */
+let RIG=null,CATINFO=null;
+function sendTx(hz){send({cmd:'tx',hz});setStatus(L(`TX della radio su ${(hz/1000).toFixed(2)} kHz (split)`,`Radio TX on ${(hz/1000).toFixed(2)} kHz (split)`))}
+function txQuick(){if(!CFG)return;
+  if(MODE==='ssb')return sendTx(CFG.dx+CFG.rx2_off);
+  const l=LISTEN[LISTEN.length-1];if(l)sendTx(Math.round((CFG.center+l.f)/10)*10);else setStatus(L('Nessun ascolto rilevato ancora','No listening spot found yet'))}
+$('#bTxL').onclick=txQuick;$('#bTxRx2').onclick=txQuick;
+function onRig(m){RIG=m;document.body.classList.toggle('cat',!!(m.on&&m.ok));
+  if(document.activeElement!==$('#chkCat'))$('#chkCat').checked=!!m.on;
+  let t='';if(m.on){t=m.ok?`📻 ${m.f?(m.f/1000).toFixed(2):'—'} ${m.mode||''}${m.split&&m.ftx?' · TX '+(m.ftx/1000).toFixed(2):''}`:'📻 '+L('non collegata','not connected')}
+  setT($('#rigTxt'),t);$('#rigTxt').title=m.err||'';
+  if(!$('#catBox').hidden){const g=$('#catMsg');if(m.on&&m.ok){g.className='regmsg ok';g.textContent=L('✓ Radio collegata','✓ Radio connected')}else if(m.on&&m.err){g.className='regmsg err';g.textContent='✗ '+m.err}}}
+function catVal(){const md=document.querySelector('input[name=catModo]:checked');const mv=$('#catModel').value,mn=parseInt(mv,10);
+  const opt=CATINFO&&CATINFO.models.find(x=>x[0]===mn);
+  return {modo:md?md.value:'avvia',model:mn||0,nome:opt?opt[1]:'',com:$('#catCom').value,baud:+$('#catBaud').value,host:$('#catHost').value.trim()||'127.0.0.1',
+    tcp:+$('#catTcp').value||4532,comanda:$('#catComanda').checked,segui:$('#catSegui').checked,tx_rx2:$('#catTxRx2').checked}}
+function catModo(){const md=document.querySelector('input[name=catModo]:checked');const av=!md||md.value==='avvia';$('#catAvvia').hidden=!av;$('#catHostBox').style.visibility=av?'hidden':'visible'}
+document.querySelectorAll('input[name=catModo]').forEach(r=>r.onchange=catModo);
+function onCatInfo(m){CATINFO=m;const c=m.cfg||{};
+  $('#catExe').value=m.exe||'';
+  $('#catModels').innerHTML=(m.models||[]).map(([n,t])=>`<option value="${n} · ${esc(t)}">`).join('');
+  const cur=(m.models||[]).find(x=>x[0]===+c.model);if(document.activeElement!==$('#catModel'))$('#catModel').value=cur?`${cur[0]} · ${cur[1]}`:(c.model||'');
+  const cs=$('#catCom'),coms=[...new Set([...(m.coms||[]),...(c.com?[c.com]:[])])];
+  cs.innerHTML=coms.length?coms.map(x=>`<option>${esc(x)}</option>`).join(''):`<option value="">${T('nessuna porta COM')}</option>`;if(c.com)cs.value=c.com;
+  if(c.baud)$('#catBaud').value=String(c.baud);
+  $('#catHost').value=c.host||'';$('#catTcp').value=c.tcp||'';
+  document.querySelectorAll('input[name=catModo]').forEach(r=>r.checked=r.value===(c.modo||'avvia'));catModo();
+  $('#catComanda').checked=c.comanda!==false;$('#catSegui').checked=c.segui!==false;$('#catTxRx2').checked=c.tx_rx2!==false;
+  if(!m.exe&&(c.modo||'avvia')==='avvia'){const g=$('#catMsg');g.className='regmsg err';g.textContent=L('rigctld.exe non trovato: installa Hamlib (github.com/Hamlib/Hamlib/releases) o usa «Sfoglia…»','rigctld.exe not found: install Hamlib (github.com/Hamlib/Hamlib/releases) or use «Browse…»')}}
+$('#bCat').onclick=()=>{$('#catBox').hidden=false;$('#catMsg').textContent='';send({cmd:'cat_info'})};
+$('#catClose').onclick=()=>{$('#catBox').hidden=true};
+$('#catBrowse').onclick=()=>send({cmd:'browse_rigctld'});
+$('#catOn').onclick=()=>{const v=catVal();
+  if(v.modo==='avvia'&&!v.model){$('#catMsg').className='regmsg err';$('#catMsg').textContent=L('Scegli il modello della radio','Pick the radio model');return}
+  v.on=true;send({cmd:'cat',v});$('#catMsg').className='regmsg';$('#catMsg').textContent=L('Collego la radio…','Connecting the radio…')};
+$('#catOff').onclick=()=>{send({cmd:'cat',v:{on:false}});$('#catMsg').className='regmsg';$('#catMsg').textContent=L('Radio scollegata','Radio disconnected')};
+$('#chkCat').onchange=e=>{if(e.target.checked&&!(RIG&&RIG.on)){send({cmd:'cat',v:{on:true}})}else if(!e.target.checked)send({cmd:'cat',v:{on:false}})};
 let MODE=null;
 function applyMode(md,user){
   if(md===MODE&&!user)return;const first=MODE===null;MODE=md;const ct=md!=='dx';   // normale e contest: niente ricerca dell'ascolto
@@ -779,6 +856,9 @@ function drawWF(){
     c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();
     if(nw){c.fillStyle='#ffb020';c.fillText(`${L('ascolto','listening')} ${fmtOff(e.f/1000-DX)} kHz`,8*dpr,y-3*dpr)}}
   c.globalAlpha=1;c.setLineDash([]);
+  if(RIG&&RIG.ok&&RIG.split&&RIG.ftx){const o=(RIG.ftx-CFG.center)/1000,y=yOf(o);     // TX della radio (split)
+    if(y>=0&&y<=H){c.strokeStyle='#ff5a5a';c.lineWidth=1.6*dpr;c.setLineDash([2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);
+      c.fillStyle='#ff5a5a';c.textBaseline='bottom';c.font=`700 ${11*dpr}px Consolas,monospace`;c.fillText(`TX ${(RIG.ftx/1000).toFixed(2)} (${fmtOff(o-DX)})`,plotW*0.35,y-3*dpr)}}
   for(const o of marks){const y=yOf(o);if(y<0||y>H)continue;c.strokeStyle='#e6d3ff';c.lineWidth=1*dpr;c.setLineDash([8*dpr,3*dpr,2*dpr,3*dpr]);c.beginPath();c.moveTo(0,y);c.lineTo(plotW,y);c.stroke();c.setLineDash([]);c.fillStyle='#e6d3ff';c.fillText(`${L('segnaposto','marker')} ${fmtOff(o-DX)}`,8*dpr,y-3*dpr)}
   // spot RBN: etichetta sul bordo SINISTRO (la parte vecchia del waterfall), così non copre i segnali appena arrivati
   if(SPOTSHOW){c.font=`600 ${10.5*dpr}px Consolas,monospace`;c.textBaseline='middle';c.textAlign='left';
@@ -893,7 +973,7 @@ $('#selPan').value=PAN;$('#selPan').onchange=e=>{PAN=e.target.value;try{localSto
 $('#rMix').value=MIX;$('#rMix').oninput=e=>{MIX=+e.target.value;try{localStorage.setItem('fzr_mix',String(MIX))}catch(x){}};
 $('#rMix').ondblclick=()=>{MIX=50;$('#rMix').value=50;try{localStorage.setItem('fzr_mix','50')}catch(x){}};
 let LOCK=true;try{LOCK=localStorage.getItem('fzr_lock')!=='0'}catch(e){}
-const dxLocked=()=>{if(MODE==='ssb'&&LOCK){setStatus('DX bloccato: per spostarlo premi 🔒 DX oppure scrivi la frequenza');return true}return false};
+const dxLocked=()=>{if(MODE==='ssb'&&LOCK){setStatus('DX bloccato: Ctrl+clic, tasto destro o la frequenza scritta lo spostano; rotellina e frecce no (🔒 DX per sbloccare)');return true}return false};
 function showLock(){$('#bLock').setAttribute('aria-pressed',String(LOCK));$('#bLock').textContent=LOCK?'🔒 DX':'🔓 DX'}
 showLock();
 $('#bLock').onclick=()=>{LOCK=!LOCK;try{localStorage.setItem('fzr_lock',LOCK?'1':'0')}catch(e){}showLock()};
@@ -924,10 +1004,12 @@ const offAt=cy=>{const r=wf.getBoundingClientRect();return view.low+view.span-(c
 const markNear=o=>marks.findIndex(m=>Math.abs(m-o)<view.span/40);
 function openMenu(cx,cy){const r=wf.getBoundingClientRect(),m=$('#menu');menuAt=offAt(cy);m.hidden=false;
   $('#mMark').textContent=T(markNear(menuAt)>=0?'Togli questo segnaposto':'Segnaposto qui');
+  $('#mTx').hidden=!(RIG&&RIG.ok);
   $('#mClear').hidden=!marks.length;$('#mClear').textContent=`${T('Togli tutti i segnaposti')} (${marks.length})`;
   m.style.left=Math.max(0,Math.min(cx-r.left,r.width-210))+'px';m.style.top=Math.max(0,Math.min(cy-r.top,r.height-150))+'px'}
 // Ctrl + clic: DX esattamente lì (passo 10 Hz); la vista resta ferma
-function dxAt(cy){if(!CFG||dxLocked())return;const hz=Math.round((CFG.center+(offAt(cy)-(MODE==='ssb'?sbe()*SBM:0))*1000)/10)*10;
+// Ctrl+clic è voluto: funziona anche col DX bloccato
+function dxAt(cy){if(!CFG)return;const hz=Math.round((CFG.center+(offAt(cy)-(MODE==='ssb'?sbe()*SBM:0))*1000)/10)*10;
   CFG.dx=hz;localDx=hz;setT($('#sDx'),`${(hz/1000).toFixed(2)} kHz`);
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(hz/1000).toFixed(2);clearTimeout(dxTimer);send({cmd:'dx',hz})}
 const closeMenu=()=>{$('#menu').hidden=true};
@@ -939,12 +1021,14 @@ wf.addEventListener('pointerup',e=>{clearTimeout(lpTimer);
   if(drag&&!drag.moved&&MODE==='ssb'&&CFG){const a=CFG.center+(offAt(e.clientY)-sbe()*SBM)*1000;setRx2Abs(Math.round(a/100)*100)}   // clic: RX2 sulla voce cliccata
   drag=null});
 wf.addEventListener('pointercancel',()=>{clearTimeout(lpTimer);drag=null});
-$('#mDx').onclick=()=>{if(CFG&&menuAt!=null&&!dxLocked())send({cmd:'dx',hz:Math.round((CFG.center+menuAt*1000)/10)*10});closeMenu()};
+$('#mDx').onclick=()=>{if(CFG&&menuAt!=null){const a=CFG.center+(menuAt-(MODE==='ssb'?sbe()*SBM:0))*1000;send({cmd:'dx',hz:Math.round(a/10)*10})}closeMenu()};
 $('#mMark').onclick=()=>{const i=markNear(menuAt);if(i>=0)marks.splice(i,1);else marks.push(menuAt);closeMenu()};
 $('#mClear').onclick=()=>{marks.length=0;closeMenu()};
 $('#mCenter').onclick=()=>{centerOn(menuAt);closeMenu()};
+$('#mTx').onclick=()=>{if(CFG&&menuAt!=null){const ssb=MODE==='ssb',a=CFG.center+(menuAt-(ssb?sbe()*SBM:0))*1000;sendTx(Math.round(a/(ssb?100:10))*(ssb?100:10))}closeMenu()};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const m={PageUp:5,PageDown:-5,ArrowUp:view.span/10,ArrowDown:-view.span/10}[e.key];
   if(m!=null){e.preventDefault();setLow(view.low+m)}else if(e.key==='Home'){e.preventDefault();toDx()}
+  else if((e.key==='t'||e.key==='T')&&RIG&&RIG.ok){e.preventDefault();txQuick()}
   else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();nudgeDx(e.key==='ArrowRight'?1:-1,e.shiftKey?10:50)}else if(e.key==='Escape')closeMenu();
   else if(e.key===' '&&PLAY&&!$('#player').hidden&&e.target.tagName!=='SELECT'&&e.target.tagName!=='BUTTON'){e.preventDefault();send({cmd:'pause',on:!PLAY.paused})}});
 
