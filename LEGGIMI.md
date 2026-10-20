@@ -1,4 +1,4 @@
-# FZR Skimmer 1.23
+# FZR Skimmer 1.24
 
 IW1FZR
 
@@ -86,6 +86,27 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## Radio (CAT) con Hamlib
+
+FZR Skimmer comanda la radio (IC-7600 e tutte quelle di Hamlib) in parallelo al Perseus, tramite
+**rigctld** di Hamlib. Installa Hamlib per Windows (https://github.com/Hamlib/Hamlib/releases,
+file `hamlib-w32-….exe` o `-w64`, va bene l'uno o l'altro): FZR Skimmer trova `rigctld.exe` da solo
+(cartelle di Hamlib, WSJT-X, JTDX), altrimenti **Sfoglia…**.
+
+In basso **Radio…**: modello (IC-7600 = 3063, scrivi «7600» per cercarlo), porta COM e velocità
+(sull'IC-7600: CI-V USB, 19200), poi **Collega la radio**. In alternativa ci si collega a un rigctld
+già aperto da un altro programma (computer e porta, di solito 4532). La spunta **Radio (CAT)** la
+accende e la spegne.
+
+- **La radio segue FZR Skimmer**: DX, pulsanti di banda, modo (CW, oppure USB/LSB in SSB).
+- **FZR Skimmer segue la radio**: giri la manopola e il DX si sposta; se esci dalla banda ricevuta il
+  Perseus si risintonizza. Con «Audio della radio» la frequenza si legge da sola.
+- **Split**: in SSB il TX segue RX2 (rotellina = TX già sulla stazione che hai trovato); in DXpedition
+  **TX → ascolto** o tasto **T** mette il TX sull'ultimo ascolto rilevato; tasto destro sul waterfall →
+  **TX qui (split)**. La linea rossa tratteggiata è il TX della radio.
+- Cambiando banda o passando CW ↔ SSB lo split si spegne.
+- All'avvio: se la radio è già su una banda HF la segue FZR Skimmer, altrimenti la radio va sul DX.
 
 ## Calibrazione della frequenza
 
@@ -180,8 +201,12 @@ In alto a sinistra, **Modo**:
   - **Memorie di banda separate** per la fonia: passando in SSB la radio va sul segmento fonia della
     stessa banda (es. 40 m: centro 7150, DX 7140; 20 m: 14220 / 14195), tornando in CW alle memorie CW.
     «Salva memoria» in SSB salva quella fonia. Il 30 m in SSB non c'è.
-  - **🔒 DX**: in SSB il DX è bloccato (Ctrl + rotellina, Ctrl + clic e frecce non lo spostano);
-    si cambia scrivendo la frequenza o con i pulsanti di banda. Premi per sbloccarlo.
+  - **Ctrl + rotellina** (e Ctrl + clic) sposta **solo il DX**: RX2 resta dov'è, cambia lo scostamento.
+    Cambiando banda invece RX2 tiene lo scostamento (es. UP 5).
+  - **🔊 DX / 🔇 DX** (tasto **M**) silenzia il DX; **RX2 acceso / spento** (tasto **R**) spegne il secondo
+    ricevitore (girando la rotellina si riaccende).
+  - **🔒 DX** (spento di base): se acceso, Ctrl + rotellina e frecce non spostano il DX per sbaglio;
+    Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.
   - **🎧 Prova**: nota bassa nell'orecchio del DX, nota alta in quello di RX2. Se le senti uguali la
     cuffia, la scheda audio o Windows (Impostazioni → Accessibilità → Audio mono) sono in mono.
 

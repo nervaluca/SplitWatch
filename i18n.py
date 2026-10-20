@@ -17,6 +17,7 @@ _EN = [
     (r'Errore nel calcolo: vedi fzrskimmer\.log', 'Processing error: see fzrskimmer.log'),
     (r'Nessun dato dal Perseus', 'No data from the Perseus'),
     (r'Nessun dato dal ricevitore', 'No data from the receiver'),
+    (r'Il ricevitore non manda dati: lo riavvio da solo \((\d)/3\)…', r'The receiver sends no data: restarting it automatically (\1/3)…'),
     (r'Campionamento sconosciuto: attendo i dati…', 'Unknown sample rate: waiting for data…'),
     (r'Sintonizza la radio su ([\d.]+) kHz', r'Tune the radio to \1 kHz'),
     (r'In riproduzione la frequenza centrale non si cambia: imposto solo il DX',

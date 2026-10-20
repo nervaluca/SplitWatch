@@ -25,6 +25,9 @@
 <li><a href="#ricevitori">Ricevitori</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><a href="#cat">Radio (CAT) con Hamlib</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><a href="#calibrazione">Calibrazione della frequenza</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -165,6 +168,41 @@
 <!-- wp:paragraph -->
 <p>Se il ricevitore non parte, premi <strong>Riavvia ricevitore</strong>: chiude e riapre il Perseus senza chiudere il programma (un paio di secondi di silenzio; le impostazioni restano). Il programma riprova già da solo 3 volte all'avvio.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"cat"} -->
+<h2 class="wp-block-heading" id="cat">Radio (CAT) con Hamlib</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR Skimmer comanda la radio (IC-7600 e tutte le radio supportate da Hamlib) <strong>in parallelo al Perseus</strong>: la radio e il waterfall si seguono a vicenda. Lo fa tramite <strong>rigctld</strong>, il programmino di Hamlib che usano anche WSJT-X e molti logger.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Installa Hamlib per Windows dalla <a href="https://github.com/Hamlib/Hamlib/releases" target="_blank" rel="noopener">pagina ufficiale</a> (file <code>hamlib-w32-….exe</code> o <code>-w64</code>, va bene l'uno o l'altro). FZR Skimmer trova <code>rigctld.exe</code> da solo nelle cartelle di Hamlib, WSJT-X e JTDX; altrimenti <strong>Sfoglia…</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In basso premi <strong>Radio…</strong>: scegli il <strong>modello</strong> (scrivi «7600» per trovare <em>3063 · Icom IC-7600</em>), la <strong>porta COM</strong> e la <strong>velocità</strong> (IC-7600: CI-V via USB, 19200), poi <strong>Collega la radio</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se un altro programma ha già aperto rigctld, scegli <em>Collegati a un rigctld già aperto</em> e indica computer e porta (di solito 4532): così la radio la usate in due.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La spunta <strong>Radio (CAT)</strong> in basso accende e spegne il collegamento; accanto c'è la frequenza letta dalla radio, il modo e il TX in split.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Cosa fa</th><th>Come</th></tr></thead><tbody><tr><td>La radio segue FZR Skimmer</td><td>DX (Ctrl+clic, rotellina, frequenza scritta), pulsanti di banda, modo: CW, oppure USB/LSB in SSB.</td></tr><tr><td>FZR Skimmer segue la radio</td><td>Giri la manopola: il DX (o l'RX) si sposta; se esci dalla banda ricevuta il Perseus si risintonizza. Con <em>Audio della radio</em> la frequenza si legge da sola, niente più a mano.</td></tr><tr><td>Split in SSB</td><td>Il TX della radio segue <strong>RX2</strong>: giri la rotellina, trovi chi risponde, e il TX è già lì. Pulsante <strong>TX = RX2</strong> o tasto <strong>T</strong>.</td></tr><tr><td>Split in DXpedition</td><td><strong>TX → ascolto</strong> o tasto <strong>T</strong>: TX sull'ultimo ascolto rilevato.</td></tr><tr><td>Split dove vuoi</td><td>Tasto destro sul waterfall → <strong>TX qui (split)</strong>.</td></tr><tr><td>Sul waterfall</td><td>La linea rossa tratteggiata è il TX della radio, con lo scostamento dal DX.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Cambiando banda o passando CW ↔ SSB lo split si spegne, per non trasmettere su una frequenza vecchia. All'avvio, se la radio è già su una banda HF la segue FZR Skimmer, altrimenti è la radio ad andare sul DX. Le tre opzioni (la radio segue, FZR segue, TX segue RX2) si tolgono nella finestra <strong>Radio…</strong>.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
 
 <!-- wp:heading {"level":2,"anchor":"calibrazione"} -->
 <h2 class="wp-block-heading" id="calibrazione">Calibrazione della frequenza</h2>
@@ -371,7 +409,13 @@
 <li><strong>Memorie di banda per la fonia</strong>: passando in SSB il ricevitore va sul segmento fonia della stessa banda (40 m: centro 7150, DX 7140; 20 m: 14220 / 14195; 80 m: 3780 / 3790…), tornando in CW riprende le memorie CW. <strong>Salva memoria</strong> in SSB salva quella fonia. Il 30 m in SSB non compare.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>🔒 DX</strong>: in SSB il DX è bloccato, così non si sposta per sbaglio mentre giri la rotellina: Ctrl + rotellina, Ctrl + clic e frecce non lo muovono. Si cambia scrivendo la frequenza in <strong>DX kHz</strong> o con i pulsanti di banda; premi il lucchetto per sbloccarlo.</li>
+<li><strong>Ctrl + rotellina</strong> e <strong>Ctrl + clic</strong> spostano <strong>solo il DX</strong>: RX2 resta dov'è e cambia lo scostamento. Cambiando banda, invece, RX2 tiene lo scostamento (es. UP 5).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🔊 DX / 🔇 DX</strong> (tasto <strong>M</strong>) silenzia il DX; <strong>RX2 acceso / spento</strong> (tasto <strong>R</strong>) spegne il secondo ricevitore, che si riaccende appena giri la rotellina.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🔒 DX</strong> (spento di base): se lo accendi, Ctrl + rotellina e frecce non spostano il DX per sbaglio; Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>🎧 Prova</strong>: una nota bassa nell'orecchio del DX e una alta in quello di RX2. Se le senti tutte e due uguali, il problema è fuori dal programma: cuffia mono, scheda audio, mixer, oppure Windows con <em>Audio mono</em> acceso (Impostazioni → Accessibilità → Audio).</li>

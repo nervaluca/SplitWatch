@@ -1,4 +1,4 @@
-# FZR Skimmer 1.23
+# FZR Skimmer 1.24
 
 by IW1FZR
 
@@ -68,6 +68,26 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 
 **Input**: the sound card to read from.
 
+## Radio (CAT) with Hamlib
+
+FZR Skimmer controls the radio (IC-7600 and every rig Hamlib supports) alongside the Perseus, through
+Hamlib **rigctld**. Install Hamlib for Windows (https://github.com/Hamlib/Hamlib/releases, the
+`hamlib-w32-….exe` or `-w64` file, either works): FZR Skimmer finds `rigctld.exe` by itself (Hamlib,
+WSJT-X, JTDX folders), otherwise **Browse…**.
+
+At the bottom, **Radio…**: model (IC-7600 = 3063, type «7600» to find it), COM port and speed
+(IC-7600: CI-V USB, 19200), then **Connect the radio**. Or connect to an rigctld already started by
+another program (computer and port, usually 4532). The **Radio (CAT)** tick turns it on and off.
+
+- **The radio follows FZR Skimmer**: DX, band buttons, mode (CW, or USB/LSB in SSB).
+- **FZR Skimmer follows the radio**: turn the dial and the DX moves; if you leave the received band the
+  Perseus retunes. With «Radio audio» the frequency is read automatically.
+- **Split**: in SSB the TX follows RX2 (wheel = TX already on the station you found); in DXpedition
+  **TX → listening** or the **T** key puts the TX on the last listening spot; right click on the
+  waterfall → **TX here (split)**. The dashed red line is the radio TX.
+- Changing band or switching CW ↔ SSB turns split off.
+- At start-up: if the radio is already on an HF band FZR Skimmer follows it, otherwise the radio goes to the DX.
+
 ## Frequency calibration
 
 If the receiver reads slightly off (the Perseus sometimes by a few tens of Hz), correct it with
@@ -103,8 +123,12 @@ Top left, **Mode**:
   - **Separate band memories** for phone: switching to SSB moves to the phone segment of the same band
     (e.g. 40 m: centre 7150, DX 7140; 20 m: 14220 / 14195); back to CW, the CW memories return.
     «Save memory» in SSB saves the phone one. No 30 m in SSB.
-  - **🔒 DX**: in SSB the DX is locked (Ctrl + wheel, Ctrl + click and arrows do not move it); change it
-    by typing the frequency or with the band buttons. Press to unlock.
+  - **Ctrl + wheel** (and Ctrl + click) moves **only the DX**: RX2 stays where it is, the offset changes.
+    Changing band, RX2 keeps its offset instead (e.g. UP 5).
+  - **🔊 DX / 🔇 DX** (**M** key) mutes the DX; **RX2 on / off** (**R** key) turns the second receiver off
+    (spinning the wheel turns it back on).
+  - **🔒 DX** (off by default): when on, Ctrl + wheel and arrows cannot move the DX by mistake;
+    Ctrl + click, right click, typing and band buttons can.
   - **🎧 Test**: low note in the DX ear, high note in the RX2 ear. If they sound the same, the headphones,
     sound card or Windows (Settings → Accessibility → Mono audio) are mono.
 
