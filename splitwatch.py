@@ -36,7 +36,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.22'
+VERSION = '1.23'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -128,6 +128,19 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
     '15':  (21000000, 21450000, 21035000, 21025000),
     '12':  (24890000, 24990000, 24905000, 24895000),
     '10':  (28000000, 29700000, 28035000, 28025000),
+}
+
+
+# memorie SSB: segmenti fonia (IARU Regione 1), DX con spazio UP sopra; 30 m niente fonia
+BANDS_SSB = {
+    '160': (1860000, 1850000),
+    '80':  (3780000, 3790000),
+    '40':  (7150000, 7140000),
+    '20':  (14220000, 14195000),
+    '17':  (18140000, 18130000),
+    '15':  (21300000, 21295000),
+    '12':  (24950000, 24945000),
+    '10':  (28500000, 28495000),
 }
 
 
@@ -944,6 +957,36 @@ class Hub:
             save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
 
+    def is_ssb(self):
+        return self.cfg.get('modo', 'dx') == 'ssb'
+
+    def mem_key(self):
+        """Le memorie di banda sono due serie: CW (DXpedition, Contest, Normale) e fonia (SSB)."""
+        return 'memorie_ssb' if self.is_ssb() else 'memorie'
+
+    def band_mem(self, b, ssb=None):
+        ssb = self.is_ssb() if ssb is None else ssb
+        if ssb:
+            if b not in BANDS_SSB:
+                return None
+            m = self.cfg.get('memorie_ssb', {}).get(b)
+            return m or {'centro': BANDS_SSB[b][0], 'dx': BANDS_SSB[b][1], 'pred': True}
+        return self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
+
+    def go_band(self, b):
+        m = self.band_mem(b)
+        if not m:
+            return False
+        self.cmd_q.put(('dx', float(m['dx'])))
+        if isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
+            self.tune(m['centro'])
+        elif isinstance(self.src, AudioCard):
+            self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
+            self.on_status(f'Sintonizza la radio su {m["dx"]/1000:.2f} kHz')
+        else:
+            self.on_status('In riproduzione la frequenza centrale non si cambia: imposto solo il DX')
+        return True
+
     def sb_eff(self):
         """Banda laterale in uso: +1 USB, -1 LSB (automatica: LSB sotto i 10 MHz)."""
         v = self.cfg.get('sb', 'auto')
@@ -980,7 +1023,7 @@ class Hub:
                 'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
                 'passo': int(self.cfg.get('passo', 500)), 'swap': bool(self.cfg.get('inverti_iq', False)),
-                'bands': {b: (self.cfg.get('memorie', {}).get(b) or {'centro': v[2], 'dx': v[3], 'pred': True}) for b, v in BANDS.items()},
+                'bands': {b: self.band_mem(b) for b in BANDS if self.band_mem(b)},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
@@ -1043,21 +1086,13 @@ class Hub:
                 elif k == 'band':
                     b = str(c['band'])
                     if b in BANDS:
-                        m = self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3]}
-                        self.cmd_q.put(('dx', float(m['dx'])))
-                        if isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
-                            self.tune(m['centro'])
-                        elif isinstance(self.src, AudioCard):
-                            self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
-                            self.on_status(f'Sintonizza la radio su {m["dx"]/1000:.2f} kHz')
-                        else:
-                            self.on_status('In riproduzione la frequenza centrale non si cambia: imposto solo il DX')
+                        self.go_band(b)
                 elif k == 'save':
                     b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
                     if b:
-                        self.cfg.setdefault('memorie', {})[b] = {'centro': int(self.center), 'dx': float(self.dx_abs)}
+                        self.cfg.setdefault(self.mem_key(), {})[b] = {'centro': int(self.center), 'dx': float(self.dx_abs)}
                         save_cfg(self.cfg)
-                        self.on_status(f'Memoria {b} m salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
+                        self.on_status(f'Memoria {b} m{" SSB" if self.is_ssb() else ""} salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
@@ -1108,7 +1143,15 @@ class Hub:
                     save_cfg(self.cfg)
                     self.post_json(self.cfg_msg())
                 elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale', 'ssb'):
+                    was_ssb = self.is_ssb()
                     self.cfg['modo'] = c['v']
+                    if was_ssb != self.is_ssb():
+                        # CW <-> fonia: la stessa banda, ma con le memorie dell'altra serie
+                        b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
+                        if self.src_kind == 'file':
+                            pass                                  # in riproduzione il centro non si sposta
+                        elif b and not self.go_band(b) and self.is_ssb():
+                            self.on_status(f'{b} m: niente fonia, resto qui')
                     save_cfg(self.cfg)
                     if self.engine:
                         self.engine.listen_on = c['v'] == 'dx'

@@ -31,10 +31,16 @@
 <li><a href="#schermata">La schermata</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><a href="#normale">Modo Normale</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><a href="#dxpedition">Modo DXpedition</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><a href="#contest">Modo Contest</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#ssb">Modo SSB</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><a href="#nominativi">Nominativi e decodifica</a></li>
@@ -240,6 +246,37 @@
 <figure class="wp-block-table"><table><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
+<!-- wp:heading {"level":2,"anchor":"normale"} -->
+<h2 class="wp-block-heading" id="normale">Modo Normale (ascolto libero)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il modo per ascoltare la banda come con CW Skimmer. Si sceglie con <strong>Normale</strong> in alto a sinistra.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A destra si apre il pannello <strong>Testo decodificato</strong>: una riga per ogni segnale visibile nel waterfall, dal più alto al più basso, con la frequenza e il testo degli ultimi 3 minuti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Evidenziati: <strong>nominativi</strong> (riquadro; quelli sicuri bianchi su blu, quelli corretti dal programma con il <strong>?</strong>), <strong>CQ</strong> in verde, <strong>599/5NN/TU</strong> su fondo arancio.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Lo stesso evidenziamento vale anche nella colonna accanto al waterfall.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic su una riga</strong>: l'RX va su quel segnale (con <strong>Audio DX</strong> acceso lo senti).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le righe con un solo frammento senza nominativi sono nascoste; quelle ferme da più di un minuto sono attenuate.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il pulsante <strong>☰ Elenco</strong> mostra o nasconde il pannello. La ricerca dell'ascolto è spenta.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
 <!-- wp:heading {"level":2,"anchor":"dxpedition"} -->
 <h2 class="wp-block-heading" id="dxpedition">Modo DXpedition (pile-up in split)</h2>
 <!-- /wp:heading -->
@@ -296,6 +333,57 @@
 <!-- wp:paragraph -->
 <p><em>[Immagine: il modo Contest con l'elenco stazioni]</em></p>
 <!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"ssb"} -->
+<h2 class="wp-block-heading" id="ssb">Modo SSB (pile-up in fonia)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Per i pile-up feroci in fonia. Il primo ricevitore resta fermo sul DX; un secondo ricevitore, <strong>RX2</strong>, si sposta velocissimo con la rotellina per trovare chi sta rispondendo. Si sceglie con <strong>SSB</strong> in alto a sinistra.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Audio in stereo</strong>: DX in un orecchio e RX2 nell'altro (menu <em>DX sinistra · RX2 destra</em>, il contrario, oppure <em>insieme</em>). Il <strong>potenziometro DX ◀▶ RX2</strong> li dosa: tutto a sinistra solo il DX, tutto a destra solo RX2, in mezzo entrambi pieni (doppio clic = in mezzo).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Rotellina</strong> sul waterfall: RX2 sale o scende del <strong>Passo</strong> scelto, 100, 500 o 1000 Hz, agganciato alla griglia (14200.0, 14200.5…). <strong>Maiusc + rotellina</strong> scorre la vista, <strong>Ctrl + rotellina</strong> sposta il DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic</strong> su una voce nel waterfall: RX2 va lì, con la banda passante centrata dove clicchi. <strong>Ctrl + clic</strong> fa lo stesso con il DX. <strong>RX2 = DX</strong> riporta RX2 sul DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Banda laterale <strong>Auto</strong> (LSB sotto i 10 MHz, USB sopra) oppure fissa; filtro 2,7 kHz (200–2900 Hz) con fianchi ripidi, per non sentire i vicini.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Sul waterfall: banda passante del DX in verde, di RX2 in azzurro con lo scostamento (es. <em>RX2 +5.30</em>); nella colonna a destra le due frequenze e il passo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La frequenza del DX e di RX2 è quella della portante, come sulla radio. Lo scostamento di RX2 è memorizzato rispetto al DX: cambiando banda resta, per esempio, UP 5.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Memorie di banda per la fonia</strong>: passando in SSB il ricevitore va sul segmento fonia della stessa banda (40 m: centro 7150, DX 7140; 20 m: 14220 / 14195; 80 m: 3780 / 3790…), tornando in CW riprende le memorie CW. <strong>Salva memoria</strong> in SSB salva quella fonia. Il 30 m in SSB non compare.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🔒 DX</strong>: in SSB il DX è bloccato, così non si sposta per sbaglio mentre giri la rotellina: Ctrl + rotellina, Ctrl + clic e frecce non lo muovono. Si cambia scrivendo la frequenza in <strong>DX kHz</strong> o con i pulsanti di banda; premi il lucchetto per sbloccarlo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🎧 Prova</strong>: una nota bassa nell'orecchio del DX e una alta in quello di RX2. Se le senti tutte e due uguali, il problema è fuori dal programma: cuffia mono, scheda audio, mixer, oppure Windows con <em>Audio mono</em> acceso (Impostazioni → Accessibilità → Audio).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>In SSB la decodifica CW è spenta (meno lavoro per il PC). Il TX resta sulla radio: lo scostamento mostrato è quello da impostare in split.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
 
 <!-- wp:heading {"level":2,"anchor":"nominativi"} -->
 <h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>

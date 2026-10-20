@@ -1,4 +1,4 @@
-# FZR Skimmer 1.22
+# FZR Skimmer 1.23
 
 by IW1FZR
 
@@ -100,6 +100,13 @@ Top left, **Mode**:
   - Sideband **Auto** (LSB below 10 MHz, USB above) or fixed USB/LSB; 2.7 kHz filter.
   - The passbands are drawn on the waterfall: DX green, RX2 light blue with its offset (UP +5.30).
     CW decoding is off.
+  - **Separate band memories** for phone: switching to SSB moves to the phone segment of the same band
+    (e.g. 40 m: centre 7150, DX 7140; 20 m: 14220 / 14195); back to CW, the CW memories return.
+    «Save memory» in SSB saves the phone one. No 30 m in SSB.
+  - **🔒 DX**: in SSB the DX is locked (Ctrl + wheel, Ctrl + click and arrows do not move it); change it
+    by typing the frequency or with the band buttons. Press to unlock.
+  - **🎧 Test**: low note in the DX ear, high note in the RX2 ear. If they sound the same, the headphones,
+    sound card or Windows (Settings → Accessibility → Mono audio) are mono.
 
 ## Use
 

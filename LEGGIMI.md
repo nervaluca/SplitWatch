@@ -1,4 +1,4 @@
-# FZR Skimmer 1.22
+# FZR Skimmer 1.23
 
 IW1FZR
 
@@ -177,6 +177,13 @@ In alto a sinistra, **Modo**:
   - Banda laterale **Auto** (LSB sotto i 10 MHz, USB sopra) oppure USB/LSB fissa; filtro 2,7 kHz.
   - Sul waterfall le bande passanti: DX verde, RX2 azzurro con lo scostamento (UP +5.30).
     La decodifica CW è spenta.
+  - **Memorie di banda separate** per la fonia: passando in SSB la radio va sul segmento fonia della
+    stessa banda (es. 40 m: centro 7150, DX 7140; 20 m: 14220 / 14195), tornando in CW alle memorie CW.
+    «Salva memoria» in SSB salva quella fonia. Il 30 m in SSB non c'è.
+  - **🔒 DX**: in SSB il DX è bloccato (Ctrl + rotellina, Ctrl + clic e frecce non lo spostano);
+    si cambia scrivendo la frequenza o con i pulsanti di banda. Premi per sbloccarlo.
+  - **🎧 Prova**: nota bassa nell'orecchio del DX, nota alta in quello di RX2. Se le senti uguali la
+    cuffia, la scheda audio o Windows (Impostazioni → Accessibilità → Audio mono) sono in mono.
 
 ## Elenco stazioni (contest, S&P)
 
