@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.26'
+VERSION = '1.27'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -144,6 +144,14 @@ BANDS_SSB = {
     '10':  (28500000, 28495000),
 }
 
+
+# Ricevitore "puro" (due RX in stereo, niente skimmer): modi e memorie di banda per ciascuno.
+RX_MODES = ('rxcw', 'ssb', 'rtty', 'ft8')
+# RTTY: frequenza = mark (come gli Icom), shift 170 Hz. DIGI (modo interno 'ft8'): frequenze FT8 standard (USB-D).
+BANDS_RTTY = {'160': 1838000, '80': 3590000, '40': 7040000, '30': 10142000, '20': 14083000,
+              '17': 18101000, '15': 21083000, '12': 24921000, '10': 28083000}
+BANDS_FT8 = {'160': 1840000, '80': 3573000, '40': 7074000, '30': 10136000, '20': 14074000,
+             '17': 18100000, '15': 21074000, '12': 24915000, '10': 28074000}
 
 SM_CAL_DEFAULT = -10.0      # taratura indicativa (dBm = dBFS - 10) finché non la allinei
 
@@ -1000,6 +1008,7 @@ class Hub:
             save_cfg(self.cfg)
             if self.engine:
                 self.engine.set_bw(float(c[1]))
+                self.ssb_apply()                        # RX CW: il filtro vale anche per i due ricevitori
             self.post_json(self.cfg_msg())
         elif c[0] == 'snr':
             self.cfg['sensibilita'] = float(c[1])
@@ -1119,8 +1128,13 @@ class Hub:
                      and self.src_kind != 'file') else None
 
     def rig_mode_for(self):
-        if self.is_ssb():
+        m = self.modo()
+        if m == 'ssb':
             return 'USB' if self.sb_eff() > 0 else 'LSB'
+        if m == 'rtty':
+            return 'RTTY'
+        if m == 'ft8':
+            return 'PKTUSB'                          # USB-D sugli Icom
         return 'CW'
 
     def rig_follow_dx(self):
@@ -1181,23 +1195,30 @@ class Hub:
         self.cmd_q.put(('dx', float(f), 'radio'))
         if self.fs and self.center and abs(f - self.center) > self.fs * 0.42 and \
                 isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
-            self.tune(f + (self.fs * 0.2 if self.cfg.get('modo', 'dx') in ('dx', 'ssb') else 0))   # spazio UP sopra
+            self.tune(f + (self.fs * 0.2 if self.modo() in ('dx',) + RX_MODES else 0))   # spazio UP sopra
+
+    def modo(self):
+        return self.cfg.get('modo', 'dx')
 
     def is_ssb(self):
-        return self.cfg.get('modo', 'dx') == 'ssb'
+        """Ricevitore puro (CW, SSB, RTTY, FT8): due RX in stereo, niente decodifica CW."""
+        return self.modo() in RX_MODES
 
-    def mem_key(self):
-        """Le memorie di banda sono due serie: CW (DXpedition, Contest, Normale) e fonia (SSB)."""
-        return 'memorie_ssb' if self.is_ssb() else 'memorie'
+    def mem_key(self, modo=None):
+        """Memorie di banda: CW (skimmer e RX CW), fonia (SSB), RTTY, FT8."""
+        return {'ssb': 'memorie_ssb', 'rtty': 'memorie_rtty', 'ft8': 'memorie_ft8'}.get(modo or self.modo(), 'memorie')
 
-    def band_mem(self, b, ssb=None):
-        ssb = self.is_ssb() if ssb is None else ssb
-        if ssb:
-            if b not in BANDS_SSB:
-                return None
-            m = self.cfg.get('memorie_ssb', {}).get(b)
-            return m or {'centro': BANDS_SSB[b][0], 'dx': BANDS_SSB[b][1], 'pred': True}
-        return self.cfg.get('memorie', {}).get(b) or {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
+    def band_mem(self, b, modo=None):
+        k = self.mem_key(modo)
+        m = self.cfg.get(k, {}).get(b)
+        if m:
+            return m
+        if k == 'memorie_ssb':
+            return {'centro': BANDS_SSB[b][0], 'dx': BANDS_SSB[b][1], 'pred': True} if b in BANDS_SSB else None
+        if k in ('memorie_rtty', 'memorie_ft8'):
+            t = BANDS_RTTY if k == 'memorie_rtty' else BANDS_FT8
+            return {'centro': t[b] + 10000, 'dx': t[b], 'pred': True} if b in t else None
+        return {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
 
     def go_band(self, b):
         m = self.band_mem(b)
@@ -1229,14 +1250,15 @@ class Hub:
         return -1 if (self.dx_abs or 0) < 10e6 else 1
 
     def ssb_apply(self):
-        """Accende/spegne i due ricevitori SSB del motore (si chiama dal thread del calcolo)."""
+        """Accende/spegne i due ricevitori del modo «ricevitore» (si chiama dal thread del calcolo)."""
         e = self.engine
         if e is None or self.center is None:
             return
-        on = self.cfg.get('modo', 'dx') == 'ssb'
+        on = self.is_ssb()
         if on != e.ssb:
             e.out_audio = []
-        e.set_ssb(on, self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)))
+        e.set_rx(on, self.modo(), self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)),
+                 float(self.cfg.get('filtro', 500)))
 
     def cfg_msg(self):
         e = self.engine
@@ -1329,7 +1351,7 @@ class Hub:
                     if b:
                         self.cfg.setdefault(self.mem_key(), {})[b] = {'centro': int(self.center), 'dx': float(self.dx_abs)}
                         save_cfg(self.cfg)
-                        self.on_status(f'Memoria {b} m{" SSB" if self.is_ssb() else ""} salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
+                        self.on_status(f'Memoria {b} m{" " + {"rxcw": "CW", "ssb": "SSB", "rtty": "RTTY", "ft8": "DIGI"}[self.modo()] if self.is_ssb() else ""} salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
@@ -1376,7 +1398,7 @@ class Hub:
                     save_cfg(self.cfg)
                     self.cmd_q.put(('ssbcfg',))
                     r = self.rig_ctl()
-                    if r and self.is_ssb():
+                    if r and self.modo() == 'ssb':
                         r.set_mode(self.rig_mode_for())
                 elif k == 'sm_set' and c.get('dbm') is not None:
                     self.sm_set(float(c['dbm']))
@@ -1431,19 +1453,19 @@ class Hub:
                             save_cfg(self.cfg)
                             self.ws_cmd_info()
                     threading.Thread(target=br, daemon=True).start()
-                elif k == 'passo' and int(c.get('v', 0)) in (100, 500, 1000):
+                elif k == 'passo' and int(c.get('v', 0)) in (10, 50, 100, 500, 1000):
                     self.cfg['passo'] = int(c['v'])
                     save_cfg(self.cfg)
                     self.post_json(self.cfg_msg())
-                elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale', 'ssb'):
-                    was_ssb = self.is_ssb()
+                elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale') + RX_MODES:
+                    was_key, was_mode = self.mem_key(), self.modo()
                     self.cfg['modo'] = c['v']
-                    if was_ssb != self.is_ssb():
-                        # CW <-> fonia: la stessa banda, ma con le memorie dell'altra serie
+                    if was_key != self.mem_key():
+                        # cambia la serie di memorie (CW, fonia, RTTY, FT8): stessa banda, memoria dell'altra serie
                         b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
                         if self.src_kind == 'file':
                             pass                                  # in riproduzione il centro non si sposta
-                        elif b and not self.go_band(b) and self.is_ssb():
+                        elif b and not self.go_band(b):
                             self.on_status(f'{b} m: niente fonia, resto qui')
                     save_cfg(self.cfg)
                     if self.engine:
@@ -1453,8 +1475,9 @@ class Hub:
                         self.listen_hist.clear()
                     self.cmd_q.put(('ssbcfg',))
                     r = self.rig_ctl()
-                    if r and was_ssb != self.is_ssb():
-                        r.split_off()                             # lo split della fonia non vale in CW (e viceversa)
+                    if r and was_mode != self.modo():
+                        if was_key != self.mem_key():
+                            r.split_off()                         # lo split di un altro modo non vale qui
                         r.set_mode(self.rig_mode_for())
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))

@@ -46,6 +46,9 @@
 <li><a href="#ssb">Modo SSB</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><a href="#rx">Ricevitore CW, RTTY, DIGI</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><a href="#nominativi">Nominativi e decodifica</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -310,7 +313,7 @@
 <!-- /wp:list -->
 
 <!-- wp:heading {"level":2,"anchor":"normale"} -->
-<h2 class="wp-block-heading" id="normale">Modo Normale (ascolto libero)</h2>
+<h2 class="wp-block-heading" id="normale">Modo Normale (ascolto libero, skimmer CW)</h2>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
@@ -437,7 +440,7 @@
 <li><strong>Ctrl + rotellina</strong> e <strong>Ctrl + clic</strong> spostano <strong>solo il DX</strong>: RX2 resta dov'è e cambia lo scostamento. Cambiando banda, invece, RX2 tiene lo scostamento (es. UP 5).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>🔊 DX / 🔇 DX</strong> (tasto <strong>M</strong>) silenzia il DX; <strong>RX2 acceso / spento</strong> (tasto <strong>R</strong>) spegne il secondo ricevitore, che si riaccende appena giri la rotellina.</li>
+<li><strong>🔊 RX1 DX</strong> (tasto <strong>M</strong>) e <strong>🔊 RX2</strong> (tasto <strong>R</strong>) funzionano allo stesso modo: acceso (illuminato) = si sente, spento (🔇) = muto. RX2 spento sparisce anche dal waterfall e si riaccende appena giri la rotellina.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>🔒 DX</strong> (spento di base): se lo accendi, Ctrl + rotellina e frecce non spostano il DX per sbaglio; Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.</li>
@@ -453,6 +456,32 @@
 <p>In SSB la decodifica CW è spenta (meno lavoro per il PC). Il TX resta sulla radio: lo scostamento mostrato è quello da impostare in split.</p>
 <!-- /wp:paragraph --></blockquote>
 <!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"rx"} -->
+<h2 class="wp-block-heading" id="rx">Ricevitore: CW, RTTY, DIGI</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro, senza skimmer, con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>La rotellina ha anche i passi da <strong>10</strong> e <strong>50 Hz</strong>, comodi in CW e RTTY.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D per il DIGI.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e RX2 insieme</em> e potenziometro tutto su DX (o RX2 spento).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
 
 <!-- wp:heading {"level":2,"anchor":"nominativi"} -->
 <h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>

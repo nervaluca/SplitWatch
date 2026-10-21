@@ -440,10 +440,11 @@
         <h4>🎛️ Uso</h4>
         <ul>
           <li><a href="#schermata">La schermata</a></li>
-          <li><a href="#normale">Modo Normale (ascolto libero)</a></li>
+          <li><a href="#normale">Modo Normale (ascolto libero, skimmer CW)</a></li>
           <li><a href="#dxpedition">Modo DXpedition (pile-up in split)</a></li>
           <li><a href="#contest">Modo Contest (S&amp;P)</a></li>
           <li><a href="#ssb">Modo SSB (pile-up in fonia)</a></li>
+          <li><a href="#rx">Ricevitore: CW, RTTY, DIGI</a></li>
           <li><a href="#nominativi">Nominativi e decodifica</a></li>
           <li><a href="#rbn">Reverse Beacon Network</a></li>
         </ul>
@@ -584,7 +585,7 @@
     <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
   </section>
   <section id="normale" class="fzr-section">
-    <h2>👂 Modo Normale (ascolto libero)</h2>
+    <h2>👂 Modo Normale (ascolto libero, skimmer CW)</h2>
     <p>Il modo per ascoltare la banda come con CW Skimmer. Si sceglie con <strong>Normale</strong> in alto a sinistra.</p>
     <ul>
       <li>A destra si apre il pannello <strong>Testo decodificato</strong>: una riga per ogni segnale visibile nel waterfall, dal più alto al più basso, con la frequenza e il testo degli ultimi 3 minuti.</li>
@@ -633,11 +634,22 @@
     <ul>
       <li><strong>Memorie di banda per la fonia</strong>: passando in SSB il ricevitore va sul segmento fonia della stessa banda (40 m: centro 7150, DX 7140; 20 m: 14220 / 14195; 80 m: 3780 / 3790…), tornando in CW riprende le memorie CW. <strong>Salva memoria</strong> in SSB salva quella fonia. Il 30 m in SSB non compare.</li>
       <li><strong>Ctrl + rotellina</strong> e <strong>Ctrl + clic</strong> spostano <strong>solo il DX</strong>: RX2 resta dov'è e cambia lo scostamento. Cambiando banda, invece, RX2 tiene lo scostamento (es. UP 5).</li>
-      <li><strong>🔊 DX / 🔇 DX</strong> (tasto <strong>M</strong>) silenzia il DX; <strong>RX2 acceso / spento</strong> (tasto <strong>R</strong>) spegne il secondo ricevitore, che si riaccende appena giri la rotellina.</li>
+      <li><strong>🔊 RX1 DX</strong> (tasto <strong>M</strong>) e <strong>🔊 RX2</strong> (tasto <strong>R</strong>) funzionano allo stesso modo: acceso (illuminato) = si sente, spento (🔇) = muto. RX2 spento sparisce anche dal waterfall e si riaccende appena giri la rotellina.</li>
       <li><strong>🔒 DX</strong> (spento di base): se lo accendi, Ctrl + rotellina e frecce non spostano il DX per sbaglio; Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.</li>
       <li><strong>🎧 Prova</strong>: una nota bassa nell'orecchio del DX e una alta in quello di RX2. Se le senti tutte e due uguali, il problema è fuori dal programma: cuffia mono, scheda audio, mixer, oppure Windows con <em>Audio mono</em> acceso (Impostazioni → Accessibilità → Audio).</li>
     </ul>
     <div class="fzr-callout">In SSB la decodifica CW è spenta (meno lavoro per il PC). Il TX resta sulla radio: lo scostamento mostrato è quello da impostare in split.</div>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="rx" class="fzr-section">
+    <h2>📟 Ricevitore: CW, RTTY, DIGI</h2>
+    <p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro, senza skimmer, con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
+    <table class="fzr-table"><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table>
+    <ul>
+      <li>La rotellina ha anche i passi da <strong>10</strong> e <strong>50 Hz</strong>, comodi in CW e RTTY.</li>
+      <li>Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D per il DIGI.</li>
+      <li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e RX2 insieme</em> e potenziometro tutto su DX (o RX2 spento).</li>
+    </ul>
     <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
   </section>
   <section id="nominativi" class="fzr-section">
@@ -774,6 +786,7 @@
           <li><a href="#dxpedition-en">DXpedition mode (split pile-ups)</a></li>
           <li><a href="#contest-en">Contest mode (S&amp;P)</a></li>
           <li><a href="#ssb-en">SSB mode (phone pile-ups)</a></li>
+          <li><a href="#rx-en">Receiver: CW, RTTY, DIGI</a></li>
           <li><a href="#nominativi-en">Callsigns and decoding</a></li>
           <li><a href="#rbn-en">Reverse Beacon Network</a></li>
         </ul>
@@ -963,11 +976,22 @@
     <ul>
       <li><strong>Phone band memories</strong>: switching to SSB the receiver moves to the phone segment of the same band (40 m: centre 7150, DX 7140; 20 m: 14220 / 14195; 80 m: 3780 / 3790…); back to CW the CW memories return. <strong>Save memory</strong> in SSB saves the phone one. 30 m is not shown in SSB.</li>
       <li><strong>Ctrl + wheel</strong> and <strong>Ctrl + click</strong> move <strong>only the DX</strong>: RX2 stays where it is and the offset changes. Changing band, RX2 keeps its offset instead (e.g. UP 5).</li>
-      <li><strong>🔊 DX / 🔇 DX</strong> (<strong>M</strong> key) mutes the DX; <strong>RX2 on / off</strong> (<strong>R</strong> key) turns the second receiver off, and it comes back as soon as you spin the wheel.</li>
+      <li><strong>🔊 RX1 DX</strong> (<strong>M</strong> key) and <strong>🔊 RX2</strong> (<strong>R</strong> key) work the same way: on (lit) = audible, off (🔇) = muted. RX2 off also disappears from the waterfall and comes back as soon as you spin the wheel.</li>
       <li><strong>🔒 DX</strong> (off by default): when on, Ctrl + wheel and arrows cannot move the DX by mistake; Ctrl + click, right click, typing and band buttons can.</li>
       <li><strong>🎧 Test</strong>: a low note in the DX ear and a high note in the RX2 ear. If both sound the same, the problem is outside the program: mono headphones, sound card, mixer, or Windows with <em>Mono audio</em> on (Settings → Accessibility → Audio).</li>
     </ul>
     <div class="fzr-callout">In SSB the CW decoder is off (less work for the PC). Transmit stays on the radio: the offset shown is the one to set in split.</div>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="rx-en" class="fzr-section">
+    <h2>📟 Receiver: CW, RTTY, DIGI</h2>
+    <p>Besides SSB, the <strong>Receiver</strong> row has <strong>CW</strong>, <strong>RTTY</strong> and <strong>DIGI</strong>: a pure receiver, no skimmer, with everything SSB has (RX1 on the DX, RX2 on the wheel, stereo, 🔊 RX1 / 🔊 RX2, split following RX2, S-meter) and its own band memories.</p>
+    <table class="fzr-table"><thead><tr><th>Mode</th><th>Frequency</th><th>Passband</th><th>Memories</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>the signal frequency, heard at 600 Hz</td><td><strong>RX filter</strong> 100–800 Hz</td><td>the same as the CW skimmer</td></tr><tr><td><strong>SSB</strong></td><td>carrier (as on the radio)</td><td>2.7 kHz, USB or LSB</td><td>phone: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (like Icom), 170 Hz shift</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>USB-D dial</td><td>100–3100 Hz</td><td>FT8 frequencies: 7074, 14074, 21074…</td></tr></tbody></table>
+    <ul>
+      <li>The wheel also has <strong>10</strong> and <strong>50 Hz</strong> steps, handy in CW and RTTY.</li>
+      <li>With the radio connected (CAT) the radio mode follows: CW, USB/LSB, RTTY, USB-D for DIGI.</li>
+      <li>DIGI with WSJT-X (or another digital program): in Windows (Settings → System → Sound → Volume mixer) send the Edge audio («FZR Skimmer») to a virtual audio cable (e.g. VB-Cable) and pick that cable as WSJT-X input. Headphones <em>DX and RX2 together</em> and the knob fully on DX (or RX2 off).</li>
+    </ul>
     <a href="#top-content" class="back-to-top">↑ Back to top</a>
   </section>
   <section id="nominativi-en" class="fzr-section">

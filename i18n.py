@@ -25,6 +25,7 @@ _EN = [
     (r'In riproduzione la frequenza centrale non si cambia', 'The centre frequency cannot change during playback'),
     (r'Memoria (\d+) m( SSB)? salvata: centro ([\d.]+) · DX ([\d.]+) kHz', r'\1 m\2 memory saved: centre \3 · DX \4 kHz'),
     (r'(\d+) m: niente fonia, resto qui', r'\1 m: no phone band, staying here'),
+    (r'Memoria (\d+) m (CW|SSB|RTTY|DIGI) salvata: centro ([\d.]+) · DX ([\d.]+) kHz', r'\1 m \2 memory saved: centre \3 · DX \4 kHz'),
     (r'Frequenza fuori dalle bande radioamatoriali: memoria non salvata', 'Frequency outside the amateur bands: memory not saved'),
     (r'Per registrare serve il ricevitore acceso \(non la riproduzione\)', 'Recording needs the live receiver (not playback)'),
     (r'Registrazione in corso in (.+)', r'Recording in \1'),

@@ -1,4 +1,4 @@
-# FZR Skimmer 1.26
+# FZR Skimmer 1.27
 
 by IW1FZR
 
@@ -118,7 +118,7 @@ removes it. A measurement on a second station should then say "already accurate"
 Works with Perseus, ExtIO and IQ sound card (each has its own value). With the IQ sound card, which
 cannot tune by itself, first put the standard station inside the received band.
 
-## Mode: Normal, DXpedition, Contest or SSB
+## Mode: Skimmer (Normal, DXpedition, Contest) or Receiver (CW, SSB, RTTY, DIGI)
 
 Top left, **Mode**:
 - **Normal** – free listening, like CW Skimmer: the **Decoded text** panel opens on the right with the
@@ -140,12 +140,25 @@ Top left, **Mode**:
     «Save memory» in SSB saves the phone one. No 30 m in SSB.
   - **Ctrl + wheel** (and Ctrl + click) moves **only the DX**: RX2 stays where it is, the offset changes.
     Changing band, RX2 keeps its offset instead (e.g. UP 5).
-  - **🔊 DX / 🔇 DX** (**M** key) mutes the DX; **RX2 on / off** (**R** key) turns the second receiver off
-    (spinning the wheel turns it back on).
+  - **🔊 RX1 DX** (**M** key) and **🔊 RX2** (**R** key) work the same way: on (lit) = audible, off (🔇) =
+    muted. RX2 off also disappears from the waterfall; spinning the wheel turns it back on.
   - **🔒 DX** (off by default): when on, Ctrl + wheel and arrows cannot move the DX by mistake;
     Ctrl + click, right click, typing and band buttons can.
   - **🎧 Test**: low note in the DX ear, high note in the RX2 ear. If they sound the same, the headphones,
     sound card or Windows (Settings → Accessibility → Mono audio) are mono.
+
+- **Receiver: CW, RTTY, DIGI** – like SSB (RX1 on the DX, RX2 on the wheel, stereo, mute, split
+  following RX2, S-meter, own band memories), but without the skimmer: a pure receiver.
+  - **CW**: frequency = the signal frequency, heard at 600 Hz; width with **RX filter** (100–800 Hz).
+    Uses the CW memories. Wheel steps of 10 and 50 Hz.
+  - **RTTY**: frequency = **mark** (like Icom), 170 Hz shift: mark at 2125 Hz, space at 2295 Hz,
+    600 Hz filter. Memories: 7040, 14083, 21083…
+  - **DIGI** (FT8, FT4, PSK…): USB-D, 100–3100 Hz passband, memories on the FT8 frequencies (7074,
+    14074…). To decode with WSJT-X (or another digital program):
+    in Windows (Settings → System → Sound → Volume mixer) send the Edge audio («FZR Skimmer») to a
+    virtual audio cable (e.g. VB-Cable) and pick that cable as WSJT-X input; headphones «DX and RX2
+    together» and the knob fully on DX.
+  - With the radio connected (CAT) the radio mode follows: CW, USB/LSB, RTTY, USB-D (DIGI).
 
 ## Use
 

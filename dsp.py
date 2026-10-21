@@ -261,32 +261,42 @@ def _hyst(E, on, off, prev):
 
 
 class SsbRx:
-    """Ricevitore SSB: banda passante 200–2900 Hz sopra (USB) o sotto (LSB) la frequenza impostata.
+    """Un ricevitore del modo «ricevitore puro» (SSB, CW, RTTY, FT8).
 
-    Converte a ~8 kHz con un vero passa-basso (non basta la media: in un pile-up i vicini forti
-    rientrerebbero), poi riporta la voce in banda audio. Fase continua: si può spostare senza clic."""
-    MID, HALF = 1550.0, 1350.0
+    Porta a 0 Hz il centro della banda passante, la filtra (±half) convertendo a ~8 kHz con un vero
+    passa-basso, poi la rimette in banda audio centrata su `aud` Hz (sb = +1 dritta, -1 rovesciata,
+    come LSB). Per i filtri stretti (CW, RTTY) c'è un secondo filtro a 8 kHz, leggero.
+    Fase continua: si può spostare senza clic."""
 
-    def __init__(self, fs, adec):
+    def __init__(self, fs, adec, half=1350.0):
         self.fs, self.d = float(fs), int(adec)
         self.arate = self.fs / self.d
-        n = int(5.5 * self.fs / 250.0) | 1                      # Blackman: transizione 250 Hz (piatto fino a ±1350)
+        self.half = float(half)
+        wide = max(self.half, 600.0)
+        n = int(5.5 * self.fs / 250.0) | 1                      # Blackman: transizione 250 Hz
         t = np.arange(n) - (n - 1) / 2
-        h = np.sinc(2 * (self.HALF + 125) / self.fs * t) * np.blackman(n)
+        h = np.sinc(2 * (wide + 125) / self.fs * t) * np.blackman(n)
         self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
         self.tail = np.zeros(n - 1, np.complex64)
+        self.h2 = None
+        if self.half < 600:                                      # secondo filtro stretto a ~8 kHz
+            tr = max(40.0, self.half * 0.5)
+            n2 = int(5.5 * self.arate / tr) | 1
+            t2 = np.arange(n2) - (n2 - 1) / 2
+            h2 = np.sinc(2 * (self.half + tr / 2) / self.arate * t2) * np.blackman(n2)
+            self.h2 = (h2 / h2.sum()).astype(np.complex64)
+            self.tail2 = np.zeros(n2 - 1, np.complex64)
         self.ph_in = 0.0
         self.ph_out = 0.0
         self.pos = 0                                            # primo campione da tenere nel prossimo blocco
         self.agc = 1e-6
         self.pk = 0.0                                           # S-meter: potenza massima (blocchi da ~20 ms) dall'ultima lettura
 
-    def process(self, iq, off_hz, sb):
+    def process(self, iq, center_hz, aud_hz, sb):
         """iq al campionamento pieno -> audio reale a arate (float, AGC già applicato)."""
         n = len(iq)
-        fmix = off_hz + sb * self.MID
-        ph = self.ph_in + (-2 * np.pi * fmix / self.fs) * np.arange(n)
-        self.ph_in = float((ph[-1] - 2 * np.pi * fmix / self.fs) % (2 * np.pi)) if n else self.ph_in
+        ph = self.ph_in + (-2 * np.pi * center_hz / self.fs) * np.arange(n)
+        self.ph_in = float((ph[-1] - 2 * np.pi * center_hz / self.fs) % (2 * np.pi)) if n else self.ph_in
         y = (iq * np.exp(1j * ph).astype(np.complex64)).astype(np.complex64)
         z = np.concatenate([self.tail, y])
         L = len(self.h)
@@ -301,11 +311,16 @@ class SsbRx:
         self.tail = z[-(L - 1):].copy()
         if not len(b):
             return np.zeros(0, np.float64)
+        if self.h2 is not None:
+            zz = np.concatenate([self.tail2, b])
+            b2 = np.convolve(zz, self.h2, mode='valid').astype(np.complex64)
+            self.tail2 = zz[-(len(self.h2) - 1):]
+            b = b2
         self.pk = max(self.pk, float(np.mean(np.abs(b) ** 2)))
-        tt = self.ph_out + (2 * np.pi * sb * self.MID / self.arate) * np.arange(len(b))
-        self.ph_out = float((tt[-1] + 2 * np.pi * sb * self.MID / self.arate) % (2 * np.pi))
+        tt = self.ph_out + (2 * np.pi * sb * aud_hz / self.arate) * np.arange(len(b))
+        self.ph_out = float((tt[-1] + 2 * np.pi * sb * aud_hz / self.arate) % (2 * np.pi))
         a = np.real(b * np.exp(1j * tt))
-        # AGC: attacco 2 ms, discesa ~0,4 s (voce)
+        # AGC: attacco 2 ms, discesa ~0,4 s
         env = np.abs(b).astype(np.float64)
         g = np.empty(len(env))
         ag = self.agc
@@ -318,6 +333,22 @@ class SsbRx:
             g[i] = ag
         self.agc = ag
         return a / (g * 2.2)                              # margine: il limitatore finale non distorce
+
+
+def rx_geometry(mode, sb, bw):
+    """(scostamento del centro della banda passante dalla frequenza dell'RX, metà larghezza, centro audio, verso).
+
+    SSB: frequenza = portante soppressa, 200–2900 Hz sopra (USB) o sotto (LSB).
+    FT8: frequenza di sintonia USB, 100–3100 Hz sopra.
+    RTTY: frequenza = mark (come gli Icom), space 170 Hz sotto, in LSB: mark a 2125 Hz e space a 2295 Hz.
+    CW: frequenza = quella del segnale, sentito a 600 Hz, filtro = «Filtro RX»."""
+    if mode == 'ft8':
+        return 1600.0, 1500.0, 1600.0, 1
+    if mode == 'rtty':
+        return -85.0, 300.0, 2210.0, -1
+    if mode == 'rxcw':
+        return 0.0, max(25.0, bw / 2), 600.0, 1
+    return sb * 1550.0, 1350.0, 1550.0, sb
 
 
 class Engine:
@@ -386,6 +417,7 @@ class Engine:
         self.sb = 1                                        # +1 USB, -1 LSB
         self.rx2_off = self.dx_off + 5000.0
         self.ssb_rx = None
+        self.rx_geo = None
         self.decode_on = True
         self.sm_pk = 0.0                                   # S-meter del DX (CW): potenza nella banda passante
 
@@ -449,25 +481,32 @@ class Engine:
         self.n_in += cut
 
     # ------------------------------------------------------------------ audio DX
-    def set_ssb(self, on, sb=None, rx2_off=None):
+    def set_rx(self, on, mode='ssb', sb=1, rx2_off=None, bw=500.0):
+        """Ricevitore puro (due RX in stereo) acceso/spento, con il modo di demodulazione."""
         self.ssb = bool(on)
-        if sb is not None:
-            self.sb = 1 if sb >= 0 else -1
+        self.sb = 1 if sb >= 0 else -1
         if rx2_off is not None:
             self.rx2_off = float(rx2_off)
         self.decode_on = not self.ssb
         if self.ssb:
-            if self.ssb_rx is None:
-                self.ssb_rx = (SsbRx(self.fs, self.adec), SsbRx(self.fs, self.adec))
+            geo = rx_geometry(mode, self.sb, bw)
+            if self.ssb_rx is None or self.rx_geo is None or self.rx_geo[1] != geo[1]:
+                self.ssb_rx = (SsbRx(self.fs, self.adec, geo[1]), SsbRx(self.fs, self.adec, geo[1]))
+            self.rx_geo = geo
             for k in [k for k, c in self.channels.items()]:
                 del self.channels[k]
         else:
             self.ssb_rx = None
+            self.rx_geo = None
+
+    def set_ssb(self, on, sb=None, rx2_off=None):
+        self.set_rx(on, 'ssb', self.sb if sb is None else sb, rx2_off)
 
     def _audio(self, iq):
         if self.ssb and self.ssb_rx:
-            a1 = self.ssb_rx[0].process(iq, self.dx_off, self.sb)
-            a2 = self.ssb_rx[1].process(iq, self.rx2_off, self.sb)
+            c, _, aud, sb = self.rx_geo
+            a1 = self.ssb_rx[0].process(iq, self.dx_off + c, aud, sb)
+            a2 = self.ssb_rx[1].process(iq, self.rx2_off + c, aud, sb)
             m = min(len(a1), len(a2))
             if m:
                 st = np.empty(2 * m, np.float64)

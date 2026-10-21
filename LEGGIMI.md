@@ -1,4 +1,4 @@
-# FZR Skimmer 1.26
+# FZR Skimmer 1.27
 
 IW1FZR
 
@@ -195,7 +195,7 @@ Da riga di comando:
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
 il waterfall e il testo ripartono da vuoti. La memoria degli ultimi minuti resta.
 
-## Modo: Normale, DXpedition, Contest o SSB
+## Modo: Skimmer (Normale, DXpedition, Contest) o Ricevitore (CW, SSB, RTTY, DIGI)
 
 In alto a sinistra, **Modo**:
 - **Normale** – ascolto libero, come CW Skimmer: a destra si apre il pannello **Testo decodificato**
@@ -218,12 +218,24 @@ In alto a sinistra, **Modo**:
     «Salva memoria» in SSB salva quella fonia. Il 30 m in SSB non c'è.
   - **Ctrl + rotellina** (e Ctrl + clic) sposta **solo il DX**: RX2 resta dov'è, cambia lo scostamento.
     Cambiando banda invece RX2 tiene lo scostamento (es. UP 5).
-  - **🔊 DX / 🔇 DX** (tasto **M**) silenzia il DX; **RX2 acceso / spento** (tasto **R**) spegne il secondo
-    ricevitore (girando la rotellina si riaccende).
+  - **🔊 RX1 DX** (tasto **M**) e **🔊 RX2** (tasto **R**) funzionano uguale: acceso (illuminato) = si sente,
+    spento (🔇) = muto. RX2 spento sparisce anche dal waterfall; girando la rotellina si riaccende.
   - **🔒 DX** (spento di base): se acceso, Ctrl + rotellina e frecce non spostano il DX per sbaglio;
     Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.
   - **🎧 Prova**: nota bassa nell'orecchio del DX, nota alta in quello di RX2. Se le senti uguali la
     cuffia, la scheda audio o Windows (Impostazioni → Accessibilità → Audio mono) sono in mono.
+
+- **Ricevitore: CW, RTTY, DIGI** – come l'SSB (RX1 sul DX, RX2 con la rotellina, stereo, mute,
+  split che segue RX2, S-meter, memorie di banda proprie), ma senza skimmer: un ricevitore puro.
+  - **CW**: frequenza = quella del segnale, sentito a 600 Hz; larghezza con **Filtro RX** (100–800 Hz).
+    Usa le memorie CW. Passi della rotellina 10 e 50 Hz.
+  - **RTTY**: frequenza = **mark** (come gli Icom), shift 170 Hz: mark a 2125 Hz, space a 2295 Hz,
+    filtro 600 Hz. Memorie: 7040, 14083, 21083…
+  - **DIGI** (FT8, FT4, PSK…): USB-D, banda 100–3100 Hz, memorie sulle frequenze FT8 (7074, 14074…).
+    Per decodificare con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge
+    («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso;
+    cuffia «DX e RX2 insieme» e potenziometro tutto su DX.
+  - Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D (DIGI).
 
 ## Elenco stazioni (contest, S&P)
 
