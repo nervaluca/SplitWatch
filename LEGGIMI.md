@@ -1,4 +1,4 @@
-# FZR Skimmer 1.24
+# FZR Skimmer 1.25
 
 IW1FZR
 
@@ -86,6 +86,21 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## S-meter
+
+In alto c'è lo S-meter del DX (in SSB anche quello di RX2): misura il segnale nella banda passante
+dell'RX, come una radio (S9 = −73 dBm, 6 dB per unità S, poi S9+10…+60). Barra che sale subito e
+scende piano, trattino bianco = picco degli ultimi 2 s.
+
+Finché non è tarato i dBm hanno il segno ≈ (valore indicativo). Per tararlo clic sullo S-meter:
+- **Imposta**: metti il DX su un segnale stabile e scegli quanto vale (es. S9);
+- **Con la radio** (CAT, stessa frequenza del DX, segnale stabile: una portante, un broadcast) in due
+  passi, perché col relè d'antenna Perseus e radio non ricevono insieme:
+  **1 · Misura qui** col relè sul Perseus, poi spegni il relè (antenna alla radio) e
+  **2 · Leggi la radio**: legge lo S-meter della radio e si allinea. Con antenne separate o uno
+  splitter i due passi si fanno uno dopo l'altro senza toccare niente.
+La taratura si ricorda per ogni ricevitore (Perseus, ExtIO, scheda audio).
 
 ## Radio (CAT) con Hamlib
 

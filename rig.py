@@ -201,6 +201,8 @@ class Rig:
                     k, v = l.split(':', 1)
                     if v.strip():
                         vals[k.strip()] = v.strip()
+                elif l:
+                    vals.setdefault('_', []).append(l)          # valori senza nome (es. get_level)
 
     def _set(self, key, line, value):
         self.pending[key] = (value, time.time())
@@ -227,6 +229,16 @@ class Rig:
                 self.on_status(f'Radio: {e}')
             self._set('ftx', f'set_split_freq {int(round(hz))}', int(round(hz)))
         threading.Thread(target=run, daemon=True).start()
+
+    def strength(self):
+        """S-meter della radio in dB rispetto a S9 (0 = S9, -54 = S0), o None."""
+        try:
+            rc, v = self.cmd('get_level STRENGTH')
+            if rc == 0 and v.get('_'):
+                return float(v['_'][0])
+        except Exception:
+            pass
+        return None
 
     def split_off(self):
         def run():

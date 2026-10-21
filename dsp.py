@@ -279,6 +279,7 @@ class SsbRx:
         self.ph_out = 0.0
         self.pos = 0                                            # primo campione da tenere nel prossimo blocco
         self.agc = 1e-6
+        self.pk = 0.0                                           # S-meter: potenza massima (blocchi da ~20 ms) dall'ultima lettura
 
     def process(self, iq, off_hz, sb):
         """iq al campionamento pieno -> audio reale a arate (float, AGC già applicato)."""
@@ -300,6 +301,7 @@ class SsbRx:
         self.tail = z[-(L - 1):].copy()
         if not len(b):
             return np.zeros(0, np.float64)
+        self.pk = max(self.pk, float(np.mean(np.abs(b) ** 2)))
         tt = self.ph_out + (2 * np.pi * sb * self.MID / self.arate) * np.arange(len(b))
         self.ph_out = float((tt[-1] + 2 * np.pi * sb * self.MID / self.arate) % (2 * np.pi))
         a = np.real(b * np.exp(1j * tt))
@@ -385,6 +387,7 @@ class Engine:
         self.rx2_off = self.dx_off + 5000.0
         self.ssb_rx = None
         self.decode_on = True
+        self.sm_pk = 0.0                                   # S-meter del DX (CW): potenza nella banda passante
 
     # ------------------------------------------------------------------ comandi
     def _design_filter(self):
@@ -485,6 +488,8 @@ class Engine:
         zz = np.concatenate([self.afir_state, z])
         f = np.convolve(zz, self.alp, mode='valid')
         self.afir_state = zz[-(len(self.alp) - 1):]
+        if len(f):
+            self.sm_pk = max(self.sm_pk, float(np.mean(np.abs(f) ** 2)))
         # AGC campione per campione: attacco rapido (2 ms), discesa lenta (~1 s), nessun gradino tra i blocchi
         env = np.abs(f).astype(np.float64)
         g = np.empty(len(env))
@@ -982,6 +987,16 @@ class Engine:
             self.out_listen.append({'t': round(en + 0.4, 2), 'f': round(offs[k], 1)})
 
     # ------------------------------------------------------------------ uscita
+    def take_smeter(self):
+        """Livelli in dBFS (tono a fondo scala = 0) dall'ultima lettura: (DX, RX2 o None)."""
+        db = lambda p: round(10 * math.log10(p + 1e-20), 1) if p > 0 else None
+        if self.ssb and self.ssb_rx:
+            a, b = self.ssb_rx[0].pk, self.ssb_rx[1].pk
+            self.ssb_rx[0].pk = self.ssb_rx[1].pk = 0.0
+            return db(a), db(b)
+        a, self.sm_pk = self.sm_pk, 0.0
+        return db(a), None
+
     def take(self):
         r = (self.out_rows, self.out_audio, self.out_words, self.out_listen)
         self.out_rows, self.out_audio, self.out_words, self.out_listen = [], [], [], []

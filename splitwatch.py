@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.24'
+VERSION = '1.25'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -145,6 +145,9 @@ BANDS_SSB = {
 }
 
 
+SM_CAL_DEFAULT = -10.0      # taratura indicativa (dBm = dBFS - 10) finché non la allinei
+
+
 def band_of(hz):
     for b, (lo, hi, _, _) in BANDS.items():
         if lo - 50000 <= hz <= hi + 50000:
@@ -236,6 +239,8 @@ class Hub:
         self.hw_center = None                  # centro come lo dice il ricevitore (senza correzione)
         self.cal = None                        # misura di calibrazione in corso
         self.cal_busy = False
+        self.sm_last = 0.0
+        self.sm_hist = collections.deque(maxlen=12)      # ultimi livelli del DX (dBFS) per la taratura
         self.starting = False
         self.auto_rs = 0                       # riavvii automatici del ricevitore senza dati
         self.nodata_n = 0
@@ -842,6 +847,9 @@ class Hub:
                 pend_words += w
                 pend_listen += l
             now = time.perf_counter()
+            if now - self.sm_last >= 0.12 and self.engine is not None:
+                self.sm_last = now
+                self.send_smeter()
             if now - last_send >= 0.05 and self.engine is not None:
                 last_send = now
                 if pend_rows:
@@ -1006,6 +1014,77 @@ class Hub:
             self.cfg['up'] = [lo, hi]
             save_cfg(self.cfg)
             self.post_json(self.cfg_msg())
+
+    # -------------------------------------------------------------- S-meter
+    def sm_cal(self):
+        """dBm = dBFS + taratura; None = non tarato (si usa un valore indicativo)."""
+        return self.cfg.get('sm_cal', {}).get(self.src_kind)
+
+    def send_smeter(self):
+        dx, rx2 = self.engine.take_smeter()
+        if dx is not None:
+            self.sm_hist.append(dx)
+        cal = self.sm_cal()
+        c = SM_CAL_DEFAULT if cal is None else cal
+        self.post_json({'type': 'sm', 'dx': None if dx is None else round(dx + c, 1),
+                        'rx2': None if rx2 is None else round(rx2 + c, 1), 'tarato': cal is not None})
+
+    def sm_set(self, dbm):
+        """Il segnale del DX adesso vale dbm: ricavo la taratura dagli ultimi livelli misurati."""
+        if self.src_kind == 'file' or len(self.sm_hist) < 4:
+            self.on_status('S-meter: serve il ricevitore acceso con un segnale stabile sul DX')
+            return
+        v = sorted(self.sm_hist)[len(self.sm_hist) // 2]
+        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - v, 1)
+        save_cfg(self.cfg)
+        self.on_status(f'S-meter tarato: {dbm:.0f} dBm')
+        self.post_json(self.cfg_msg())
+
+    def sm_mark(self):
+        """Passo 1 della taratura con la radio: misuro il segnale del DX col ricevitore (relè sul Perseus)."""
+        if self.src_kind == 'file' or len(self.sm_hist) < 6:
+            self.on_status('S-meter: serve il ricevitore acceso con un segnale stabile sul DX')
+            return
+        h = sorted(self.sm_hist)
+        self.sm_marked = (h[len(h) // 2], float(self.dx_abs or 0), time.time())
+        self.on_status(f'S-meter: misura fatta sul ricevitore ({h[len(h) // 2]:.1f} dBFS). Ora passa l\'antenna '
+                       f'alla radio e premi «2 · Leggi la radio»')
+        self.post_json({'type': 'sm_step', 'step': 1})
+
+    def sm_radio(self):
+        """Passo 2: leggo lo S-meter della radio (Hamlib) sullo stesso segnale. Se c'è la misura del passo 1
+        uso quella (relè: Perseus e radio non ricevono insieme), altrimenti misuro adesso (antenne separate)."""
+        r = self.rig
+        if not (r and self.rig_state.get('ok')):
+            self.on_status('S-meter: per allinearlo serve la radio collegata (CAT)')
+            return
+        mk = getattr(self, 'sm_marked', None)
+        if mk and time.time() - mk[2] > 600:
+            mk = None
+        fref = mk[1] if mk else (self.dx_abs or 0)
+        f = self.rig_state.get('f') or 0
+        if abs(f - fref) > 300:
+            self.on_status('S-meter: radio e DX devono essere sulla stessa frequenza')
+            return
+        vals, mine = [], []
+        for _ in range(10):
+            v = r.strength()
+            if v is not None:
+                vals.append(v)
+            if not mk and self.sm_hist:
+                mine.append(self.sm_hist[-1])
+            time.sleep(0.25)
+        if len(vals) < 4 or (not mk and len(mine) < 4):
+            self.on_status('S-meter: la radio non dà il livello del segnale (STRENGTH)')
+            return
+        dbm = -73.0 + sorted(vals)[len(vals) // 2]
+        me = mk[0] if mk else sorted(mine)[len(mine) // 2]
+        self.sm_marked = None
+        self.post_json({'type': 'sm_step', 'step': 2})
+        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - me, 1)
+        save_cfg(self.cfg)
+        self.on_status(f'S-meter allineato alla radio: {dbm:.0f} dBm')
+        self.post_json(self.cfg_msg())
 
     # -------------------------------------------------------------- radio (Hamlib / rigctld)
     def cat(self):
@@ -1282,6 +1361,16 @@ class Hub:
                     r = self.rig_ctl()
                     if r and self.is_ssb():
                         r.set_mode(self.rig_mode_for())
+                elif k == 'sm_set' and c.get('dbm') is not None:
+                    self.sm_set(float(c['dbm']))
+                elif k == 'sm_mark':
+                    self.sm_mark()
+                elif k == 'sm_radio':
+                    threading.Thread(target=self.sm_radio, daemon=True).start()
+                elif k == 'sm_reset':
+                    self.cfg.get('sm_cal', {}).pop(self.src_kind, None)
+                    save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
                 elif k == 'tx' and c.get('hz'):
                     if self.rig_ctl():
                         self.rig_tx(float(c['hz']))

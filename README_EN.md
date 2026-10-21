@@ -1,4 +1,4 @@
-# FZR Skimmer 1.24
+# FZR Skimmer 1.25
 
 by IW1FZR
 
@@ -67,6 +67,21 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.
+
+## S-meter
+
+At the top there is the DX S-meter (in SSB also the RX2 one): it measures the signal in the RX
+passband, like a radio (S9 = −73 dBm, 6 dB per S unit, then S9+10…+60). The bar rises at once and
+falls slowly; the white tick is the peak of the last 2 s.
+
+Until it is calibrated, dBm values carry a ≈ (approximate). To calibrate, click the S-meter:
+- **Set**: put the DX on a steady signal and pick its strength (e.g. S9);
+- **With the radio** (CAT, same frequency as the DX, steady signal: a carrier, a broadcast) in two
+  steps, because with an antenna relay the Perseus and the radio do not receive together:
+  **1 · Measure here** with the relay on the Perseus, then switch the relay off (antenna to the radio)
+  and **2 · Read the radio**: it reads the radio S-meter and aligns. With separate antennas or a
+  splitter just press the two buttons one after the other.
+The calibration is remembered per receiver (Perseus, ExtIO, sound card).
 
 ## Radio (CAT) with Hamlib
 
