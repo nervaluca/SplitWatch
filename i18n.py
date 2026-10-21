@@ -76,6 +76,7 @@ _EN = [
     (r'S-meter: radio e DX devono essere sulla stessa frequenza', 'S-meter: radio and DX must be on the same frequency'),
     (r'S-meter: la radio non dà il livello del segnale \(STRENGTH\)', 'S-meter: the radio does not report the signal level (STRENGTH)'),
     (r'S-meter allineato alla radio: (\S+) dBm', r'S-meter aligned to the radio: \1 dBm'),
+    (r'S-meter: fai prima «1 · Misura qui» \(vale 10 minuti\)', 'S-meter: do «1 · Measure here» first (valid for 10 minutes)'),
     (r'S-meter: misura fatta sul ricevitore \((\S+) dBFS\)\. Ora passa l\'antenna alla radio e premi «2 · Leggi la radio»', r'S-meter: receiver measurement done (\1 dBFS). Now switch the antenna to the radio and press «2 · Read the radio»'),
     (r'Correzione frequenza: (\S+) ppm \((\S+) Hz a 14 MHz\)', r'Frequency correction: \1 ppm (\2 Hz at 14 MHz)'),
     (r'I plugin ExtIO per HDSDR sono a 32 bit: serve FZR Skimmer a 32 bit', 'HDSDR ExtIO plugins are 32-bit: the 32-bit FZR Skimmer is needed'),

@@ -1059,8 +1059,11 @@ class Hub:
             self.on_status('S-meter: per allinearlo serve la radio collegata (CAT)')
             return
         mk = getattr(self, 'sm_marked', None)
-        if mk and time.time() - mk[2] > 600:
-            mk = None
+        if not mk or time.time() - mk[2] > 600:
+            # senza la misura del passo 1 non leggo il Perseus adesso: col relè sulla radio sentirebbe solo rumore
+            self.sm_marked = None
+            self.on_status('S-meter: fai prima «1 · Misura qui» (vale 10 minuti)')
+            return
         fref = mk[1] if mk else (self.dx_abs or 0)
         f = self.rig_state.get('f') or 0
         if abs(f - fref) > 300:
