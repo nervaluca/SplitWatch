@@ -70,6 +70,7 @@ _EN = [
     (r'Salvato:', 'Saved:'),
     (r'Errore:', 'Error:'),
     (r'RBN collegato come', 'RBN connected as'),
+    (r'Radio: lo split non si accende via Hamlib: TX non spostato', 'Radio: split cannot be turned on through Hamlib: TX not moved'),
     (r'S-meter: serve il ricevitore acceso con un segnale stabile sul DX', 'S-meter: the receiver must be running with a steady signal on the DX'),
     (r'S-meter tarato: (\S+) dBm', r'S-meter calibrated: \1 dBm'),
     (r'S-meter: per allinearlo serve la radio collegata \(CAT\)', 'S-meter: aligning needs the radio connected (CAT)'),

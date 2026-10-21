@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.25'
+VERSION = '1.26'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1137,15 +1137,29 @@ class Hub:
 
     def on_rig(self, st):
         """Nuovo stato dalla radio (thread della radio)."""
+        changed = st != self.rig_state
         self.rig_state = st
-        self.post_json(self.rig_msg())
+        if changed:
+            self.post_json(self.rig_msg())
         r = self.rig
         f = st.get('f')
         if not st.get('ok') or not f or r is None:
             return
-        moved = self.rig_last_f is not None and abs(f - self.rig_last_f) > 1 and not r.ours('f', f)
         first = self.rig_last_f is None
-        self.rig_last_f = f
+        # La manopola si considera girata solo se la nuova frequenza resta uguale per due letture di fila
+        # (con lo split alcune radio Icom, mentre Hamlib scrive il VFO B, per un attimo rispondono con la
+        # frequenza di TX) e se non è la frequenza di TX appena messa da noi (RX2 / TX qui).
+        prev, self.rig_prev_poll = getattr(self, 'rig_prev_poll', None), f
+        moved = False
+        if first:
+            self.rig_last_f = f
+        elif f != self.rig_last_f and f == prev:
+            ftx = st.get('ftx')
+            is_tx = (r.ours('ftx', f) or (st.get('split') and ftx and abs(f - ftx) <= 5))
+            if not r.ours('f', f) and not is_tx:
+                moved = True
+            if not is_tx:
+                self.rig_last_f = f
         if not self.cat().get('segui', True) or self.src_kind == 'file':
             return
         if isinstance(self.src, AudioCard) and self.src_kind == 'audio':

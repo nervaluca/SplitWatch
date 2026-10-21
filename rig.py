@@ -220,14 +220,30 @@ class Rig:
         threading.Thread(target=self._set, args=('mode', f'set_mode {mode} 0', mode), daemon=True).start()
 
     def set_split_tx(self, hz):
-        """Split acceso e TX (VFO B) sulla frequenza data."""
+        """Split acceso e TX sulla frequenza data. Se lo split non si accende NON scrivo la frequenza:
+        con lo split spento Hamlib la metterebbe sul VFO di ricezione (il DX si sposterebbe)."""
         def run():
             try:
-                if self.state.get('split') != 1:
-                    self.cmd('set_split_vfo 1 VFOB')
+                # Lo split acceso dal pannello della radio non basta: Hamlib (Icom) non lo sa e scriverebbe la
+                # frequenza di TX sul VFO di ricezione. Lo riaccendo io via Hamlib almeno una volta.
+                ok = self.state.get('split') == 1 and getattr(self, 'split_ours', False)
+                if not ok:
+                    toks = [self.tx_tok] if getattr(self, 'tx_tok', None) else []
+                    for tok in toks + ['VFOB', 'Sub', 'SubA', 'TX']:
+                        rc, _ = self.cmd(f'set_split_vfo 1 {tok}')
+                        if rc != 0:
+                            continue
+                        rc, v = self.cmd('get_split_vfo')
+                        if rc == 0 and str(v.get('Split', '0')).strip() == '1':
+                            self.tx_tok, ok = tok, True
+                            self.split_ours = True
+                            break
+                if not ok:
+                    self.on_status('Radio: lo split non si accende via Hamlib: TX non spostato')
+                    return
+                self._set('ftx', f'set_split_freq {int(round(hz))}', int(round(hz)))
             except Exception as e:
                 self.on_status(f'Radio: {e}')
-            self._set('ftx', f'set_split_freq {int(round(hz))}', int(round(hz)))
         threading.Thread(target=run, daemon=True).start()
 
     def strength(self):
@@ -243,6 +259,7 @@ class Rig:
     def split_off(self):
         def run():
             try:
+                self.split_ours = False
                 if self.state.get('split'):
                     self.cmd('set_split_vfo 0 VFOA')
             except Exception as e:
@@ -272,6 +289,7 @@ class Rig:
                 rc, v = self.cmd('get_freq')
                 if rc != 0:
                     raise RuntimeError(f'la radio non risponde (errore {rc}): porta, velocità o modello sbagliati?')
+                self.split_ours = False
                 self.on_status('Radio collegata' + (f' ({self.cfg.get("nome")})' if self.cfg.get('nome') else ''))
                 wait = 2
                 n = 0
@@ -287,6 +305,8 @@ class Rig:
                         rc, v = self.cmd('get_split_vfo')
                         if rc == 0:
                             st['split'] = int(v.get('Split', 0) or 0)
+                            if not st['split']:
+                                self.split_ours = False      # spento dal pannello: la prossima volta lo riaccendo io
                         if st['split']:
                             rc, v = self.cmd('get_split_freq')
                             if rc == 0 and 'TX Frequency' in v:
@@ -294,9 +314,8 @@ class Rig:
                         else:
                             st['ftx'] = None
                     st['ok'], st['err'] = True, None
-                    if st != self.state:
-                        self.state = st
-                        self.on_state(dict(st))
+                    self.state = st
+                    self.on_state(dict(st))              # a ogni lettura: serve per capire se la frequenza è stabile
                     n += 1
                     self.stop_ev.wait(POLL_S)
             except Exception as e:
