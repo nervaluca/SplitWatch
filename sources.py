@@ -730,7 +730,8 @@ class PerseusDirect:
               (12e6, 6), (17e6, 7), (24e6, 8), (32e6, 9)]
     FIFOEN, DITHER, GAINHIGH = 0x01, 0x02, 0x04
 
-    def __init__(self, folder, lo_hz, rate, on_iq, on_status, on_rate, preamp=True, swap_iq=False):
+    def __init__(self, folder, lo_hz, rate, on_iq, on_status, on_rate, preamp=True, swap_iq=False, att_db=0):
+        self.att_db = int(att_db)
         self.folder = folder
         self.lo = int(lo_hz)
         self.rate_key = rate if rate in self.RATES else 96000
@@ -772,6 +773,13 @@ class PerseusDirect:
 
     def set_swap(self, on):
         self.swap_iq = bool(on)
+
+    def set_att(self, db):
+        """Attenuatore del Perseus: 0, 10, 20 o 30 dB."""
+        self.cmd.put(('att', max(0, min(30, int(db) // 10 * 10))))
+
+    def set_preamp(self, on):
+        self.cmd.put(('pre', bool(on)))
 
     # thread
     def _presel(self, hz):
@@ -882,7 +890,7 @@ class PerseusDirect:
             r = u.FirmwareDownload(None)
             self.on_status(f'perseususb.dll versione {ver} · firmware -> {r} (0 = ok)')
             self.fs = configure(self.rate_key)
-            u.SetAttenuator(0)
+            u.SetAttenuator(self.att_db // 10)
             fid = tune(self.lo)
             self.on_rate(self.fs, self.center)
             start_stream()
@@ -909,6 +917,14 @@ class PerseusDirect:
                     fid = tune(c[1])
                     self.on_rate(self.fs, self.center)
                     self.on_status(f'Centro {self.center/1000:.3f} kHz · preselettore {fid}')
+                elif c[0] == 'att':
+                    self.att_db = c[1]
+                    u.SetAttenuator(self.att_db // 10)
+                    self.on_status(f'Attenuatore {self.att_db} dB')
+                elif c[0] == 'pre':
+                    self.ctl = (self.ctl | self.GAINHIGH) if c[1] else (self.ctl & ~self.GAINHIGH)
+                    tune(self.lo)                                 # il bit del preamplificatore viaggia con la frequenza
+                    self.on_status('Preamplificatore ' + ('acceso' if c[1] else 'spento'))
                 elif c[0] == 'rate':
                     if c[1] in self.RATES and c[1] != self.rate_key:
                         stop_stream()

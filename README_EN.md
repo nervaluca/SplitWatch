@@ -1,4 +1,4 @@
-# FZR Skimmer 1.31
+# FZR Skimmer 1.32
 
 by IW1FZR
 
@@ -67,6 +67,15 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.
+
+## Radio controls: AGC, RF, AF, ATT, PRE, SSB filter
+
+- **AGC** FAST (pile-ups, signals that come and go), MED, SLOW (relaxed listening, the default) or
+  **OFF**: fixed gain, set with **RF** (lower it if strong signals distort).
+- **AF**: volume (double click = normal).
+- **ATT** 0/10/20/30 dB and **PRE** (preamplifier): Perseus only. The S-meter accounts for the attenuator
+  and keeps reading the signal at the antenna.
+- **SSB filter** 1.8–3.3 kHz (in SSB): the passband starts at 200 Hz.
 
 ## S-meter
 

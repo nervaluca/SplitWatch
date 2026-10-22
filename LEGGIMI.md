@@ -1,4 +1,4 @@
-# FZR Skimmer 1.31
+# FZR Skimmer 1.32
 
 IW1FZR
 
@@ -86,6 +86,15 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB
+
+- **AGC** FAST (pile-up, segnali che vanno e vengono), MED, SLOW (ascolto riposante, il predefinito) oppure
+  **OFF**: guadagno fisso, regolato con **RF** (abbassalo se i segnali forti distorcono).
+- **AF**: volume (doppio clic = normale).
+- **ATT** 0/10/20/30 dB e **PRE** (preamplificatore): solo con il Perseus. Lo S-meter tiene conto
+  dell'attenuatore e continua a leggere il segnale in antenna.
+- **Filtro SSB** 1,8–3,3 kHz (in SSB): la banda passante parte da 200 Hz.
 
 ## S-meter
 

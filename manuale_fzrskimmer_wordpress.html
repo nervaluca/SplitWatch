@@ -201,7 +201,7 @@
 <!-- /wp:list -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Cosa fa</th><th>Come</th></tr></thead><tbody><tr><td>La radio segue FZR Skimmer</td><td>DX (Ctrl+clic, rotellina, frequenza scritta), pulsanti di banda, modo: CW, oppure USB/LSB in SSB.</td></tr><tr><td>FZR Skimmer segue la radio</td><td>Giri la manopola: il DX (o l'RX) si sposta; se esci dalla banda ricevuta il Perseus si risintonizza. Con <em>Audio della radio</em> la frequenza si legge da sola, niente più a mano.</td></tr><tr><td>Split in SSB</td><td>Il TX della radio segue <strong>RX2</strong>: giri la rotellina, trovi chi risponde, e il TX è già lì. Pulsante <strong>TX = RX2</strong> o tasto <strong>T</strong>.</td></tr><tr><td>Split in DXpedition</td><td><strong>TX → ascolto</strong> o tasto <strong>T</strong>: TX sull'ultimo ascolto rilevato.</td></tr><tr><td>Split dove vuoi</td><td>Tasto destro sul waterfall → <strong>TX qui (split)</strong>.</td></tr><tr><td>Sul waterfall</td><td>La linea rossa tratteggiata è il TX della radio, con lo scostamento dal DX.</td></tr><tr><td>Quando trasmetti</td><td>L'audio tace e al ritorno in ricezione l'AGC riparte da zero: niente sordità dopo il TX in isofrequenza. Lo capisce dal PTT della radio e, anche senza CAT, dal proprio segnale che satura la banda.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Cosa fa</th><th>Come</th></tr></thead><tbody><tr><td>La radio segue FZR Skimmer</td><td>DX (Ctrl+clic, rotellina, frequenza scritta), pulsanti di banda, modo: CW, oppure USB/LSB in SSB.</td></tr><tr><td>FZR Skimmer segue la radio</td><td>Giri la manopola: il DX (o l'RX) si sposta; se esci dalla banda ricevuta il Perseus si risintonizza. Con <em>Audio della radio</em> la frequenza si legge da sola, niente più a mano.</td></tr><tr><td>Split in SSB</td><td>Il TX della radio segue <strong>RX2</strong>: giri la rotellina, trovi chi risponde, e il TX è già lì. Pulsante <strong>TX = RX2</strong> o tasto <strong>T</strong>.</td></tr><tr><td>Split in DXpedition</td><td><strong>TX → ascolto</strong> o tasto <strong>T</strong>: TX sull'ultimo ascolto rilevato.</td></tr><tr><td>Split dove vuoi</td><td>Tasto destro sul waterfall → <strong>TX qui (split)</strong>.</td></tr><tr><td>Sul waterfall</td><td>La linea rossa tratteggiata è il TX della radio, con lo scostamento dal DX.</td></tr><tr><td>Quando trasmetti</td><td>L'audio del tuo segnale tace e la ricezione riparte appena smetti, in circa 20 ms: niente sordità dopo il TX in isofrequenza. Lo capisce dal PTT della radio (letto 10 volte al secondo) e, anche senza CAT, dal tuo segnale che satura la banda; durante il TX l'AGC resta fermo al livello di prima.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:quote -->
@@ -266,7 +266,7 @@
 <li><strong>In alto</strong>: frequenza su cui è fermo l'RX, zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
+<li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 (compresi i 60 m) richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Comandi del waterfall</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Filtro RX</strong> (100–800 Hz), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
@@ -289,6 +289,27 @@
 <!-- wp:table -->
 <figure class="wp-block-table"><table><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table></figure>
 <!-- /wp:table -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>AGC</strong>: <strong>FAST</strong> per i pile-up e i segnali che vanno e vengono, <strong>MED</strong>, <strong>SLOW</strong> per un ascolto riposante (il predefinito), oppure <strong>OFF</strong>: guadagno fisso regolato con il cursore <strong>RF</strong> (abbassalo se i segnali forti distorcono).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>AF</strong>: il volume; doppio clic lo riporta al normale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>ATT</strong> 0/10/20/30 dB e <strong>PRE</strong> (preamplificatore): compaiono solo con il Perseus. Lo S-meter tiene conto dell'attenuatore e continua a leggere il segnale in antenna.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Filtro SSB</strong> da 1,8 a 3,3 kHz (solo in SSB): la banda passante parte sempre da 200 Hz.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
 
 <!-- wp:heading {"level":3} -->
 <h3 class="wp-block-heading">S-meter</h3>
@@ -423,7 +444,7 @@
 <li><strong>Clic</strong> su una voce nel waterfall: RX2 va lì, con la banda passante centrata dove clicchi. <strong>Ctrl + clic</strong> fa lo stesso con il DX. <strong>RX2 = DX</strong> riporta RX2 sul DX.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Banda laterale <strong>Auto</strong> (LSB sotto i 10 MHz, USB sopra) oppure fissa; filtro 2,7 kHz (200–2900 Hz) con fianchi ripidi, per non sentire i vicini.</li>
+<li>Banda laterale <strong>Auto</strong> (LSB sotto i 10 MHz, USB sopra e sui 60 m, come d'uso) oppure fissa; filtro 2,7 kHz (200–2900 Hz) con fianchi ripidi, per non sentire i vicini.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Sul waterfall: banda passante del DX in verde, di RX2 in azzurro con lo scostamento (es. <em>RX2 +5.30</em>); nella colonna a destra le due frequenze e il passo.</li>

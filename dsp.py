@@ -321,6 +321,8 @@ class SsbRx:
         self.ph_out = 0.0
         self.pos = 0                                            # primo campione da tenere nel prossimo blocco
         self.agc_st = [1e-6, 1e-6, 0]
+        self.agc_slow = 0.4                                     # discesa dell'AGC (s)
+        self.agc_fixed = None                                   # AGC spento: livello fisso
         self.pk = 0.0                                           # S-meter: potenza massima (blocchi da ~20 ms) dall'ultima lettura
 
     def process(self, iq, center_hz, aud_hz, sb, freeze=False):
@@ -357,11 +359,14 @@ class SsbRx:
             out = a / (self.agc_st[0] * 2.2)
             out[env > 6 * self.agc_st[0]] = 0.0
             return out
-        g = agc_run(env, self.agc_st, self.arate, 0.4)
+        if self.agc_fixed is not None:                    # AGC spento: guadagno fisso (RF gain)
+            g = np.full(len(env), self.agc_fixed)
+        else:
+            g = agc_run(env, self.agc_st, self.arate, self.agc_slow)
         return a / (g * 2.2)                              # margine: il limitatore finale non distorce
 
 
-def rx_geometry(mode, sb, bw):
+def rx_geometry(mode, sb, bw, ssb_bw=2700.0):
     """(scostamento del centro della banda passante dalla frequenza dell'RX, metà larghezza, centro audio, verso).
 
     SSB: frequenza = portante soppressa, 200–2900 Hz sopra (USB) o sotto (LSB).
@@ -374,7 +379,8 @@ def rx_geometry(mode, sb, bw):
         return -85.0, 300.0, 2210.0, -1
     if mode == 'rxcw':
         return 0.0, max(25.0, bw / 2), 600.0, 1
-    return sb * 1550.0, 1350.0, 1550.0, sb
+    w = max(1500.0, min(3600.0, float(ssb_bw)))           # SSB: banda passante da 200 Hz a 200 + larghezza
+    return sb * (200.0 + w / 2), w / 2, 200.0 + w / 2, sb
 
 
 class Engine:
@@ -441,6 +447,8 @@ class Engine:
         self.tx_on = False                                 # propria trasmissione in corso (banda intera saturata)
         self.ptt = False
         self.agc_snap = deque()
+        self.agc_mode, self.rf_gain = 'slow', 60.0
+        self.agc_fixed, self.agc_slow = None, 1.0
         self.tx_ref = None
         # SSB: due ricevitori (DX e RX2) in stereo; la decodifica CW si spegne
         self.ssb = False
@@ -513,7 +521,7 @@ class Engine:
         self.n_in += cut
 
     # ------------------------------------------------------------------ audio DX
-    def set_rx(self, on, mode='ssb', sb=1, rx2_off=None, bw=500.0):
+    def set_rx(self, on, mode='ssb', sb=1, rx2_off=None, bw=500.0, ssb_bw=2700.0):
         """Ricevitore puro (due RX in stereo) acceso/spento, con il modo di demodulazione."""
         self.ssb = bool(on)
         self.sb = 1 if sb >= 0 else -1
@@ -529,10 +537,11 @@ class Engine:
         else:
             self.rtty = None
         if self.ssb:
-            geo = rx_geometry(mode, self.sb, bw)
+            geo = rx_geometry(mode, self.sb, bw, ssb_bw)
             if self.ssb_rx is None or self.rx_geo is None or self.rx_geo[1] != geo[1]:
                 self.ssb_rx = (SsbRx(self.fs, self.adec, geo[1]), SsbRx(self.fs, self.adec, geo[1]))
             self.rx_geo = geo
+            self._agc_apply()
             for k in [k for k, c in self.channels.items()]:
                 del self.channels[k]
         else:
@@ -563,6 +572,25 @@ class Engine:
             k = min(1.0, len(iq) / self.fs / 3.0)             # riferimento: media (in dB) degli ultimi ~3 s
             self.tx_ref += (db - self.tx_ref) * k
         return self.tx_on
+
+    AGC_TIMES = {'fast': (0.12, 0.15), 'med': (0.35, 0.4), 'slow': (1.0, 1.2)}   # discesa (s): CW, ricevitore
+
+    def set_agc(self, mode='slow', rf=60.0):
+        """AGC come su una radio: FAST, MED, SLOW oppure OFF con guadagno fisso (RF gain 0–100)."""
+        self.agc_mode = mode if mode in ('fast', 'med', 'slow', 'off') else 'slow'
+        self.rf_gain = max(0.0, min(100.0, float(rf)))
+        self._agc_apply()
+
+    def _agc_apply(self):
+        mode = getattr(self, 'agc_mode', 'slow')
+        # AGC spento: il livello fisso scende di 1 dB per ogni punto di RF gain (100 = massimo guadagno)
+        fixed = 10 ** ((-20.0 - getattr(self, 'rf_gain', 60.0)) / 20.0) if mode == 'off' else None
+        self.agc_fixed = fixed
+        self.agc_slow = self.AGC_TIMES.get(mode, (1.0, 1.2))[0]
+        if self.ssb_rx:
+            for r in self.ssb_rx:
+                r.agc_fixed = fixed
+                r.agc_slow = self.AGC_TIMES.get(mode, (1.0, 1.2))[1]
 
     def set_ptt(self, on):
         """PTT letto dalla radio (CAT). La lettura arriva con un po' di ritardo, quindi in TX riporto l'AGC
@@ -622,8 +650,10 @@ class Engine:
         env = np.abs(f).astype(np.float64)
         if getattr(self, 'ptt', False):                  # in TX: AGC fermo, il proprio segnale muto
             g = np.full(len(env), self.agc_st[0])
+        elif self.agc_fixed is not None:                 # AGC spento: guadagno fisso
+            g = np.full(len(env), self.agc_fixed)
         else:
-            g = agc_run(env, self.agc_st, self.arate, 1.0)
+            g = agc_run(env, self.agc_st, self.arate, self.agc_slow)
         tt = self.bfo_ph + 2 * np.pi * self.bfo / self.arate * np.arange(len(f))
         self.bfo_ph = float((tt[-1] + 2 * np.pi * self.bfo / self.arate) % (2 * np.pi))
         a = np.real(f * np.exp(1j * tt)) / (g * 1.6)

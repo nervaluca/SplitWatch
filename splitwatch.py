@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.31'
+VERSION = '1.32'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -398,7 +398,7 @@ class Hub:
             else:
                 src = PerseusDirect(folder, lo, int(self.cfg.get('campionamento', 96000)),
                                     self.on_iq, self.on_status, self.on_rate,
-                                    preamp=bool(self.cfg.get('preamp', True)),
+                                    preamp=bool(self.cfg.get('preamp', True)), att_db=int(self.cfg.get('att', 0)),
                                     swap_iq=bool(self.cfg.get('inverti_iq', False)))
             try:
                 src.start()
@@ -966,6 +966,7 @@ class Hub:
                 self.engine.set_bw(float(self.cfg.get('filtro', 500)))
                 self.engine.min_snr = float(self.cfg.get('sensibilita', 5.0))
                 self.engine.listen_on = self.cfg.get('modo', 'dx') == 'dx'
+                self.engine.set_agc(self.cfg.get('agc', 'slow'), float(self.cfg.get('rfgain', 60)))
             else:
                 self.engine.set_dx(self.dx_abs - center)
             self.ssb_apply()
@@ -1011,6 +1012,9 @@ class Hub:
             if self.is_ssb() and self.cat().get('tx_rx2', True):
                 self.rig_tx(self.dx_abs + self.cfg['rx2_off'])     # SSB: il TX della radio segue RX2
             self.post_json(self.cfg_msg())
+        elif c[0] == 'agc':
+            if self.engine:
+                self.engine.set_agc(self.cfg.get('agc', 'slow'), float(self.cfg.get('rfgain', 60)))
         elif c[0] == 'ptt':
             if self.engine:
                 self.engine.set_ptt(c[1])
@@ -1039,6 +1043,10 @@ class Hub:
             self.post_json(self.cfg_msg())
 
     # -------------------------------------------------------------- S-meter
+    def sm_att(self):
+        """L'attenuatore del Perseus abbassa il segnale: lo S-meter lo rimette (legge il segnale in antenna)."""
+        return int(self.cfg.get('att', 0)) if self.src_kind == 'perseus' else 0
+
     def sm_cal(self):
         """dBm = dBFS + taratura; None = non tarato (si usa un valore indicativo)."""
         return self.cfg.get('sm_cal', {}).get(self.src_kind)
@@ -1048,7 +1056,7 @@ class Hub:
         if dx is not None:
             self.sm_hist.append(dx)
         cal = self.sm_cal()
-        c = SM_CAL_DEFAULT if cal is None else cal
+        c = (SM_CAL_DEFAULT if cal is None else cal) + self.sm_att()
         self.post_json({'type': 'sm', 'dx': None if dx is None else round(dx + c, 1),
                         'rx2': None if rx2 is None else round(rx2 + c, 1), 'tarato': cal is not None})
 
@@ -1058,7 +1066,7 @@ class Hub:
             self.on_status('S-meter: serve il ricevitore acceso con un segnale stabile sul DX')
             return
         v = sorted(self.sm_hist)[len(self.sm_hist) // 2]
-        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - v, 1)
+        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - v - self.sm_att(), 1)
         save_cfg(self.cfg)
         self.on_status(f'S-meter tarato: {dbm:.0f} dBm')
         self.post_json(self.cfg_msg())
@@ -1107,7 +1115,7 @@ class Hub:
         me = mk[0] if mk else sorted(mine)[len(mine) // 2]
         self.sm_marked = None
         self.post_json({'type': 'sm_step', 'step': 2})
-        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - me, 1)
+        self.cfg.setdefault('sm_cal', {})[self.src_kind] = round(dbm - me - self.sm_att(), 1)
         save_cfg(self.cfg)
         self.on_status(f'S-meter allineato alla radio: {dbm:.0f} dBm')
         self.post_json(self.cfg_msg())
@@ -1278,7 +1286,7 @@ class Hub:
         if on != e.ssb:
             e.out_audio = []
         e.set_rx(on, self.modo(), self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)),
-                 float(self.cfg.get('filtro', 500)))
+                 float(self.cfg.get('filtro', 500)), float(self.cfg.get('ssb_bw', 2700)))
 
     def cfg_msg(self):
         e = self.engine
@@ -1296,7 +1304,10 @@ class Hub:
                 'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(),
                 'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
-                'passo': int(self.cfg.get('passo', 500)), 'swap': bool(self.cfg.get('inverti_iq', False)),
+                'passo': int(self.cfg.get('passo', 500)),
+                'agc': self.cfg.get('agc', 'slow'), 'rfgain': float(self.cfg.get('rfgain', 60)),
+                'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
+                'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: self.band_mem(b) for b in BANDS if self.band_mem(b)},
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
@@ -1429,6 +1440,31 @@ class Hub:
                 elif k == 'sm_reset':
                     self.cfg.get('sm_cal', {}).pop(self.src_kind, None)
                     save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
+                elif k == 'agc' and c.get('v') in ('fast', 'med', 'slow', 'off'):
+                    self.cfg['agc'] = c['v']
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('agc',))
+                    self.post_json(self.cfg_msg())
+                elif k == 'rfgain':
+                    self.cfg['rfgain'] = max(0.0, min(100.0, float(c['v'])))
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('agc',))
+                elif k == 'ssb_bw' and int(c.get('v', 0)) in (1800, 2100, 2400, 2700, 3000, 3300):
+                    self.cfg['ssb_bw'] = int(c['v'])
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('ssbcfg',))
+                elif k == 'att' and int(c.get('v', -1)) in (0, 10, 20, 30):
+                    self.cfg['att'] = int(c['v'])
+                    save_cfg(self.cfg)
+                    if isinstance(self.src, PerseusDirect):
+                        self.src.set_att(self.cfg['att'])
+                    self.post_json(self.cfg_msg())
+                elif k == 'pre':
+                    self.cfg['preamp'] = bool(c.get('v'))
+                    save_cfg(self.cfg)
+                    if isinstance(self.src, PerseusDirect):
+                        self.src.set_preamp(self.cfg['preamp'])
                     self.post_json(self.cfg_msg())
                 elif k == 'tx' and c.get('hz'):
                     if self.rig_ctl():
