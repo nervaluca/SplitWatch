@@ -1,4 +1,4 @@
-# FZR Skimmer 1.32
+# FZR Skimmer 1.33
 
 by IW1FZR
 
@@ -67,6 +67,23 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.
+
+## Radio panel (1.33)
+
+Below the modes there is a radio-style panel:
+- **RX1** (green edge): big frequency, mode and filter, S-meter, **🔊 RX1** (mute, M key) and RX1 **VOL**.
+  **Wheel on the frequency** = moves the DX (50 Hz, 100 Hz in SSB/DIGI, Shift 10 Hz; 🔒 DX blocks it).
+  **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195`), Enter confirms, Esc cancels.
+- **RX2** (blue edge, Receiver modes): frequency, UP/DOWN offset, S-meter, **🔊 RX2** (R key) and RX2 **VOL**,
+  the wheel **Step** and **RX2 = DX** / **TX = RX2**. Wheel or click on the frequency as for RX1.
+- **Audio**: audio on/off, **AF** (master volume), headphones (DX left / right / together) and 🎧 Test.
+- **Receiver**: AGC and RF, ATT and PRE, filter (CW or SSB) and sideband.
+
+In the Skimmer modes the panel fits on one line, so the waterfall stays tall. In the Receiver modes
+the **▴** button shrinks it to the two frequencies only (**▾** opens it again); M, R keys and the wheel still work.
+
+The two **VOL** sliders replace the old DX ◀▶ RX2 knob: each receiver has its own volume next to its
+mute (double click = normal).
 
 ## Radio controls: AGC, RF, AF, ATT, PRE, SSB filter
 
@@ -140,7 +157,7 @@ Top left, **Mode**:
   Listening, UP zone).
 - **Contest** – S&P: the station list opens, the listening search is switched off and hidden.
 - **SSB** – phone pile-ups. RX locked on the DX plus a second receiver, **RX2**, in stereo:
-  DX in one ear and RX2 in the other (or both together), with the **DX ◀▶ RX2** knob to balance them.
+  DX in one ear and RX2 in the other (or both together), with each receiver's **VOL** to balance them.
   - **Mouse wheel** on the waterfall: RX2 up and down by the chosen **Step** (100, 500, 1000 Hz).
     Shift + wheel scrolls the view, Ctrl + wheel moves the DX.
   - **Click** on a voice: RX2 goes there (passband centred where you click). **RX2 = DX** brings it back.
@@ -173,7 +190,7 @@ Top left, **Mode**:
     14074…). To decode with WSJT-X (or another digital program):
     in Windows (Settings → System → Sound → Volume mixer) send the Edge audio («FZR Skimmer») to a
     virtual audio cable (e.g. VB-Cable) and pick that cable as WSJT-X input; headphones «DX and RX2
-    together» and the knob fully on DX.
+    together» and RX2 off (🔇 RX2).
   - With the radio connected (CAT) the radio mode follows: CW, USB/LSB, RTTY, USB-D (DIGI).
 
 ## Use

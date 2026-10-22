@@ -1,4 +1,4 @@
-# FZR Skimmer 1.32
+# FZR Skimmer 1.33
 
 IW1FZR
 
@@ -86,6 +86,23 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## Pannello radio (1.33)
+
+Sotto i modi c'è il pannello «da radio»:
+- **RX1** (bordo verde): frequenza grande, modo e filtro, S-meter, **🔊 RX1** (mute, tasto M) e **VOL** di RX1.
+  **Rotellina sulla frequenza** = sposta il DX (50 Hz, in SSB/DIGI 100 Hz, con Maiusc 10 Hz; il 🔒 DX la blocca).
+  **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14.195`), Invio conferma, Esc annulla.
+- **RX2** (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN, S-meter, **🔊 RX2** (tasto R)
+  e **VOL** di RX2, il **Passo** della rotellina e **RX2 = DX** / **TX = RX2**. Rotellina o clic sulla frequenza come per RX1.
+- **Audio**: Audio acceso/spento, **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme) e 🎧 Prova.
+- **Ricevitore**: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.
+
+Nei modi Skimmer il pannello sta su una riga, così il waterfall resta alto. Nei modi Ricevitore
+il pulsante **▴** lo riduce alle sole due frequenze (**▾** lo riapre); i tasti M, R e la rotellina funzionano lo stesso.
+
+I due **VOL** sostituiscono il vecchio potenziometro DX ◀▶ RX2: ogni ricevitore ha il suo volume
+accanto al suo mute (doppio clic = normale).
 
 ## Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB
 
@@ -218,7 +235,7 @@ In alto a sinistra, **Modo**:
 - **Contest** – S&P: si accende l'elenco stazioni, la ricerca dell'ascolto si spegne e sparisce
   dalla schermata. Il modo resta memorizzato.
 - **SSB** – pile-up in fonia. RX fermo sul DX e un secondo ricevitore, **RX2**, in stereo:
-  DX in un orecchio e RX2 nell'altro (o insieme), con il potenziometro **DX ◀▶ RX2** per dosarli.
+  DX in un orecchio e RX2 nell'altro (o insieme), con il **VOL** di ciascun ricevitore per dosarli.
   - **Rotellina** sul waterfall: RX2 su e giù del **Passo** scelto (100, 500, 1000 Hz).
     Maiusc + rotellina scorre la vista, Ctrl + rotellina sposta il DX.
   - **Clic** su una voce: RX2 va lì (banda passante centrata dove clicchi). **RX2 = DX** lo riporta sul DX.
@@ -250,7 +267,7 @@ In alto a sinistra, **Modo**:
   - **DIGI** (FT8, FT4, PSK…): USB-D, banda 100–3100 Hz, memorie sulle frequenze FT8 (7074, 14074…).
     Per decodificare con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge
     («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso;
-    cuffia «DX e RX2 insieme» e potenziometro tutto su DX.
+    cuffia «DX e RX2 insieme» e RX2 spento (🔇 RX2).
   - Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D (DIGI).
 
 ## Elenco stazioni (contest, S&P)

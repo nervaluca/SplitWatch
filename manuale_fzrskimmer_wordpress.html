@@ -263,13 +263,16 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>In alto</strong>: frequenza su cui è fermo l'RX, zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
+<li><strong>In alto</strong>: zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 (compresi i 60 m) richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Comandi del waterfall</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Filtro RX</strong> (100–800 Hz), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
+<li><strong>Pannello radio</strong>: RX1 (e RX2) con frequenza, S-meter, mute e volume, poi Audio e Ricevitore (AGC, filtro…): vedi sotto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Comandi del waterfall</strong>: <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Waterfall</strong> a sinistra: il tempo scorre da sinistra verso destra (a destra i segnali appena arrivati), la frequenza è in verticale con la scala a destra. La fascia verde è la banda passante dell'RX sul DX.</li>
@@ -289,6 +292,37 @@
 <!-- wp:table -->
 <figure class="wp-block-table"><table><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table></figure>
 <!-- /wp:table -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Pannello radio</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Sotto i modi c'è il pannello «da radio», con un riquadro per ogni ricevitore e i suoi comandi accanto.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>RX1</strong> (bordo verde): la frequenza grande, il modo e il filtro, lo S-meter, <strong>🔊 RX1</strong> (acceso = si sente, spento = muto, tasto M) e il suo <strong>VOL</strong>. <strong>Rotellina sulla frequenza</strong>: sposta il DX (50 Hz, in SSB e DIGI 100 Hz, con Maiusc 10 Hz; il <strong>🔒 DX</strong> la blocca). <strong>Clic sulla frequenza</strong>: la scrivi in kHz (<code>14195</code>) o in MHz (<code>14.195</code>), Invio conferma, Esc annulla.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>RX2</strong> (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN dal DX, S-meter, <strong>🔊 RX2</strong> (tasto R) e il suo <strong>VOL</strong>, il <strong>Passo</strong> della rotellina, <strong>RX2 = DX</strong> e, con la radio collegata, <strong>TX = RX2</strong>. Rotellina e clic sulla frequenza come per RX1.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Audio</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme) e <strong>🎧 Prova</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ricevitore</strong>: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Nei modi Skimmer (Normale, DXpedition, Contest) il pannello sta su una riga sola, così il waterfall resta alto. Nei modi Ricevitore il pulsante <strong>▴</strong> lo riduce alle sole due frequenze (<strong>▾</strong> lo riapre): i tasti M e R e la rotellina funzionano lo stesso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>I due <strong>VOL</strong> (doppio clic = normale) dosano DX e RX2 ognuno per conto suo.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
 
 <!-- wp:heading {"level":3} -->
 <h3 class="wp-block-heading">Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB</h3>
@@ -316,7 +350,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>In alto, accanto alla vista, c'è lo <strong>S-meter del DX</strong>; in SSB anche quello di <strong>RX2</strong>. Misura il segnale nella banda passante dell'RX, come una radio: S9 = −73 dBm, 6 dB per unità S, poi S9+10 fino a S9+60. La barra sale subito e scende piano; il trattino bianco è il picco degli ultimi 2 secondi.</p>
+<p>Nel pannello radio c'è lo <strong>S-meter del DX</strong> (RX1); nei modi Ricevitore anche quello di <strong>RX2</strong>. Misura il segnale nella banda passante dell'RX, come una radio: S9 = −73 dBm, 6 dB per unità S, poi S9+10 fino a S9+60. La barra sale subito e scende piano; il trattino bianco è il picco degli ultimi 2 secondi.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
@@ -435,7 +469,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Audio in stereo</strong>: DX in un orecchio e RX2 nell'altro (menu <em>DX sinistra · RX2 destra</em>, il contrario, oppure <em>insieme</em>). Il <strong>potenziometro DX ◀▶ RX2</strong> li dosa: tutto a sinistra solo il DX, tutto a destra solo RX2, in mezzo entrambi pieni (doppio clic = in mezzo).</li>
+<li><strong>Audio in stereo</strong>: DX in un orecchio e RX2 nell'altro (menu <em>DX sinistra · RX2 destra</em>, il contrario, oppure <em>insieme</em>). Ognuno ha il suo <strong>VOL</strong> nel pannello radio, accanto al suo mute (doppio clic = normale).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Rotellina</strong> sul waterfall: RX2 sale o scende del <strong>Passo</strong> scelto, 100, 500 o 1000 Hz, agganciato alla griglia (14200.0, 14200.5…). <strong>Maiusc + rotellina</strong> scorre la vista, <strong>Ctrl + rotellina</strong> sposta il DX.</li>
@@ -502,7 +536,7 @@
 <li>Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D per il DIGI.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e RX2 insieme</em> e potenziometro tutto su DX (o RX2 spento).</li>
+<li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e RX2 insieme</em> e RX2 spento (🔇 RX2).</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
