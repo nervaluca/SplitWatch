@@ -62,6 +62,7 @@ def main():
     print('ascolti:', listen)
     ok = '5NN' in txt and 'DL1ABC' in txt and any(abs(l['f'] - 2300) < 120 for l in listen)
     ok = ok and test_wav(x[:FS])
+    ok = ok and test_rtty()
     print('OK' if ok else 'FALLITO')
     return 0 if ok else 1
 
@@ -91,6 +92,38 @@ def test_wav(x):
     err = float(np.abs(y - x[:len(y)]).max())
     print('wav:', len(y), 'campioni, centro', w.center, 'dx', w.dx, 'errore', err)
     return len(y) == len(x) and w.center == 18085000 and w.dx == 18080000 and err < 1e-3
+
+
+def test_rtty():
+    """FZRTTY: due segnali RTTY (45,45 baud, shift 170) col rumore, letti dallo skimmer."""
+    import rtty
+    fs = 48000
+    rng = np.random.default_rng(2)
+
+    def fsk(text, fm, amp, dur, t0):
+        n = int(dur * fs)
+        lvl = np.ones(n)
+        t = t0
+        for c in rtty.encode(text):
+            for b in [0] + [(c >> i) & 1 for i in range(5)]:
+                lvl[int(t * fs):int((t + rtty.T) * fs)] = b
+                t += rtty.T
+            t += 1.5 * rtty.T
+        f = np.where(lvl > 0.5, fm, fm - rtty.SHIFT)
+        return amp * np.exp(2j * np.pi * np.cumsum(f) / fs)
+
+    dur = 9.0
+    x = fsk('CQ TEST DL1ABC DL1ABC 599 14', 3000, 0.05, dur, 0.3) + fsk('CQ TEST K3LR K3LR', -6000, 0.03, dur, 0.5)
+    x = (x + 0.01 * (rng.normal(size=len(x)) + 1j * rng.normal(size=len(x)))).astype(np.complex64)
+    e = Engine(fs, 3000.0)
+    e.set_rx(True, 'rtty', -1, 8000.0, 500)
+    words = []
+    for i in range(0, len(x), 2400):
+        e.feed(x[i:i + 2400])
+        words += e.take()[2]
+    txt = ' '.join(w['w'] for w in words)
+    print('rtty:', txt)
+    return 'DL1ABC' in txt and '599' in txt and 'K3LR' in txt
 
 
 if __name__ == '__main__':

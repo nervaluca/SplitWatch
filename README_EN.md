@@ -1,4 +1,4 @@
-# FZR Skimmer 1.27
+# FZR Skimmer 1.28
 
 by IW1FZR
 
@@ -151,8 +151,12 @@ Top left, **Mode**:
   following RX2, S-meter, own band memories), but without the skimmer: a pure receiver.
   - **CW**: frequency = the signal frequency, heard at 600 Hz; width with **RX filter** (100–800 Hz).
     Uses the CW memories. Wheel steps of 10 and 50 Hz.
-  - **RTTY**: frequency = **mark** (like Icom), 170 Hz shift: mark at 2125 Hz, space at 2295 Hz,
-    600 Hz filter. Memories: 7040, 14083, 21083…
+  - **RTTY** with **FZRTTY**, a multi-channel RTTY skimmer: it finds every visible RTTY signal by itself
+    (45.45 baud, 170 Hz shift, Baudot) and decodes them all at once, with callsigns, CQ and 599
+    highlighted next to the waterfall, the station list (the callsign each signal repeats most) and
+    the DX text on the bottom line. Frequency = **mark** (like Icom); in the headphones mark at 2125 Hz
+    and space at 2295 Hz (600 Hz filter), so the audio can also go to MMTTY. Memories: 7040, 14083,
+    21083… (centre 15 kHz above: the whole RTTY segment in the waterfall).
   - **DIGI** (FT8, FT4, PSK…): USB-D, 100–3100 Hz passband, memories on the FT8 frequencies (7074,
     14074…). To decode with WSJT-X (or another digital program):
     in Windows (Settings → System → Sound → Volume mixer) send the Edge audio («FZR Skimmer») to a

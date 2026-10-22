@@ -1,4 +1,4 @@
-# FZR Skimmer 1.27
+# FZR Skimmer 1.28
 
 IW1FZR
 
@@ -229,8 +229,12 @@ In alto a sinistra, **Modo**:
   split che segue RX2, S-meter, memorie di banda proprie), ma senza skimmer: un ricevitore puro.
   - **CW**: frequenza = quella del segnale, sentito a 600 Hz; larghezza con **Filtro RX** (100–800 Hz).
     Usa le memorie CW. Passi della rotellina 10 e 50 Hz.
-  - **RTTY**: frequenza = **mark** (come gli Icom), shift 170 Hz: mark a 2125 Hz, space a 2295 Hz,
-    filtro 600 Hz. Memorie: 7040, 14083, 21083…
+  - **RTTY** con **FZRTTY**, skimmer RTTY multicanale: trova da solo tutti i segnali RTTY visibili
+    (45,45 baud, shift 170 Hz, Baudot) e li decodifica tutti insieme, con nominativi, CQ e 599
+    evidenziati accanto al waterfall, l'elenco stazioni (nominativo che ripete di più su ogni segnale)
+    e il testo del DX nella riga in basso. Frequenza = **mark** (come gli Icom); in cuffia mark a
+    2125 Hz e space a 2295 Hz (filtro 600 Hz), così l'audio va anche a MMTTY. Memorie: 7040, 14083,
+    21083… (centro 15 kHz sopra: tutto il segmento RTTY nel waterfall).
   - **DIGI** (FT8, FT4, PSK…): USB-D, banda 100–3100 Hz, memorie sulle frequenze FT8 (7074, 14074…).
     Per decodificare con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge
     («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso;

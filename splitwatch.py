@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.27'
+VERSION = '1.28'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -606,6 +606,7 @@ class Hub:
     # -------------------------------------------------------------- elenco stazioni (contest)
     def update_stations(self, words):
         now = time.time()
+        own = self.rbn_call()
         for w in words:
             ch = w.get('ch')
             if ch is None:
@@ -615,13 +616,16 @@ class Hub:
             if word in ('CQ', 'TEST') or (st is None and word == 'CQ'):
                 st = self.stations.setdefault(ch, {'call': None, 'n': 0})
                 st['cq_t'] = now
-            elif dsp.CALL_RE.match(word) and (w.get('v') or w.get('cc') or w.get('rbn') or w.get('s')
-                                              or (st is not None and now - st.get('cq_t', -1e9) < 6)):
+            elif dsp.CALL_RE.match(word) and word != own and (
+                    w.get('v') or w.get('cc') or w.get('rbn') or w.get('s') or w.get('m') == 'rtty'
+                    or (st is not None and now - st.get('cq_t', -1e9) < 6)):
+                # il nominativo della stazione è quello che ripete di più sul suo canale (non il mio,
+                # che compare quando mi risponde, né quello di chi la chiama)
                 st = self.stations.setdefault(ch, {'call': None, 'n': 0})
-                if st['call'] == word:
-                    st['n'] += 1
-                else:
-                    st['call'], st['n'] = word, 1
+                cnt = st.setdefault('cnt', {})
+                cnt[word] = cnt.get(word, 0) + 1
+                best = max(cnt, key=cnt.get)
+                st['call'], st['n'] = best, cnt[best]
             if st is not None:
                 st.update({'fa': w['fa'], 't': now, 'wpm': w.get('wpm'), 'db': w.get('db'), 'dx': w.get('dx', False),
                            'ok': bool(w.get('v') or w.get('rbn'))})
@@ -872,6 +876,11 @@ class Hub:
                     band = self.rbn_band
                     for w in pend_words:
                         w['fa'] = round(self.center + w['f'], 1)
+                        if w.get('m') == 'rtty':
+                            # RTTY: niente RBN (solo CW) né correzioni pensate per gli errori del CW
+                            if dsp.is_known(w['w']):
+                                w['v'] = 1
+                            continue
                         hit = None
                         if band:
                             for v in dsp.variants(w['w']):
@@ -1217,7 +1226,7 @@ class Hub:
             return {'centro': BANDS_SSB[b][0], 'dx': BANDS_SSB[b][1], 'pred': True} if b in BANDS_SSB else None
         if k in ('memorie_rtty', 'memorie_ft8'):
             t = BANDS_RTTY if k == 'memorie_rtty' else BANDS_FT8
-            return {'centro': t[b] + 10000, 'dx': t[b], 'pred': True} if b in t else None
+            return {'centro': t[b] + (15000 if k == 'memorie_rtty' else 10000), 'dx': t[b], 'pred': True} if b in t else None
         return {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
 
     def go_band(self, b):

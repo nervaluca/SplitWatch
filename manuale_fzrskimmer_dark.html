@@ -445,6 +445,7 @@
           <li><a href="#contest">Modo Contest (S&amp;P)</a></li>
           <li><a href="#ssb">Modo SSB (pile-up in fonia)</a></li>
           <li><a href="#rx">Ricevitore: CW, RTTY, DIGI</a></li>
+          <li><a href="#fzrtty">RTTY: lo skimmer FZRTTY</a></li>
           <li><a href="#nominativi">Nominativi e decodifica</a></li>
           <li><a href="#rbn">Reverse Beacon Network</a></li>
         </ul>
@@ -643,13 +644,27 @@
   </section>
   <section id="rx" class="fzr-section">
     <h2>📟 Ricevitore: CW, RTTY, DIGI</h2>
-    <p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro, senza skimmer, con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
-    <table class="fzr-table"><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table>
+    <p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro (in RTTY con lo skimmer FZRTTY, vedi sotto), con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
+    <table class="fzr-table"><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong> + skimmer FZRTTY</td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table>
     <ul>
       <li>La rotellina ha anche i passi da <strong>10</strong> e <strong>50 Hz</strong>, comodi in CW e RTTY.</li>
       <li>Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D per il DIGI.</li>
       <li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e RX2 insieme</em> e potenziometro tutto su DX (o RX2 spento).</li>
     </ul>
+    <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
+  </section>
+  <section id="fzrtty" class="fzr-section">
+    <h2>⌨️ RTTY: lo skimmer FZRTTY</h2>
+    <p>Nel modo <strong>RTTY</strong> lavora <strong>FZRTTY</strong>, uno skimmer RTTY multicanale pensato per i contest: trova da solo tutti i segnali RTTY che vedi nel waterfall e li decodifica tutti insieme, come fa lo skimmer CW.</p>
+    <ul>
+      <li>RTTY dei radioamatori: 45,45 baud, shift 170 Hz, Baudot con cambio lettere/cifre e «unshift on space». La frequenza di un segnale è il suo <strong>mark</strong> (la riga più alta), come sugli Icom.</li>
+      <li>Il testo di ogni segnale compare accanto al waterfall, all'altezza del mark, con <strong>nominativi</strong>, <strong>CQ</strong> e <strong>599</strong> evidenziati; un «TOO» (599 con il cambio cifre perso) diventa 599.</li>
+      <li>L'<strong>elenco stazioni</strong> si accende da solo: per ogni segnale il nominativo che ripete di più (non il tuo, che compare quando ti risponde), con frequenza e forza. Clic = RX1 su quella stazione.</li>
+      <li>La riga in basso mostra il testo del DX (RX1); in cuffia hai RX1 e RX2 come negli altri modi, con mark a 2125 Hz e space a 2295 Hz: l'audio si può mandare anche a MMTTY con un cavo audio virtuale.</li>
+      <li>Un segnale nuovo viene ridecodificato dagli ultimi 3 secondi, così non perdi il nominativo detto all'inizio. Le coppie di righe che non si alternano (portanti, due CW vicini) vengono scartate, e un canale che dà solo caratteri rotti sparisce da solo.</li>
+      <li>Memorie RTTY: mark a 7040, 14083, 21083… con il centro 15 kHz sopra, così hai tutto il segmento RTTY nel waterfall. Con «Larghezza» 30 o Tutto vedi più stazioni insieme.</li>
+    </ul>
+    <div class="fzr-callout">Funziona meglio con segnali almeno qualche dB sopra il rumore; i segnali al limite escono con qualche lettera sbagliata, come con qualunque decoder RTTY.</div>
     <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
   </section>
   <section id="nominativi" class="fzr-section">
@@ -787,6 +802,7 @@
           <li><a href="#contest-en">Contest mode (S&amp;P)</a></li>
           <li><a href="#ssb-en">SSB mode (phone pile-ups)</a></li>
           <li><a href="#rx-en">Receiver: CW, RTTY, DIGI</a></li>
+          <li><a href="#fzrtty-en">RTTY: the FZRTTY skimmer</a></li>
           <li><a href="#nominativi-en">Callsigns and decoding</a></li>
           <li><a href="#rbn-en">Reverse Beacon Network</a></li>
         </ul>
@@ -985,13 +1001,27 @@
   </section>
   <section id="rx-en" class="fzr-section">
     <h2>📟 Receiver: CW, RTTY, DIGI</h2>
-    <p>Besides SSB, the <strong>Receiver</strong> row has <strong>CW</strong>, <strong>RTTY</strong> and <strong>DIGI</strong>: a pure receiver, no skimmer, with everything SSB has (RX1 on the DX, RX2 on the wheel, stereo, 🔊 RX1 / 🔊 RX2, split following RX2, S-meter) and its own band memories.</p>
-    <table class="fzr-table"><thead><tr><th>Mode</th><th>Frequency</th><th>Passband</th><th>Memories</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>the signal frequency, heard at 600 Hz</td><td><strong>RX filter</strong> 100–800 Hz</td><td>the same as the CW skimmer</td></tr><tr><td><strong>SSB</strong></td><td>carrier (as on the radio)</td><td>2.7 kHz, USB or LSB</td><td>phone: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (like Icom), 170 Hz shift</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>USB-D dial</td><td>100–3100 Hz</td><td>FT8 frequencies: 7074, 14074, 21074…</td></tr></tbody></table>
+    <p>Besides SSB, the <strong>Receiver</strong> row has <strong>CW</strong>, <strong>RTTY</strong> and <strong>DIGI</strong>: a pure receiver (in RTTY with the FZRTTY skimmer, see below), with everything SSB has (RX1 on the DX, RX2 on the wheel, stereo, 🔊 RX1 / 🔊 RX2, split following RX2, S-meter) and its own band memories.</p>
+    <table class="fzr-table"><thead><tr><th>Mode</th><th>Frequency</th><th>Passband</th><th>Memories</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>the signal frequency, heard at 600 Hz</td><td><strong>RX filter</strong> 100–800 Hz</td><td>the same as the CW skimmer</td></tr><tr><td><strong>SSB</strong></td><td>carrier (as on the radio)</td><td>2.7 kHz, USB or LSB</td><td>phone: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong> + FZRTTY skimmer</td><td><strong>mark</strong> (like Icom), 170 Hz shift</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>USB-D dial</td><td>100–3100 Hz</td><td>FT8 frequencies: 7074, 14074, 21074…</td></tr></tbody></table>
     <ul>
       <li>The wheel also has <strong>10</strong> and <strong>50 Hz</strong> steps, handy in CW and RTTY.</li>
       <li>With the radio connected (CAT) the radio mode follows: CW, USB/LSB, RTTY, USB-D for DIGI.</li>
       <li>DIGI with WSJT-X (or another digital program): in Windows (Settings → System → Sound → Volume mixer) send the Edge audio («FZR Skimmer») to a virtual audio cable (e.g. VB-Cable) and pick that cable as WSJT-X input. Headphones <em>DX and RX2 together</em> and the knob fully on DX (or RX2 off).</li>
     </ul>
+    <a href="#top-content" class="back-to-top">↑ Back to top</a>
+  </section>
+  <section id="fzrtty-en" class="fzr-section">
+    <h2>⌨️ RTTY: the FZRTTY skimmer</h2>
+    <p>In <strong>RTTY</strong> mode <strong>FZRTTY</strong> is at work: a multi-channel RTTY skimmer built for contests. It finds every RTTY signal you see in the waterfall by itself and decodes them all at once, like the CW skimmer.</p>
+    <ul>
+      <li>Amateur RTTY: 45.45 baud, 170 Hz shift, Baudot with letters/figures shift and «unshift on space». A signal frequency is its <strong>mark</strong> (the upper line), as on Icom radios.</li>
+      <li>Each signal text appears next to the waterfall, level with its mark, with <strong>callsigns</strong>, <strong>CQ</strong> and <strong>599</strong> highlighted; a «TOO» (599 with the figures shift lost) becomes 599.</li>
+      <li>The <strong>station list</strong> opens by itself: for each signal the callsign it repeats most (not yours, which shows up when it answers you), with frequency and strength. Click = RX1 on that station.</li>
+      <li>The bottom line shows the DX (RX1) text; in the headphones you have RX1 and RX2 as in the other modes, with mark at 2125 Hz and space at 2295 Hz: the audio can also go to MMTTY through a virtual audio cable.</li>
+      <li>A new signal is decoded again from the last 3 seconds, so you do not lose the callsign sent at the start. Line pairs that do not alternate (carriers, two close CW signals) are discarded, and a channel that gives only broken characters disappears by itself.</li>
+      <li>RTTY memories: mark at 7040, 14083, 21083… with the centre 15 kHz above, so the whole RTTY segment is in the waterfall. With «Span» 30 or All you see more stations at once.</li>
+    </ul>
+    <div class="fzr-callout">It works best with signals at least a few dB above the noise; borderline signals come out with a few wrong letters, as with any RTTY decoder.</div>
     <a href="#top-content" class="back-to-top">↑ Back to top</a>
   </section>
   <section id="nominativi-en" class="fzr-section">

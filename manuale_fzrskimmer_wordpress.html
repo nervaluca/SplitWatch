@@ -49,6 +49,9 @@
 <li><a href="#rx">Ricevitore CW, RTTY, DIGI</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><a href="#fzrtty">RTTY: FZRTTY</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><a href="#nominativi">Nominativi e decodifica</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -462,11 +465,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro, senza skimmer, con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
+<p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro (in RTTY con lo skimmer FZRTTY, vedi sotto), con tutto quello dell'SSB (RX1 sul DX, RX2 con la rotellina, stereo, 🔊 RX1 / 🔊 RX2, split che segue RX2, S-meter) e memorie di banda proprie.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong></td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong> + skimmer FZRTTY</td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:list -->
@@ -482,6 +485,43 @@
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"fzrtty"} -->
+<h2 class="wp-block-heading" id="fzrtty">RTTY: lo skimmer FZRTTY</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel modo <strong>RTTY</strong> lavora <strong>FZRTTY</strong>, uno skimmer RTTY multicanale pensato per i contest: trova da solo tutti i segnali RTTY che vedi nel waterfall e li decodifica tutti insieme, come fa lo skimmer CW.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>RTTY dei radioamatori: 45,45 baud, shift 170 Hz, Baudot con cambio lettere/cifre e «unshift on space». La frequenza di un segnale è il suo <strong>mark</strong> (la riga più alta), come sugli Icom.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il testo di ogni segnale compare accanto al waterfall, all'altezza del mark, con <strong>nominativi</strong>, <strong>CQ</strong> e <strong>599</strong> evidenziati; un «TOO» (599 con il cambio cifre perso) diventa 599.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>L'<strong>elenco stazioni</strong> si accende da solo: per ogni segnale il nominativo che ripete di più (non il tuo, che compare quando ti risponde), con frequenza e forza. Clic = RX1 su quella stazione.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La riga in basso mostra il testo del DX (RX1); in cuffia hai RX1 e RX2 come negli altri modi, con mark a 2125 Hz e space a 2295 Hz: l'audio si può mandare anche a MMTTY con un cavo audio virtuale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Un segnale nuovo viene ridecodificato dagli ultimi 3 secondi, così non perdi il nominativo detto all'inizio. Le coppie di righe che non si alternano (portanti, due CW vicini) vengono scartate, e un canale che dà solo caratteri rotti sparisce da solo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Memorie RTTY: mark a 7040, 14083, 21083… con il centro 15 kHz sopra, così hai tutto il segmento RTTY nel waterfall. Con «Larghezza» 30 o Tutto vedi più stazioni insieme.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Funziona meglio con segnali almeno qualche dB sopra il rumore; i segnali al limite escono con qualche lettera sbagliata, come con qualunque decoder RTTY.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
 
 <!-- wp:heading {"level":2,"anchor":"nominativi"} -->
 <h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>

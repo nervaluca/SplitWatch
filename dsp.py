@@ -438,6 +438,8 @@ class Engine:
 
     def set_dx(self, off_hz):
         self.dx_off = float(off_hz)
+        if getattr(self, 'rtty', None) is not None:
+            self.rtty.set_dx(self.dx_off)
         self.dx_k = int(round(self.dx_off / self.binhz)) % self.nfft
         for k in [k for k, c in self.channels.items() if c.is_dx]:
             del self.channels[k]
@@ -488,6 +490,14 @@ class Engine:
         if rx2_off is not None:
             self.rx2_off = float(rx2_off)
         self.decode_on = not self.ssb
+        self.rx_mode = mode if self.ssb else None
+        if self.ssb and mode == 'rtty':
+            if getattr(self, 'rtty', None) is None:
+                from rtty import RttySkimmer
+                self.rtty = RttySkimmer(self.fs, self.nfft)
+            self.rtty.set_dx(self.dx_off)
+        else:
+            self.rtty = None
         if self.ssb:
             geo = rx_geometry(mode, self.sb, bw)
             if self.ssb_rx is None or self.rx_geo is None or self.rx_geo[1] != geo[1]:
@@ -583,7 +593,9 @@ class Engine:
                 self._emit_row(tA + i * fr_dt, p)
 
         tend = tA + m * fr_dt
-        if not self.decode_on:                          # SSB: solo waterfall
+        if not self.decode_on:                          # ricevitore: niente CW (in RTTY lo skimmer RTTY)
+            if getattr(self, 'rtty', None) is not None and self.nf is not None:
+                self.out_words += self.rtty.process(A, self.nf, tA, fr_dt)
             self.frame_no += m
             return
         self.new_channels = []
