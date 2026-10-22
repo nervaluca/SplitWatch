@@ -42,9 +42,17 @@ jobs:
       - name: Prova l'eseguibile (avvio e uscita)
         run: |
           Start-Process -FilePath dist\FZRSkimmer.exe -ArgumentList '--no-browser','--sorgente','audio' -PassThru | Set-Variable p
-          Start-Sleep -Seconds 8
-          try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8073/ | Out-Null; Write-Host 'interfaccia OK' } catch { Write-Host 'interfaccia non raggiungibile'; Get-Content fzrskimmer.log -ErrorAction SilentlyContinue; exit 1 }
-          Stop-Process -Id $p.Id -Force
+          # l'exe "a file unico" al primo avvio si scompatta e Windows Defender lo controlla: può volerci un po'
+          $ok = $false
+          for ($i = 0; $i -lt 45; $i++) {
+            Start-Sleep -Seconds 1
+            try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 http://127.0.0.1:8073/ | Out-Null; $ok = $true; break } catch { }
+            if ($p.HasExited) { Write-Host "il programma si è chiuso (codice $($p.ExitCode))"; break }
+          }
+          Write-Host "attesa: $i s"
+          foreach ($f in 'fzrskimmer.log', 'dist\fzrskimmer.log') { if (Test-Path $f) { Write-Host "--- $f"; Get-Content $f } }
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if ($ok) { Write-Host 'interfaccia OK' } else { Write-Host 'interfaccia non raggiungibile'; exit 1 }
         shell: pwsh
 
       - name: Prepara la cartella FZRSkimmer
