@@ -8,6 +8,7 @@ Riceve blocchi IQ complessi (numpy complex64) e produce:
 Solo numpy: deve girare anche su Python 32 bit.
 """
 import math
+from collections import deque
 import re
 import numpy as np
 
@@ -322,7 +323,7 @@ class SsbRx:
         self.agc_st = [1e-6, 1e-6, 0]
         self.pk = 0.0                                           # S-meter: potenza massima (blocchi da ~20 ms) dall'ultima lettura
 
-    def process(self, iq, center_hz, aud_hz, sb):
+    def process(self, iq, center_hz, aud_hz, sb, freeze=False):
         """iq al campionamento pieno -> audio reale a arate (float, AGC già applicato)."""
         n = len(iq)
         ph = self.ph_in + (-2 * np.pi * center_hz / self.fs) * np.arange(n)
@@ -351,7 +352,12 @@ class SsbRx:
         self.ph_out = float((tt[-1] + 2 * np.pi * sb * aud_hz / self.arate) % (2 * np.pi))
         a = np.real(b * np.exp(1j * tt))
         # AGC: attacco 2 ms, discesa ~0,4 s (rapida dopo la propria trasmissione)
-        g = agc_run(np.abs(b).astype(np.float64), self.agc_st, self.arate, 0.4)
+        env = np.abs(b).astype(np.float64)
+        if freeze:                                        # in TX (PTT): AGC fermo al livello di prima, il proprio segnale muto
+            out = a / (self.agc_st[0] * 2.2)
+            out[env > 6 * self.agc_st[0]] = 0.0
+            return out
+        g = agc_run(env, self.agc_st, self.arate, 0.4)
         return a / (g * 2.2)                              # margine: il limitatore finale non distorce
 
 
@@ -433,6 +439,8 @@ class Engine:
         self.bfo_ph = 0.0
         self.agc_st = [1e-6, 1e-6, 0]
         self.tx_on = False                                 # propria trasmissione in corso (banda intera saturata)
+        self.ptt = False
+        self.agc_snap = deque()
         self.tx_ref = None
         # SSB: due ricevitori (DX e RX2) in stereo; la decodifica CW si spegne
         self.ssb = False
@@ -546,6 +554,7 @@ class Engine:
             self.tx_on = True
         elif self.tx_on and db < self.tx_ref + 15:
             self.tx_on = False
+            self.ptt = False                                  # il TX è finito adesso: non aspetto il PTT della radio
             self.agc_st = [1e-6, 1e-6, 0]
             if self.ssb_rx:
                 for r in self.ssb_rx:
@@ -556,16 +565,25 @@ class Engine:
         return self.tx_on
 
     def set_ptt(self, on):
-        """PTT letto dalla radio (CAT): in TX silenzio, al ritorno in RX l'AGC riparte subito."""
-        self.ptt = bool(on)
-        if not on:
-            self.agc_st = [1e-6, 1e-6, 0]
-            if self.ssb_rx:
-                for r in self.ssb_rx:
-                    r.agc_st = [1e-6, 1e-6, 0]
+        """PTT letto dalla radio (CAT). La lettura arriva con un po' di ritardo, quindi in TX riporto l'AGC
+        a com'era ~0,6 s prima e lo tengo fermo: il proprio segnale (sopra quel livello) è muto, e appena
+        sparisce si sente subito la stazione, senza aspettare che la radio dica «fine TX»."""
+        on = bool(on)
+        if on and not getattr(self, 'ptt', False) and self.agc_snap:
+            snap = self.agc_snap[0]
+            self.agc_st = list(snap[0])
+            if self.ssb_rx and snap[1]:
+                for r, st in zip(self.ssb_rx, snap[1]):
+                    r.agc_st = list(st)
+        self.ptt = on
 
     def _audio(self, iq):
-        if self._tx_guard(iq) or getattr(self, 'ptt', False):
+        if not getattr(self, 'ptt', False):
+            # fotografie dell'AGC degli ultimi ~0,6 s (servono quando arriva il PTT)
+            self.agc_snap.append((list(self.agc_st), [list(r.agc_st) for r in self.ssb_rx] if self.ssb_rx else None))
+            while len(self.agc_snap) > max(4, int(0.6 * self.fs / max(1, len(iq)))):
+                self.agc_snap.popleft()
+        if self._tx_guard(iq):
             # in trasmissione: silenzio (stessa quantità di campioni, così l'audio non perde il passo)
             n = len(iq) + len(self.box_tail)
             m = n // self.adec
@@ -575,8 +593,9 @@ class Engine:
             return
         if self.ssb and self.ssb_rx:
             c, _, aud, sb = self.rx_geo
-            a1 = self.ssb_rx[0].process(iq, self.dx_off + c, aud, sb)
-            a2 = self.ssb_rx[1].process(iq, self.rx2_off + c, aud, sb)
+            fz = getattr(self, 'ptt', False)
+            a1 = self.ssb_rx[0].process(iq, self.dx_off + c, aud, sb, fz)
+            a2 = self.ssb_rx[1].process(iq, self.rx2_off + c, aud, sb, fz)
             m = min(len(a1), len(a2))
             if m:
                 st = np.empty(2 * m, np.float64)
@@ -600,10 +619,16 @@ class Engine:
         if len(f):
             self.sm_pk = max(self.sm_pk, float(np.mean(np.abs(f) ** 2)))
         # AGC campione per campione: attacco rapido (2 ms), discesa lenta (~1 s), nessun gradino tra i blocchi
-        g = agc_run(np.abs(f).astype(np.float64), self.agc_st, self.arate, 1.0)
+        env = np.abs(f).astype(np.float64)
+        if getattr(self, 'ptt', False):                  # in TX: AGC fermo, il proprio segnale muto
+            g = np.full(len(env), self.agc_st[0])
+        else:
+            g = agc_run(env, self.agc_st, self.arate, 1.0)
         tt = self.bfo_ph + 2 * np.pi * self.bfo / self.arate * np.arange(len(f))
         self.bfo_ph = float((tt[-1] + 2 * np.pi * self.bfo / self.arate) % (2 * np.pi))
         a = np.real(f * np.exp(1j * tt)) / (g * 1.6)
+        if getattr(self, 'ptt', False):
+            a[env > 6 * self.agc_st[0]] = 0.0
         self.out_audio.append((np.tanh(a * 1.2) / 1.2 * 30000).astype('<i2'))
 
     # ------------------------------------------------------------------ frame STFT

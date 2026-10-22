@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.29'
+VERSION = '1.31'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -122,6 +122,7 @@ def log(msg):
 BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefinito) in Hz
     '160': (1810000, 2000000, 1830000, 1824000),
     '80':  (3500000, 3800000, 3525000, 3505000),
+    '60':  (5351500, 5366500, 5360000, 5352500),      # banda WRC-15: CW in basso, fonia in USB
     '40':  (7000000, 7200000, 7025000, 7005000),
     '30':  (10100000, 10150000, 10125000, 10105000),
     '20':  (14000000, 14350000, 14035000, 14025000),
@@ -136,6 +137,7 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
 BANDS_SSB = {
     '160': (1860000, 1850000),
     '80':  (3780000, 3790000),
+    '60':  (5360000, 5363500),
     '40':  (7150000, 7140000),
     '20':  (14220000, 14195000),
     '17':  (18140000, 18130000),
@@ -150,7 +152,7 @@ RX_MODES = ('rxcw', 'ssb', 'rtty', 'ft8')
 # RTTY: frequenza = mark (come gli Icom), shift 170 Hz. DIGI (modo interno 'ft8'): frequenze FT8 standard (USB-D).
 BANDS_RTTY = {'160': 1838000, '80': 3590000, '40': 7040000, '30': 10142000, '20': 14083000,
               '17': 18101000, '15': 21083000, '12': 24921000, '10': 28083000}
-BANDS_FT8 = {'160': 1840000, '80': 3573000, '40': 7074000, '30': 10136000, '20': 14074000,
+BANDS_FT8 = {'160': 1840000, '80': 3573000, '60': 5357000, '40': 7074000, '30': 10136000, '20': 14074000,
              '17': 18100000, '15': 21074000, '12': 24915000, '10': 28074000}
 
 SM_CAL_DEFAULT = -10.0      # taratura indicativa (dBm = dBFS - 10) finché non la allinei
@@ -1262,7 +1264,10 @@ class Hub:
             return 1
         if v == 'lsb':
             return -1
-        return -1 if (self.dx_abs or 0) < 10e6 else 1
+        f = self.dx_abs or 0
+        if band_of(f) == '60':
+            return 1                                  # 60 m: per convenzione USB, anche sotto i 10 MHz
+        return -1 if f < 10e6 else 1
 
     def ssb_apply(self):
         """Accende/spegne i due ricevitori del modo «ricevitore» (si chiama dal thread del calcolo)."""

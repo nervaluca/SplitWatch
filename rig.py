@@ -15,7 +15,7 @@ import threading
 import time
 
 DEF_PORT = 4532
-POLL_S = 0.3
+POLL_S = 0.1                     # frequenza e PTT 10 volte al secondo; modo e split ogni ~1 s
 
 
 def find_rigctld(extra=()):
@@ -298,7 +298,7 @@ class Rig:
                     rc, v = self.cmd('get_freq')
                     if rc == 0 and 'Frequency' in v:
                         st['f'] = int(float(v['Frequency']))
-                    if n % 3 == 0:
+                    if n % 9 == 0:
                         rc, v = self.cmd('get_mode')
                         if rc == 0:
                             st['mode'] = v.get('Mode')
