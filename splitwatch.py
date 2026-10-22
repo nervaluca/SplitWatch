@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.28'
+VERSION = '1.29'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1009,6 +1009,9 @@ class Hub:
             if self.is_ssb() and self.cat().get('tx_rx2', True):
                 self.rig_tx(self.dx_abs + self.cfg['rx2_off'])     # SSB: il TX della radio segue RX2
             self.post_json(self.cfg_msg())
+        elif c[0] == 'ptt':
+            if self.engine:
+                self.engine.set_ptt(c[1])
         elif c[0] == 'ssbcfg':
             self.ssb_apply()
             self.post_json(self.cfg_msg())
@@ -1161,7 +1164,10 @@ class Hub:
     def on_rig(self, st):
         """Nuovo stato dalla radio (thread della radio)."""
         changed = st != self.rig_state
+        was_ptt = bool(self.rig_state.get('ptt'))
         self.rig_state = st
+        if bool(st.get('ptt')) != was_ptt:
+            self.cmd_q.put(('ptt', bool(st.get('ptt'))))   # TX dalla radio: audio muto, poi AGC da zero
         if changed:
             self.post_json(self.rig_msg())
         r = self.rig

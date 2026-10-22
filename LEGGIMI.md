@@ -1,4 +1,4 @@
-# FZR Skimmer 1.28
+# FZR Skimmer 1.29
 
 IW1FZR
 
@@ -121,6 +121,9 @@ accende e la spegne.
   **TX → ascolto** o tasto **T** mette il TX sull'ultimo ascolto rilevato; tasto destro sul waterfall →
   **TX qui (split)**. La linea rossa tratteggiata è il TX della radio.
 - Cambiando banda o passando CW ↔ SSB lo split si spegne.
+- **Quando trasmetti** l'audio tace e, appena torni in ricezione, il ricevitore è subito pronto
+  (l'AGC riparte da zero): niente più 1–2 secondi di sordità in isofrequenza. Lo capisce dal PTT
+  della radio (CAT) e, anche senza CAT, da come il proprio segnale satura la banda.
 - All'avvio: se la radio è già su una banda HF la segue FZR Skimmer, altrimenti la radio va sul DX.
 
 ## Calibrazione della frequenza

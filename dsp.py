@@ -260,6 +260,36 @@ def _hyst(E, on, off, prev):
     return np.where(idx >= 0, st[np.maximum(idx, 0), cols], prev[None, :]).astype(np.int8)
 
 
+def agc_run(env, st, arate, slow_s):
+    """AGC campione per campione: attacco 2 ms, discesa lenta (slow_s); se il segnale resta più di 20 dB
+    sotto il livello dell'AGC per 0,35 s (fine della trasmissione, un segnale fortissimo sparito)
+    la discesa diventa rapida (30 ms): il ricevitore torna a sentire subito.
+    st = [livello, media breve, campioni in «hang»]. Restituisce il livello per ogni campione."""
+    ag, fe, hang = st
+    att = math.exp(-1.0 / (0.002 * arate))
+    dec = math.exp(-1.0 / (slow_s * arate))
+    fast = math.exp(-1.0 / (0.03 * arate))
+    kf = 1.0 - math.exp(-1.0 / (0.03 * arate))
+    hold = int(0.35 * arate)
+    g = np.empty(len(env))
+    for i, v in enumerate(env.tolist()):
+        fe += (v - fe) * kf
+        if v > ag:
+            ag = v + (ag - v) * att
+            hang = 0
+        else:
+            if ag > 1000.0 * fe:                    # 60 dB sotto: non è una pausa, è finito un segnale enorme
+                hang += 1
+            else:
+                hang = 0
+            ag *= fast if hang > hold else dec
+        if ag < 1e-7:
+            ag = 1e-7
+        g[i] = ag
+    st[0], st[1], st[2] = ag, fe, hang
+    return g
+
+
 class SsbRx:
     """Un ricevitore del modo «ricevitore puro» (SSB, CW, RTTY, FT8).
 
@@ -289,7 +319,7 @@ class SsbRx:
         self.ph_in = 0.0
         self.ph_out = 0.0
         self.pos = 0                                            # primo campione da tenere nel prossimo blocco
-        self.agc = 1e-6
+        self.agc_st = [1e-6, 1e-6, 0]
         self.pk = 0.0                                           # S-meter: potenza massima (blocchi da ~20 ms) dall'ultima lettura
 
     def process(self, iq, center_hz, aud_hz, sb):
@@ -320,18 +350,8 @@ class SsbRx:
         tt = self.ph_out + (2 * np.pi * sb * aud_hz / self.arate) * np.arange(len(b))
         self.ph_out = float((tt[-1] + 2 * np.pi * sb * aud_hz / self.arate) % (2 * np.pi))
         a = np.real(b * np.exp(1j * tt))
-        # AGC: attacco 2 ms, discesa ~0,4 s
-        env = np.abs(b).astype(np.float64)
-        g = np.empty(len(env))
-        ag = self.agc
-        att = math.exp(-1.0 / (0.002 * self.arate))
-        dec = math.exp(-1.0 / (0.4 * self.arate))
-        for i, v in enumerate(env.tolist()):
-            ag = v + (ag - v) * att if v > ag else ag * dec
-            if ag < 1e-7:
-                ag = 1e-7
-            g[i] = ag
-        self.agc = ag
+        # AGC: attacco 2 ms, discesa ~0,4 s (rapida dopo la propria trasmissione)
+        g = agc_run(np.abs(b).astype(np.float64), self.agc_st, self.arate, 0.4)
         return a / (g * 2.2)                              # margine: il limitatore finale non distorce
 
 
@@ -411,7 +431,9 @@ class Engine:
         self.bw = 500.0
         self._design_filter()
         self.bfo_ph = 0.0
-        self.agc = 1e-6
+        self.agc_st = [1e-6, 1e-6, 0]
+        self.tx_on = False                                 # propria trasmissione in corso (banda intera saturata)
+        self.tx_ref = None
         # SSB: due ricevitori (DX e RX2) in stereo; la decodifica CW si spegne
         self.ssb = False
         self.sb = 1                                        # +1 USB, -1 LSB
@@ -512,7 +534,45 @@ class Engine:
     def set_ssb(self, on, sb=None, rx2_off=None):
         self.set_rx(on, 'ssb', self.sb if sb is None else sb, rx2_off)
 
+    def _tx_guard(self, iq):
+        """Riconosce la propria trasmissione: tutta la banda sale di colpo (il TX rientra nel Perseus).
+        Durante il TX l'audio tace; appena finisce l'AGC riparte da zero, così il segnale torna subito."""
+        if not len(iq):
+            return self.tx_on
+        db = 10 * math.log10(float(np.mean(np.abs(iq) ** 2)) + 1e-20)
+        if self.tx_ref is None:
+            self.tx_ref = db
+        if not self.tx_on and db > self.tx_ref + 25:
+            self.tx_on = True
+        elif self.tx_on and db < self.tx_ref + 15:
+            self.tx_on = False
+            self.agc_st = [1e-6, 1e-6, 0]
+            if self.ssb_rx:
+                for r in self.ssb_rx:
+                    r.agc_st = [1e-6, 1e-6, 0]
+        if not self.tx_on:
+            k = min(1.0, len(iq) / self.fs / 3.0)             # riferimento: media (in dB) degli ultimi ~3 s
+            self.tx_ref += (db - self.tx_ref) * k
+        return self.tx_on
+
+    def set_ptt(self, on):
+        """PTT letto dalla radio (CAT): in TX silenzio, al ritorno in RX l'AGC riparte subito."""
+        self.ptt = bool(on)
+        if not on:
+            self.agc_st = [1e-6, 1e-6, 0]
+            if self.ssb_rx:
+                for r in self.ssb_rx:
+                    r.agc_st = [1e-6, 1e-6, 0]
+
     def _audio(self, iq):
+        if self._tx_guard(iq) or getattr(self, 'ptt', False):
+            # in trasmissione: silenzio (stessa quantità di campioni, così l'audio non perde il passo)
+            n = len(iq) + len(self.box_tail)
+            m = n // self.adec
+            self.box_tail = np.zeros(n - m * self.adec, np.complex64)
+            if m:
+                self.out_audio.append(np.zeros(2 * m if self.ssb and self.ssb_rx else m, '<i2'))
+            return
         if self.ssb and self.ssb_rx:
             c, _, aud, sb = self.rx_geo
             a1 = self.ssb_rx[0].process(iq, self.dx_off + c, aud, sb)
@@ -540,17 +600,7 @@ class Engine:
         if len(f):
             self.sm_pk = max(self.sm_pk, float(np.mean(np.abs(f) ** 2)))
         # AGC campione per campione: attacco rapido (2 ms), discesa lenta (~1 s), nessun gradino tra i blocchi
-        env = np.abs(f).astype(np.float64)
-        g = np.empty(len(env))
-        ag = self.agc
-        att = math.exp(-1.0 / (0.002 * self.arate))
-        dec = math.exp(-1.0 / (1.0 * self.arate))
-        for i, v in enumerate(env.tolist()):
-            ag = v + (ag - v) * att if v > ag else ag * dec
-            if ag < 1e-7:
-                ag = 1e-7
-            g[i] = ag
-        self.agc = ag
+        g = agc_run(np.abs(f).astype(np.float64), self.agc_st, self.arate, 1.0)
         tt = self.bfo_ph + 2 * np.pi * self.bfo / self.arate * np.arange(len(f))
         self.bfo_ph = float((tt[-1] + 2 * np.pi * self.bfo / self.arate) % (2 * np.pi))
         a = np.real(f * np.exp(1j * tt)) / (g * 1.6)

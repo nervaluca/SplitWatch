@@ -1,4 +1,4 @@
-# FZR Skimmer 1.28
+# FZR Skimmer 1.29
 
 by IW1FZR
 
@@ -101,6 +101,9 @@ another program (computer and port, usually 4532). The **Radio (CAT)** tick turn
   **TX → listening** or the **T** key puts the TX on the last listening spot; right click on the
   waterfall → **TX here (split)**. The dashed red line is the radio TX.
 - Changing band or switching CW ↔ SSB turns split off.
+- **While you transmit** the audio is muted and, as soon as you are back on receive, the receiver is ready
+  at once (the AGC restarts): no more 1–2 seconds of deafness when working simplex. It knows from the
+  radio PTT (CAT) and, even without CAT, from your own signal flooding the band.
 - At start-up: if the radio is already on an HF band FZR Skimmer follows it, otherwise the radio goes to the DX.
 
 ## Frequency calibration

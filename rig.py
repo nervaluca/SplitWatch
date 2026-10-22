@@ -313,6 +313,9 @@ class Rig:
                                 st['ftx'] = int(float(v['TX Frequency']))
                         else:
                             st['ftx'] = None
+                    rc, v = self.cmd('get_ptt')               # trasmissione in corso? (per l'AGC del ricevitore)
+                    if rc == 0 and v.get('PTT') is not None:
+                        st['ptt'] = int(str(v.get('PTT')).split()[0] or 0)
                     st['ok'], st['err'] = True, None
                     self.state = st
                     self.on_state(dict(st))              # a ogni lettura: serve per capire se la frequenza è stabile
