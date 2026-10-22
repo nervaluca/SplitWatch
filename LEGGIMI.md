@@ -69,7 +69,7 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - **Frequenza radio**: scrivi la frequenza che mostra la radio (non c'è ancora il CAT).
   - **Offset**: la nota CW (es. 600) se la radio mostra la frequenza del segnale, come gli
     Icom in CW; 0 se mostra la portante USB.
-  - L'audio lo senti già dalla radio: in questo modo il pulsante Audio DX serve poco.
+  - L'audio lo senti già dalla radio: in questo modo il pulsante Volume serve poco.
 - **IQ da scheda audio** – ricevitori che mandano I e Q sui canali sinistro/destro
   (SoftRock e simili), a 48/96/192 kHz. **LO** = frequenza centrale del ricevitore.
 - **ExtIO (SDRplay, Airspy HF+…)** – *sperimentale, da collaudare*. Qualsiasi ricevitore che
@@ -95,7 +95,7 @@ Sotto i modi c'è il pannello «da radio»:
   **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14.195`), Invio conferma, Esc annulla.
 - **RX2** (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN, S-meter, **🔊 RX2** (tasto R)
   e **VOL** di RX2, il **Passo** della rotellina e **RX2 = DX** / **TX = RX2**. Rotellina o clic sulla frequenza come per RX1.
-- **Audio**: Audio acceso/spento, **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme) e 🎧 Prova.
+- **Audio**: **Volume** (audio acceso/spento), **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme) e 🎧 Prova.
 - **Ricevitore**: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.
 
 Nei modi Skimmer il pannello sta su una riga, così il waterfall resta alto. Nei modi Ricevitore
@@ -169,7 +169,7 @@ sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 
 ## Uso
 
-- **Audio DX**: avvia l'audio (il browser lo richiede con un clic).
+- **Volume**: avvia l'audio (il browser lo richiede con un clic).
 - **▲ / ▼ 5 kHz**, rotellina o trascinamento: scorri il waterfall. L'audio resta sul DX.
 - **Ctrl + clic** sul waterfall: il DX va esattamente lì (passo 10 Hz). La vista resta ferma.
 - **Tasto destro** (o pressione lunga sul tablet) sul waterfall:

@@ -310,7 +310,7 @@
 <li><strong>RX2</strong> (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN dal DX, S-meter, <strong>🔊 RX2</strong> (tasto R) e il suo <strong>VOL</strong>, il <strong>Passo</strong> della rotellina, <strong>RX2 = DX</strong> e, con la radio collegata, <strong>TX = RX2</strong>. Rotellina e clic sulla frequenza come per RX1.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Audio</strong>: <strong>Audio DX</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme) e <strong>🎧 Prova</strong>.</li>
+<li><strong>Audio</strong>: <strong>Volume</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme) e <strong>🎧 Prova</strong>.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Ricevitore</strong>: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.</li>
@@ -390,7 +390,7 @@
 <li>Lo stesso evidenziamento vale anche nella colonna accanto al waterfall.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Clic su una riga</strong>: l'RX va su quel segnale (con <strong>Audio DX</strong> acceso lo senti).</li>
+<li><strong>Clic su una riga</strong>: l'RX va su quel segnale (con <strong>Volume</strong> acceso lo senti).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Le righe con un solo frammento senza nominativi sono nascoste; quelle ferme da più di un minuto sono attenuate.</li>
@@ -679,7 +679,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Problema</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Il ricevitore non parte</td><td>Chiudi CW Skimmer, HDSDR e il software Perseus; premi <strong>Riavvia ricevitore</strong>. Controlla in Gestione attività che non ci sia un altro FZR Skimmer acceso.</td></tr><tr><td>ExtIO: «Nessun plugin ExtIO trovato» o «impossibile caricare il plugin»</td><td>Installa il plugin <strong>a 32 bit</strong> per HDSDR del ricevitore e il suo driver, poi <strong>Plugin → Sfoglia…</strong>. Chiudi HDSDR: il ricevitore lo usa un programma per volta.</td></tr><tr><td>I segnali sono un po' fuori frequenza (es. i nominativi dell'RBN non coincidono)</td><td>Calibra il ricevitore: <a href="#calibrazione">Calibrazione della frequenza</a>.</td></tr><tr><td>Stazioni specchiate rispetto al centro</td><td>Spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td>Nessun audio</td><td>Premi <strong>Audio DX</strong>: il browser accende l'audio solo dopo un clic.</td></tr><tr><td>Troppa decodifica sbagliata</td><td>Sensibilità <strong>Media</strong> o <strong>Bassa</strong>; restringi il <strong>Filtro RX</strong>.</td></tr><tr><td>Waterfall troppo scuro o chiaro</td><td>Cursori <strong>Luce</strong> e <strong>Contrasto</strong>, o un'altra tavolozza in <strong>Colori</strong>.</td></tr><tr><td>In Gestione attività ci sono due FZRSkimmer.exe</td><td>È normale: l'exe "a file unico" è composto da due processi. Alla chiusura spariscono tutti e due entro pochi secondi.</td></tr><tr><td>"Persi" che cresce nel log</td><td>Il PC non tiene il passo: scegli un campionamento più basso (48 kHz).</td></tr><tr><td>Qualcos'altro</td><td>Guarda <code>fzrskimmer.log</code> nella cartella del programma e mandamelo.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Problema</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Il ricevitore non parte</td><td>Chiudi CW Skimmer, HDSDR e il software Perseus; premi <strong>Riavvia ricevitore</strong>. Controlla in Gestione attività che non ci sia un altro FZR Skimmer acceso.</td></tr><tr><td>ExtIO: «Nessun plugin ExtIO trovato» o «impossibile caricare il plugin»</td><td>Installa il plugin <strong>a 32 bit</strong> per HDSDR del ricevitore e il suo driver, poi <strong>Plugin → Sfoglia…</strong>. Chiudi HDSDR: il ricevitore lo usa un programma per volta.</td></tr><tr><td>I segnali sono un po' fuori frequenza (es. i nominativi dell'RBN non coincidono)</td><td>Calibra il ricevitore: <a href="#calibrazione">Calibrazione della frequenza</a>.</td></tr><tr><td>Stazioni specchiate rispetto al centro</td><td>Spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td>Nessun audio</td><td>Premi <strong>Volume</strong>: il browser accende l'audio solo dopo un clic.</td></tr><tr><td>Troppa decodifica sbagliata</td><td>Sensibilità <strong>Media</strong> o <strong>Bassa</strong>; restringi il <strong>Filtro RX</strong>.</td></tr><tr><td>Waterfall troppo scuro o chiaro</td><td>Cursori <strong>Luce</strong> e <strong>Contrasto</strong>, o un'altra tavolozza in <strong>Colori</strong>.</td></tr><tr><td>In Gestione attività ci sono due FZRSkimmer.exe</td><td>È normale: l'exe "a file unico" è composto da due processi. Alla chiusura spariscono tutti e due entro pochi secondi.</td></tr><tr><td>"Persi" che cresce nel log</td><td>Il PC non tiene il passo: scegli un campionamento più basso (48 kHz).</td></tr><tr><td>Qualcos'altro</td><td>Guarda <code>fzrskimmer.log</code> nella cartella del programma e mandamelo.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:separator -->

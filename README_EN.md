@@ -76,7 +76,7 @@ Below the modes there is a radio-style panel:
   **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195`), Enter confirms, Esc cancels.
 - **RX2** (blue edge, Receiver modes): frequency, UP/DOWN offset, S-meter, **🔊 RX2** (R key) and RX2 **VOL**,
   the wheel **Step** and **RX2 = DX** / **TX = RX2**. Wheel or click on the frequency as for RX1.
-- **Audio**: audio on/off, **AF** (master volume), headphones (DX left / right / together) and 🎧 Test.
+- **Audio**: **Volume** (audio on/off), **AF** (master volume), headphones (DX left / right / together) and 🎧 Test.
 - **Receiver**: AGC and RF, ATT and PRE, filter (CW or SSB) and sideband.
 
 In the Skimmer modes the panel fits on one line, so the waterfall stays tall. In the Receiver modes
@@ -195,7 +195,7 @@ Top left, **Mode**:
 
 ## Use
 
-- **DX audio**: starts the audio (the browser requires a click).
+- **Volume**: starts the audio (the browser requires a click).
 - **▲ / ▼ 5 kHz**, mouse wheel or drag: scroll the waterfall. The audio stays on the DX.
 - **Ctrl + click** on the waterfall: DX exactly there (10 Hz step). The view stays still.
 - **Ctrl + wheel**: moves the DX by 50 Hz (Ctrl + Shift: 10 Hz).
