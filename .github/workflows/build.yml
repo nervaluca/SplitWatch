@@ -55,10 +55,30 @@ jobs:
           if ($ok) { Write-Host 'interfaccia OK' } else { Write-Host 'interfaccia non raggiungibile'; exit 1 }
         shell: pwsh
 
+      # chiavetta RTL-SDR: rtl_tcp.exe e le sue librerie dalla release ufficiale di RTL-SDR Blog (GPLv2).
+      # Se qualcosa non va la compilazione continua: rtl_tcp si può sempre aggiungere a mano.
+      - name: Chiavetta RTL-SDR (rtl_tcp)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download -R rtlsdrblog/rtl-sdr-blog --pattern '*.zip' -D rtlzip
+          Get-ChildItem rtlzip -Filter *.zip | ForEach-Object { Expand-Archive $_.FullName -DestinationPath (Join-Path 'rtlx' $_.BaseName) -Force }
+          $all = Get-ChildItem rtlx -Recurse -Filter rtl_tcp.exe
+          $exe = ($all | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1)
+          if (-not $exe) { $exe = $all | Select-Object -First 1 }
+          if (-not $exe) { Write-Host 'rtl_tcp.exe non trovato nella release'; exit 1 }
+          New-Item -ItemType Directory -Force dist\rtl | Out-Null
+          Get-ChildItem $exe.DirectoryName | Where-Object { $_.Extension -in '.exe', '.dll' } | Copy-Item -Destination dist\rtl\
+          Set-Content dist\rtl\LEGGIMI_rtl.txt "rtl_tcp e librerie: progetto rtl-sdr / RTL-SDR Blog, licenza GPL v2.`r`nSorgenti: https://github.com/rtlsdrblog/rtl-sdr-blog`r`nLa chiavetta vuole il driver WinUSB (Zadig), come per SDR#."
+          Get-ChildItem dist\rtl | ForEach-Object { Write-Host $_.Name }
+        shell: pwsh
+
       - name: Prepara la cartella FZRSkimmer
         run: |
           mkdir FZRSkimmer
           copy dist\FZRSkimmer.exe FZRSkimmer\
+          if exist dist\rtl xcopy /E /I /Y dist\rtl FZRSkimmer\rtl
           copy LEGGIMI.md FZRSkimmer\
           if exist README_EN.md copy README_EN.md FZRSkimmer\
           if exist prepara_cartella.bat copy prepara_cartella.bat FZRSkimmer\
