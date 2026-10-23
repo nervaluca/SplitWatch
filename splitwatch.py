@@ -1009,7 +1009,7 @@ class Hub:
             self.cfg['rx2_off'] = max(-200000.0, min(200000.0, round(float(c[1]))))
             save_cfg(self.cfg)
             self.ssb_apply()
-            if self.is_ssb() and self.cat().get('tx_rx2', True):
+            if self.is_ssb() and self.cfg.get('split', True) and self.cat().get('tx_rx2', True):
                 self.rig_tx(self.dx_abs + self.cfg['rx2_off'])     # SSB: il TX della radio segue RX2
             self.post_json(self.cfg_msg())
         elif c[0] == 'agc':
@@ -1304,7 +1304,7 @@ class Hub:
                 'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(),
                 'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
-                'passo': int(self.cfg.get('passo', 500)),
+                'passo': int(self.cfg.get('passo', 500)), 'split': bool(self.cfg.get('split', True)),
                 'agc': self.cfg.get('agc', 'slow'), 'rfgain': float(self.cfg.get('rfgain', 60)),
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
                 'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
@@ -1509,6 +1509,18 @@ class Hub:
                             save_cfg(self.cfg)
                             self.ws_cmd_info()
                     threading.Thread(target=br, daemon=True).start()
+                elif k == 'split':
+                    # modi Ricevitore: SPLIT acceso = RX2 attivo (e il TX della radio può seguirlo); spento = solo RX1
+                    on = bool(c.get('v'))
+                    self.cfg['split'] = on
+                    save_cfg(self.cfg)
+                    r = self.rig_ctl()
+                    if r and self.is_ssb():
+                        if not on:
+                            r.split_off()
+                        elif self.cat().get('tx_rx2', True) and self.dx_abs:
+                            self.rig_tx(self.dx_abs + float(self.cfg.get('rx2_off', 5000.0)))
+                    self.post_json(self.cfg_msg())
                 elif k == 'passo' and int(c.get('v', 0)) in (10, 50, 100, 500, 1000):
                     self.cfg['passo'] = int(c['v'])
                     save_cfg(self.cfg)

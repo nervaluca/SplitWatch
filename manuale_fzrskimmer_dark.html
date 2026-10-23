@@ -579,9 +579,11 @@
     <h3>Pannello radio</h3>
     <p>Sotto i modi c'è il pannello «da radio», con un riquadro per ogni ricevitore e i suoi comandi accanto.</p>
     <ul>
+      <li><strong>SPLIT</strong> (nei modi Ricevitore, tasto S): acceso = RX2 attivo; spento = solo RX1, come una radio senza split: il riquadro RX2 sparisce, la rotellina e il clic sul waterfall spostano RX1 e, con la radio collegata, lo split della radio si spegne.</li>
+      <li>Quando c'è <strong>un solo ricevitore acceso</strong> (split spento, oppure RX1 o RX2 muto) lo senti in tutte e due le orecchie.</li>
       <li><strong>RX1</strong> (bordo verde): la frequenza grande, il modo e il filtro, lo S-meter, <strong>🔊 RX1</strong> (acceso = si sente, spento = muto, tasto M) e il suo <strong>VOL</strong>. <strong>Rotellina sulla frequenza</strong>: sposta il DX (50 Hz, in SSB e DIGI 100 Hz, con Maiusc 10 Hz; il <strong>🔒 DX</strong> la blocca). <strong>Clic sulla frequenza</strong>: la scrivi in kHz (<code>14195</code>) o in MHz (<code>14.195</code>), Invio conferma, Esc annulla.</li>
       <li><strong>RX2</strong> (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN dal DX, S-meter, <strong>🔊 RX2</strong> (tasto R) e il suo <strong>VOL</strong>, il <strong>Passo</strong> della rotellina, <strong>RX2 = DX</strong> e, con la radio collegata, <strong>TX = RX2</strong>. Rotellina e clic sulla frequenza come per RX1.</li>
-      <li><strong>Audio</strong>: <strong>Volume</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme) e <strong>🎧 Prova</strong>.</li>
+      <li><strong>Audio</strong>: <strong>Volume</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme), <strong>🎧 Prova</strong> e i pulsanti di registrazione (<strong>💾 Salva ultimi</strong>, <strong>⏺ Registra</strong>, 📂).</li>
       <li><strong>Ricevitore</strong>: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.</li>
       <li>Nei modi Skimmer (Normale, DXpedition, Contest) il pannello sta su una riga sola, così il waterfall resta alto. Nei modi Ricevitore il pulsante <strong>▴</strong> lo riduce alle sole due frequenze (<strong>▾</strong> lo riapre): i tasti M e R e la rotellina funzionano lo stesso.</li>
       <li>I due <strong>VOL</strong> (doppio clic = normale) dosano DX e RX2 ognuno per conto suo.</li>
@@ -707,7 +709,7 @@
   </section>
   <section id="registrare" class="fzr-section">
     <h2>⏺️ Registrare e riascoltare</h2>
-    <p>In alto a destra:</p>
+    <p>Nel riquadro <strong>Audio</strong> del pannello radio (nei modi Skimmer in forma compatta: 💾 m:ss e ● REC):</p>
     <ul>
       <li><strong>💾 Salva ultimi m:ss</strong>: FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti; il pulsante li scrive su disco senza fermare il ricevitore. Comodo per controllare con calma se il DX ti ha messo a log. Quanti minuti tenere si sceglie in basso alla voce <strong>Memoria</strong> (spenta, 1, 2, 5, 10 minuti; a 96 kHz servono circa 23 MB di RAM al minuto).</li>
       <li><strong>⏺ Registra</strong>: registra su disco da quel momento finché non lo premi di nuovo (circa 35 MB al minuto a 96 kHz). Cambiando banda il file si chiude e ne parte un altro.</li>
@@ -719,7 +721,7 @@
   </section>
   <section id="tastiera" class="fzr-section">
     <h2>⌨️ Mouse e tastiera</h2>
-    <table class="fzr-table"><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table>
+    <table class="fzr-table"><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>S</td><td>SPLIT acceso / spento (modi Ricevitore)</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table>
     <a href="#top-content" class="back-to-top">↑ Torna all'indice principale</a>
   </section>
   <section id="tablet" class="fzr-section">
@@ -954,9 +956,11 @@
     <h3>Radio panel</h3>
     <p>Below the modes there is a radio-style panel, with one box per receiver and its controls next to it.</p>
     <ul>
+      <li><strong>SPLIT</strong> (Receiver modes, S key): on = RX2 active; off = RX1 only, like a radio without split: the RX2 box disappears, the wheel and clicks on the waterfall move RX1 and, with the radio connected, the radio split is turned off.</li>
+      <li>When <strong>only one receiver is on</strong> (split off, or RX1 or RX2 muted) you hear it in both ears.</li>
       <li><strong>RX1</strong> (green edge): the big frequency, mode and filter, the S-meter, <strong>🔊 RX1</strong> (on = audible, off = muted, M key) and its <strong>VOL</strong>. <strong>Wheel on the frequency</strong>: moves the DX (50 Hz, 100 Hz in SSB and DIGI, Shift 10 Hz; <strong>🔒 DX</strong> blocks it). <strong>Click on the frequency</strong>: type it in kHz (<code>14195</code>) or MHz (<code>14.195</code>), Enter confirms, Esc cancels.</li>
       <li><strong>RX2</strong> (blue edge, Receiver modes): frequency, UP/DOWN offset from the DX, S-meter, <strong>🔊 RX2</strong> (R key) and its <strong>VOL</strong>, the wheel <strong>Step</strong>, <strong>RX2 = DX</strong> and, with the radio connected, <strong>TX = RX2</strong>. Wheel and click on the frequency as for RX1.</li>
-      <li><strong>Audio</strong>: <strong>Volume</strong> (turns on the PC audio), <strong>AF</strong> (master volume), headphones (DX left, right or together) and <strong>🎧 Test</strong>.</li>
+      <li><strong>Audio</strong>: <strong>Volume</strong> (turns on the PC audio), <strong>AF</strong> (master volume), headphones (DX left, right or together), <strong>🎧 Test</strong> and the recording buttons (<strong>💾 Save last</strong>, <strong>⏺ Record</strong>, 📂).</li>
       <li><strong>Receiver</strong>: AGC and RF, ATT and PRE, filter (CW or SSB) and sideband.</li>
       <li>In the Skimmer modes (Normal, DXpedition, Contest) the panel fits on one line, so the waterfall stays tall. In the Receiver modes the <strong>▴</strong> button shrinks it to the two frequencies only (<strong>▾</strong> opens it again): M and R keys and the wheel still work.</li>
       <li>The two <strong>VOL</strong> sliders (double click = normal) set DX and RX2 levels independently.</li>
@@ -1082,7 +1086,7 @@
   </section>
   <section id="registrare-en" class="fzr-section">
     <h2>⏺️ Recording and playback</h2>
-    <p>Top right:</p>
+    <p>In the <strong>Audio</strong> box of the radio panel (compact in the Skimmer modes: 💾 m:ss and ● REC):</p>
     <ul>
       <li><strong>💾 Save last m:ss</strong>: FZR Skimmer always keeps the last minutes received in memory; the button writes them to disk without stopping the receiver. Handy to check calmly whether the DX put you in the log. How many minutes is chosen at the bottom under <strong>Memory</strong> (off, 1, 2, 5, 10 minutes; at 96 kHz about 23 MB of RAM per minute).</li>
       <li><strong>⏺ Record</strong>: records to disk from now until pressed again (about 35 MB per minute at 96 kHz). Changing band closes the file and starts a new one.</li>
@@ -1094,7 +1098,7 @@
   </section>
   <section id="tastiera-en" class="fzr-section">
     <h2>⌨️ Mouse and keyboard</h2>
-    <table class="fzr-table"><thead><tr><th>Command</th><th>Effect</th></tr></thead><tbody><tr><td>Wheel / drag</td><td>scrolls the waterfall (audio stays on the DX)</td></tr><tr><td>Ctrl + click</td><td>DX exactly there (10 Hz step)</td></tr><tr><td>Ctrl + wheel</td><td>moves the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Right click (or long press on a tablet)</td><td>menu: Set DX here, Marker here / Remove this marker, Remove all markers, Centre view here</td></tr><tr><td>PgUp / PgDn</td><td>±5 kHz</td></tr><tr><td>Up / down arrows</td><td>scroll the view</td></tr><tr><td>Left / right arrows</td><td>move the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Home</td><td>back to the DX</td></tr><tr><td>Space bar</td><td>pause / resume in playback</td></tr><tr><td>Double click on Brightness or Contrast</td><td>default value</td></tr></tbody></table>
+    <table class="fzr-table"><thead><tr><th>Command</th><th>Effect</th></tr></thead><tbody><tr><td>Wheel / drag</td><td>scrolls the waterfall (audio stays on the DX)</td></tr><tr><td>Ctrl + click</td><td>DX exactly there (10 Hz step)</td></tr><tr><td>Ctrl + wheel</td><td>moves the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Right click (or long press on a tablet)</td><td>menu: Set DX here, Marker here / Remove this marker, Remove all markers, Centre view here</td></tr><tr><td>PgUp / PgDn</td><td>±5 kHz</td></tr><tr><td>Up / down arrows</td><td>scroll the view</td></tr><tr><td>Left / right arrows</td><td>move the DX by 50 Hz (with Shift 10 Hz)</td></tr><tr><td>Home</td><td>back to the DX</td></tr><tr><td>S</td><td>SPLIT on / off (Receiver modes)</td></tr><tr><td>Space bar</td><td>pause / resume in playback</td></tr><tr><td>Double click on Brightness or Contrast</td><td>default value</td></tr></tbody></table>
     <a href="#top-content" class="back-to-top">↑ Back to top</a>
   </section>
   <section id="tablet-en" class="fzr-section">

@@ -71,12 +71,16 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 ## Radio panel (1.33)
 
 Below the modes there is a radio-style panel:
+- **SPLIT** (Receiver modes, S key): on = RX2 active; off = RX1 only, like a radio without split:
+  the RX2 box disappears, wheel and clicks on the waterfall move RX1 and, with the radio connected, the radio split is turned off.
+- **Only one receiver on** (split off, or RX1 or RX2 muted): you hear it in both ears.
 - **RX1** (green edge): big frequency, mode and filter, S-meter, **🔊 RX1** (mute, M key) and RX1 **VOL**.
   **Wheel on the frequency** = moves the DX (50 Hz, 100 Hz in SSB/DIGI, Shift 10 Hz; 🔒 DX blocks it).
   **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195`), Enter confirms, Esc cancels.
 - **RX2** (blue edge, Receiver modes): frequency, UP/DOWN offset, S-meter, **🔊 RX2** (R key) and RX2 **VOL**,
   the wheel **Step** and **RX2 = DX** / **TX = RX2**. Wheel or click on the frequency as for RX1.
-- **Audio**: **Volume** (audio on/off), **AF** (master volume), headphones (DX left / right / together) and 🎧 Test.
+- **Audio**: **Volume** (audio on/off), **AF** (master volume), headphones (DX left / right / together), 🎧 Test,
+  **💾 Save last**, **⏺ Record** and 📂.
 - **Receiver**: AGC and RF, ATT and PRE, filter (CW or SSB) and sideband.
 
 In the Skimmer modes the panel fits on one line, so the waterfall stays tall. In the Receiver modes
@@ -208,7 +212,7 @@ Top left, **Mode**:
 - **Sensitivity**: High = more weak calls but more errors; Medium (default); Low = clean signals only.
 - **Colours / Brightness / Contrast**: waterfall palette and levels. Double click on a slider = default.
 - Keyboard: PgUp/PgDn ±5 kHz, up/down arrows scroll, left/right arrows move the DX (±50 Hz, Shift ±10 Hz),
-  Home = back to DX, space = pause/resume in playback.
+  Home = back to DX, S = SPLIT (Receiver modes), space = pause/resume in playback.
 
 ## Station list (contest, S&P)
 
@@ -239,7 +243,7 @@ your callsign (from the registration; otherwise a **Callsign** field appears). I
 
 ## Recording
 
-Top right:
+In the **Audio** box of the radio panel (compact in the Skimmer modes: 💾 m:ss and ● REC):
 - **💾 Save last m:ss** – FZR Skimmer always keeps the last minutes in memory (5 by default, see
   **Memory** at the bottom); the button writes them to disk without stopping the receiver — handy
   to check calmly whether the DX logged you. RAM: about 23 MB per minute at 96 kHz.

@@ -90,12 +90,16 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
 ## Pannello radio (1.33)
 
 Sotto i modi c'è il pannello «da radio»:
+- **SPLIT** (nei modi Ricevitore, tasto S): acceso = RX2 attivo; spento = solo RX1, come una radio senza split:
+  il riquadro RX2 sparisce, rotellina e clic sul waterfall spostano RX1 e, con la radio collegata, lo split della radio si spegne.
+- **Un solo ricevitore acceso** (split spento, oppure RX1 o RX2 muto): lo senti in tutte e due le orecchie.
 - **RX1** (bordo verde): frequenza grande, modo e filtro, S-meter, **🔊 RX1** (mute, tasto M) e **VOL** di RX1.
   **Rotellina sulla frequenza** = sposta il DX (50 Hz, in SSB/DIGI 100 Hz, con Maiusc 10 Hz; il 🔒 DX la blocca).
   **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14.195`), Invio conferma, Esc annulla.
 - **RX2** (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN, S-meter, **🔊 RX2** (tasto R)
   e **VOL** di RX2, il **Passo** della rotellina e **RX2 = DX** / **TX = RX2**. Rotellina o clic sulla frequenza come per RX1.
-- **Audio**: **Volume** (audio acceso/spento), **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme) e 🎧 Prova.
+- **Audio**: **Volume** (audio acceso/spento), **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme), 🎧 Prova,
+  **💾 Salva ultimi**, **⏺ Registra** e 📂.
 - **Ricevitore**: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.
 
 Nei modi Skimmer il pannello sta su una riga, così il waterfall resta alto. Nei modi Ricevitore
@@ -186,11 +190,11 @@ sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 - **Sensibilità**: Alta = più nominativi deboli ma più errori; Media (iniziale); Bassa = solo segnali puliti.
 - **Colori / Luce / Contrasto**: tavolozza del waterfall (Skimmer, Classica, Fosfori, Grigio, Notte),
   luminosità e contrasto. Doppio clic su un cursore = valore iniziale. Restano memorizzati.
-- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX.
+- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX, S = SPLIT (modi Ricevitore).
 
 ## Registrare
 
-In alto a destra:
+Nel riquadro **Audio** del pannello radio (nei modi Skimmer, compatti: 💾 m:ss e ● REC):
 
 - **💾 Salva ultimi m:ss** – FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti
   (5 min di base, si cambia in basso alla voce **Memoria**). Il pulsante li scrive su disco
