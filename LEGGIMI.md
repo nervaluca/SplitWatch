@@ -1,4 +1,4 @@
-# FZR Skimmer 1.42
+# FZR Skimmer 1.43
 
 IW1FZR
 
@@ -31,7 +31,7 @@ Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.42.exe`.
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.43.exe`.
 - Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
   vanno in `%APPDATA%\FZRSkimmer`).
@@ -164,7 +164,9 @@ Sotto i modi c'è il pannello «da radio»:
 - **RX1** (bordo verde): frequenza grande, modo e filtro, S-meter, **🔊 RX1** (mute, tasto M) e **VOL** di RX1.
   **Rotellina sulla frequenza** = sposta il DX del **Passo** di RX1 (10 Hz–1 kHz, uno per ogni modo Ricevitore: di base 100 Hz in SSB/DIGI,
   50 Hz in CW/RTTY; vale anche per Ctrl + rotellina, frecce e rotellina con lo split spento; Maiusc = 10 Hz; il 🔒 DX la blocca).
-  **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14.195`), Invio conferma, Esc annulla.
+  **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14,195` o `145,5`), Invio conferma, Esc annulla.
+  Lo stesso in basso in **DX kHz** e **Centro kHz**: sotto 1800 il numero è in MHz, da 1800 in su in kHz (si può
+  aggiungere `k` o `m`); se la frequenza è fuori dalla vista il ricevitore si sposta da solo.
 - **RX2** (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN, S-meter, **🔊 RX2** (tasto R)
   e **VOL** di RX2, il **Passo** della rotellina e **RX2 = DX** / **TX = RX2**. Rotellina o clic sulla frequenza come per RX1.
 - **Audio**: **Volume** (audio acceso/spento), **AF** (volume generale), cuffia (DX a sinistra / a destra / insieme), 🎧 Prova,

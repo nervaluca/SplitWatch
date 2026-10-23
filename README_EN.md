@@ -1,4 +1,4 @@
-# FZR Skimmer 1.42
+# FZR Skimmer 1.43
 
 by IW1FZR
 
@@ -30,7 +30,7 @@ All from the official sites; only needed for the receiver or feature shown.
 ## Installation
 
 **With the installer (recommended, from 1.34)**: from GitHub → Actions → latest build → Artifacts download
-`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.42.exe`.
+`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.43.exe`.
 - No administrator rights needed: it installs in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (you can choose «all users», in Program Files: settings, log and licence then go to `%APPDATA%\FZRSkimmer`).
 - It copies `perseususb.dll` and the `.sbs` files from CW Skimmer, the Perseus software or HDSDR by itself,
@@ -142,7 +142,9 @@ Below the modes there is a radio-style panel:
 - **RX1** (green edge): big frequency, mode and filter, S-meter, **🔊 RX1** (mute, M key) and RX1 **VOL**.
   **Wheel on the frequency** = moves the DX by the RX1 **Step** (10 Hz–1 kHz, one per Receiver mode: 100 Hz in SSB/DIGI and
   50 Hz in CW/RTTY by default; also used by Ctrl + wheel, arrows and the wheel with split off; Shift = 10 Hz; 🔒 DX blocks it).
-  **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195`), Enter confirms, Esc cancels.
+  **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195` or `145.5`), Enter confirms, Esc cancels.
+  The same in **DX kHz** and **Centre kHz** at the bottom: below 1800 the number is in MHz, from 1800 up in kHz (you may
+  add `k` or `m`); if the frequency is outside the view the receiver moves by itself.
 - **RX2** (blue edge, Receiver modes): frequency, UP/DOWN offset, S-meter, **🔊 RX2** (R key) and RX2 **VOL**,
   the wheel **Step** and **RX2 = DX** / **TX = RX2**. Wheel or click on the frequency as for RX1.
 - **Audio**: **Volume** (audio on/off), **AF** (master volume), headphones (DX left / right / together), 🎧 Test,

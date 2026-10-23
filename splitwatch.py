@@ -38,7 +38,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
 import banco
 
-VERSION = '1.42'
+VERSION = '1.43'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1582,7 +1582,18 @@ class Hub:
                     continue
                 k = c.get('cmd')
                 if k == 'dx':
-                    self.cmd_q.put(('dx', float(c['hz'])))
+                    hz = float(c['hz'])
+                    if c.get('jump'):                       # frequenza scritta: se è fuori dalla vista ci vado
+                        if not self.band_reach(hz):
+                            self.on_status(f'{hz/1e6:.4f} MHz non si riceve con questo ricevitore')
+                            continue
+                        self.cmd_q.put(('dx', hz, 'band'))
+                        if self.tunable() and self.fs and self.center and abs(hz - self.center) > self.fs * 0.42:
+                            self.tune(hz + self.fs * 0.2)
+                        elif isinstance(self.src, AudioCard) and self.src_kind == 'audio':
+                            self.src.set_lo(hz)
+                    else:
+                        self.cmd_q.put(('dx', hz))
                 elif k == 'up':
                     self.cmd_q.put(('up', c['lo'], c['hi']))
                 elif k == 'bw':

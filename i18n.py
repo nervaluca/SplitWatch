@@ -110,6 +110,7 @@ _EN = [
     (r'Memoria salvata: (.+)', r'Memory saved: \1'),
     (r'Memorie predefinite: (\d+) aggiunte', r'Default memories: \1 added'),
     (r'(.+): ([\d.]+) MHz non si riceve con questo ricevitore', r'\1: \2 MHz is out of reach of this receiver'),
+    (r'([\d.]+) MHz non si riceve con questo ricevitore', r'\1 MHz is out of reach of this receiver'),
     (r'Non trovo (.+)', r'Not found: \1'),
     (r'non risponde', 'does not respond'),
 ]

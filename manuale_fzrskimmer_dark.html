@@ -486,7 +486,7 @@
     <h2>💾 Installazione</h2>
     <h3>Con l'installazione (consigliato)</h3>
     <ul>
-      <li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.42.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
+      <li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.43.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
       <li>Il setup copia da solo <code>perseususb.dll</code> e i file <code>.sbs</code> del Perseus da CW Skimmer, dal software Perseus o da HDSDR, e l'elenco nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il software del Perseus lo installi dopo: menu Start → FZR Skimmer → <strong>Copia i file del Perseus</strong>.</li>
       <li>Mette l'icona sul desktop e nel menu Start; si disinstalla da Impostazioni → App.</li>
       <li><strong>Dov'è la cartella</strong>: è nascosta in AppData. Premi Win+R, scrivi <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> e Invio: lì ci sono <code>fzrskimmer.json</code>, <code>fzrskimmer.log</code>, la cartella <code>rtl</code> e le registrazioni. Oppure menu Start → tasto destro su FZR Skimmer → <em>Apri percorso file</em>. Se hai installato «per tutti gli utenti», il programma è in <code>C:\Program Files\FZR Skimmer</code> e impostazioni, log e registrazioni in <code>%APPDATA%\FZRSkimmer</code>.</li>
@@ -651,7 +651,7 @@
     <h2>🌍 Modo DXpedition (pile-up in split)</h2>
     <p>È il modo per cui FZR Skimmer è nato. Un esempio tipico: il relè della radio commuta in trasmissione, il Perseus riceve; l'audio resta fisso sul DX mentre tu scorri il waterfall per vedere dove chiama il pile-up e dove risponde la stazione lavorata.</p>
     <ul>
-      <li><strong>Imposta il DX</strong>: <strong>Ctrl + clic</strong> sul suo segnale nel waterfall, oppure scrivi la frequenza in <strong>DX kHz</strong>, oppure tasto destro → <em>Imposta il DX qui</em>. Per ritoccarlo: <strong>Ctrl + rotellina</strong> (50 Hz, con Maiusc 10 Hz) o le frecce sinistra/destra.</li>
+      <li><strong>Imposta il DX</strong>: <strong>Ctrl + clic</strong> sul suo segnale nel waterfall, oppure scrivi la frequenza in <strong>DX kHz</strong> (in kHz, es. <code>14025,5</code>, o in MHz, es. <code>145,5</code> o <code>7,074</code>; Invio: se è fuori dalla vista il ricevitore si sposta da solo; lo stesso vale per <strong>Centro kHz</strong>), oppure tasto destro → <em>Imposta il DX qui</em>. Per ritoccarlo: <strong>Ctrl + rotellina</strong> (50 Hz, con Maiusc 10 Hz) o le frecce sinistra/destra.</li>
       <li><strong>Zona UP</strong>: dove cercare l'ascolto, in kHz sopra il DX. Se il DX dice "UP 1-5", scrivi 1 e 5. Serve anche a escludere FT8 e altri segnali digitali.</li>
       <li><strong>Ascolto rilevato</strong>: dopo ogni 5NN del DX, il programma guarda chi risponde subito dopo e traccia una <strong>linea arancio</strong> su quella frequenza, con lo scostamento dal DX. Le ultime frequenze restano come pulsanti in <strong>Ascolti</strong>: un clic e il waterfall si centra lì.</li>
       <li>Se l'ascolto è fuori dalla vista, compare un pulsante arancio in alto o in basso nel waterfall: cliccalo per andarci.</li>
@@ -927,7 +927,7 @@
     <h2>💾 Installation</h2>
     <h3>With the installer (recommended)</h3>
     <ul>
-      <li>Download <strong>FZRSkimmer_Setup</strong> and run <code>FZRSkimmer_Setup_1.42.exe</code>. No administrator rights needed: the program goes into <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (if you choose «all users» it goes into Program Files, and settings, log and licence are then kept in <code>%APPDATA%\FZRSkimmer</code>).</li>
+      <li>Download <strong>FZRSkimmer_Setup</strong> and run <code>FZRSkimmer_Setup_1.43.exe</code>. No administrator rights needed: the program goes into <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (if you choose «all users» it goes into Program Files, and settings, log and licence are then kept in <code>%APPDATA%\FZRSkimmer</code>).</li>
       <li>The setup copies <code>perseususb.dll</code> and the Perseus <code>.sbs</code> files from CW Skimmer, the Perseus software or HDSDR by itself, plus the callsign list (N1MM MASTER.SCP or CW Skimmer MASTER.DTA). If you install the Perseus software later: Start menu → FZR Skimmer → <strong>Copy the Perseus files</strong>.</li>
       <li>It adds desktop and Start menu icons; uninstall from Settings → Apps.</li>
       <li><strong>Where the folder is</strong>: it is hidden in AppData. Press Win+R, type <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> and Enter: <code>fzrskimmer.json</code>, <code>fzrskimmer.log</code>, the <code>rtl</code> folder and the recordings are there. Or Start menu → right click on FZR Skimmer → <em>Open file location</em>. If you installed «for all users», the program is in <code>C:\Program Files\FZR Skimmer</code> and settings, log and recordings in <code>%APPDATA%\FZRSkimmer</code>.</li>
@@ -1092,7 +1092,7 @@
     <h2>🌍 DXpedition mode (split pile-ups)</h2>
     <p>This is what FZR Skimmer was born for. A typical setup: the radio relay switches on transmit and the Perseus receives; the audio stays locked on the DX while you scroll the waterfall to see where the pile-up is calling and where the worked station answers.</p>
     <ul>
-      <li><strong>Set the DX</strong>: <strong>Ctrl + click</strong> on its signal in the waterfall, or type the frequency in <strong>DX kHz</strong>, or right click → <em>Set DX here</em>. To fine-tune it: <strong>Ctrl + wheel</strong> (50 Hz, with Shift 10 Hz) or the left/right arrows.</li>
+      <li><strong>Set the DX</strong>: <strong>Ctrl + click</strong> on its signal in the waterfall, or type the frequency in <strong>DX kHz</strong> (in kHz, e.g. <code>14025.5</code>, or MHz, e.g. <code>145.5</code> or <code>7.074</code>; Enter: if it is outside the view the receiver moves by itself; <strong>Centre kHz</strong> works the same way), or right click → <em>Set DX here</em>. To fine-tune it: <strong>Ctrl + wheel</strong> (50 Hz, with Shift 10 Hz) or the left/right arrows.</li>
       <li><strong>UP zone</strong>: where to look for the listening frequency, in kHz above the DX. If the DX says "UP 1-5", type 1 and 5. It also keeps FT8 and other digital signals out.</li>
       <li><strong>Listening spot</strong>: after every 5NN from the DX the program looks at who answers right after and draws an <strong>orange line</strong> on that frequency, with the offset from the DX. The latest ones stay as buttons under <strong>Listening</strong>: one click centres the waterfall there.</li>
       <li>If the listening spot is outside the view, an orange button appears at the top or bottom of the waterfall: click it to go there.</li>
