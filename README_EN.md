@@ -75,7 +75,8 @@ Below the modes there is a radio-style panel:
   the RX2 box disappears, wheel and clicks on the waterfall move RX1 and, with the radio connected, the radio split is turned off.
 - **Only one receiver on** (split off, or RX1 or RX2 muted): you hear it in both ears.
 - **RX1** (green edge): big frequency, mode and filter, S-meter, **🔊 RX1** (mute, M key) and RX1 **VOL**.
-  **Wheel on the frequency** = moves the DX (50 Hz, 100 Hz in SSB/DIGI, Shift 10 Hz; 🔒 DX blocks it).
+  **Wheel on the frequency** = moves the DX by the RX1 **Step** (10 Hz–1 kHz, one per Receiver mode: 100 Hz in SSB/DIGI and
+  50 Hz in CW/RTTY by default; also used by Ctrl + wheel, arrows and the wheel with split off; Shift = 10 Hz; 🔒 DX blocks it).
   **Click on the frequency** = type it (kHz, e.g. `14195`, or MHz, e.g. `14.195`), Enter confirms, Esc cancels.
 - **RX2** (blue edge, Receiver modes): frequency, UP/DOWN offset, S-meter, **🔊 RX2** (R key) and RX2 **VOL**,
   the wheel **Step** and **RX2 = DX** / **TX = RX2**. Wheel or click on the frequency as for RX1.

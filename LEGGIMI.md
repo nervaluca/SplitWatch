@@ -94,7 +94,8 @@ Sotto i modi c'è il pannello «da radio»:
   il riquadro RX2 sparisce, rotellina e clic sul waterfall spostano RX1 e, con la radio collegata, lo split della radio si spegne.
 - **Un solo ricevitore acceso** (split spento, oppure RX1 o RX2 muto): lo senti in tutte e due le orecchie.
 - **RX1** (bordo verde): frequenza grande, modo e filtro, S-meter, **🔊 RX1** (mute, tasto M) e **VOL** di RX1.
-  **Rotellina sulla frequenza** = sposta il DX (50 Hz, in SSB/DIGI 100 Hz, con Maiusc 10 Hz; il 🔒 DX la blocca).
+  **Rotellina sulla frequenza** = sposta il DX del **Passo** di RX1 (10 Hz–1 kHz, uno per ogni modo Ricevitore: di base 100 Hz in SSB/DIGI,
+  50 Hz in CW/RTTY; vale anche per Ctrl + rotellina, frecce e rotellina con lo split spento; Maiusc = 10 Hz; il 🔒 DX la blocca).
   **Clic sulla frequenza** = la scrivi (in kHz, es. `14195`, oppure in MHz, es. `14.195`), Invio conferma, Esc annulla.
 - **RX2** (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN, S-meter, **🔊 RX2** (tasto R)
   e **VOL** di RX2, il **Passo** della rotellina e **RX2 = DX** / **TX = RX2**. Rotellina o clic sulla frequenza come per RX1.
