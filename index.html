@@ -226,7 +226,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.41</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.42</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
       <div class="hot dxonly"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
@@ -571,10 +571,10 @@ function addRows(t0,n,nb,bytes){
 let ac=null,audioOn=false,nextT=0,node=null,acRate=0;
 const WORKLET=`class R extends AudioWorkletProcessor{
   // anello di coppie sinistra/destra (stereo: DX e RX2 in SSB; in CW i due canali sono uguali)
-  constructor(){super();this.b=new Float32Array(1<<17);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;
-    this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.run=false;return}
+  constructor(){super();this.b=new Float32Array(1<<17);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;this.lat=0.12;
+    this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.run=false;return}if(d&&d.lat){this.lat=d.lat;return}
       const k=d.length>>1;for(let i=0;i<k;i++){this.b[2*this.w]=d[2*i];this.b[2*this.w+1]=d[2*i+1];this.w=(this.w+1)&65535}this.n=Math.min(65535,this.n+k)}}
-  process(_,out){const oL=out[0][0],oR=out[0][1]||null,T=sampleRate*0.12;
+  process(_,out){const oL=out[0][0],oR=out[0][1]||null,T=sampleRate*this.lat;
     if(!this.run&&this.n>=T)this.run=true;
     for(let i=0;i<oL.length;i++){
       let l=0,r=0;
@@ -598,8 +598,10 @@ async function startAudio(){
       catch(e){node=null}
     }
   }
-  await ac.resume();nextT=0;if(node)node.port.postMessage('flush');
+  await ac.resume();nextT=0;if(node)node.port.postMessage('flush');LAT=0;setLat();
 }
+// riserva dell'audio: la chiavetta RTL-SDR manda i dati a raffiche (~140 ms), serve più margine
+let LAT=0;function setLat(){const v=CFG&&CFG.src==='rtl'?0.35:0.12;if(node&&v!==LAT){LAT=v;node.port.postMessage({lat:v})}}
 $('#bAudio').onclick=async()=>{
   audioOn=!audioOn;
   if(audioOn){await startAudio()}else if(ac){await ac.suspend()}
@@ -777,7 +779,7 @@ function onCfg(m,again){
   renderSteps();
   document.querySelectorAll('#fmbw button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.fw===(MODE==='am'?m.am_bw:m.fm_bw))));
   if(document.activeElement!==$('#rSql'))$('#rSql').value=m.sql||0;showSql();
-  rtlUI(m);if(m.banco_v!==BANCO.v&&(!$('#bancoBox').hidden||BANCO.v===null))send({cmd:'banco_list'});
+  rtlUI(m);if(node&&LAT!==(m.src==='rtl'?0.35:0.12)){LAT=0;setLat()}if(m.banco_v!==BANCO.v&&(!$('#bancoBox').hidden||BANCO.v===null))send({cmd:'banco_list'});
   if(document.activeElement!==$('#selSb'))$('#selSb').value=m.sb||'auto';
   if(typeof m.split==='boolean'){SPLIT=m.split;showSplit()}
   if(m.nb!=null){DSP={nb:m.nb|0,nr:m.nr|0,notch:!!m.notch};showDsp()}

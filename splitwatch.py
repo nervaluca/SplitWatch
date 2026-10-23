@@ -38,7 +38,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
 import banco
 
-VERSION = '1.41'
+VERSION = '1.42'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'

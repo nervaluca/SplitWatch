@@ -1,4 +1,4 @@
-# FZR Skimmer 1.41
+# FZR Skimmer 1.42
 
 by IW1FZR
 
@@ -30,7 +30,7 @@ All from the official sites; only needed for the receiver or feature shown.
 ## Installation
 
 **With the installer (recommended, from 1.34)**: from GitHub → Actions → latest build → Artifacts download
-`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.41.exe`.
+`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.42.exe`.
 - No administrator rights needed: it installs in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (you can choose «all users», in Program Files: settings, log and licence then go to `%APPDATA%\FZRSkimmer`).
 - It copies `perseususb.dll` and the `.sbs` files from CW Skimmer, the Perseus software or HDSDR by itself,

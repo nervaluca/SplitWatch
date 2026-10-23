@@ -1,4 +1,4 @@
-# FZR Skimmer 1.41
+# FZR Skimmer 1.42
 
 IW1FZR
 
@@ -31,7 +31,7 @@ Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.41.exe`.
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.42.exe`.
 - Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
   vanno in `%APPDATA%\FZRSkimmer`).

@@ -1185,6 +1185,8 @@ class RtlTcpSource:
         if 'no supported devices' in txt or 'no matching devices' in txt:
             raise RuntimeError('rtl_tcp non trova la chiavetta RTL-SDR: è collegata?')
         if 'usb_open error' in txt or 'usb_claim_interface' in txt or 'access' in txt and 'denied' in txt:
+            if self.proc.poll() is None:
+                self.proc.kill()
             raise RuntimeError('La chiavetta c\'è ma Windows non la lascia aprire: installa il driver WinUSB con Zadig '
                                '(come per SDR#) e chiudi gli altri programmi che la usano')
         if self.proc.poll() is not None:
@@ -1200,21 +1202,51 @@ class RtlTcpSource:
         except OSError:
             pass
 
-    def start(self):
+    def _kill_stale(self):
+        """Un rtl_tcp rimasto acceso (bloccato o di un avvio precedente) tiene occupata la chiavetta."""
+        if os.name == 'nt':
+            import subprocess
+            subprocess.run(['taskkill', '/F', '/IM', 'rtl_tcp.exe'], capture_output=True, creationflags=0x08000000)
+        time.sleep(1.5)                                          # la USB si libera con un attimo di ritardo
+
+    def _connect(self):
         import socket
-        if self._local() and not self._port_open():
-            self._spawn()
-        try:
-            self.sock = socket.create_connection((self.host, self.port), timeout=5)
-        except OSError as e:
-            raise RuntimeError(f'rtl_tcp non risponde su {self.host}:{self.port} ({e})')
+        self.sock = socket.create_connection((self.host, self.port), timeout=5)
         self.sock.settimeout(5)
         hdr = b''
         while len(hdr) < 12:
             d = self.sock.recv(12 - len(hdr))
             if not d:
-                raise RuntimeError('rtl_tcp ha chiuso la connessione')
+                raise OSError('rtl_tcp ha chiuso la connessione')
             hdr += d
+        return hdr
+
+    def start(self):
+        hdr = None
+        for tent in range(3):
+            try:
+                if self._local() and not self._port_open():
+                    self._spawn()
+                hdr = self._connect()
+                break
+            except (OSError, RuntimeError) as e:
+                err = e
+                try:
+                    if self.sock:
+                        self.sock.close()
+                except OSError:
+                    pass
+                self.sock = None
+                if not self._local():
+                    raise RuntimeError(f'rtl_tcp non risponde su {self.host}:{self.port} ({e})')
+                if self.proc and self.proc.poll() is None:
+                    self.proc.kill()
+                self.proc = None
+                self._kill_stale()                              # riprovo con un rtl_tcp nuovo
+        if hdr is None:
+            if isinstance(err, RuntimeError):
+                raise err
+            raise RuntimeError(f'rtl_tcp non risponde su {self.host}:{self.port} ({err})')
         if hdr[:4] == b'RTL0':
             t, self.ngains = struct.unpack('>II', hdr[4:12])
             self.tuner = RTL_TUNERS.get(t, f'tuner {t}')

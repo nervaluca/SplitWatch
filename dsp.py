@@ -291,6 +291,55 @@ def agc_run(env, st, arate, slow_s):
     return g
 
 
+def _mix(rx, iq, center_hz):
+    """Porta center_hz a 0 Hz con fase continua. La tabella exp(-jwn) si calcola una volta per frequenza."""
+    n = len(iq)
+    w = -2 * np.pi * center_hz / rx.fs
+    tab = getattr(rx, '_nco', None)
+    if tab is None or rx._nco_w != w or len(tab) < n:
+        rx._nco = tab = np.exp(1j * w * np.arange(max(n, 8192))).astype(np.complex64)
+        rx._nco_w = w
+    y = iq * (tab[:n] * np.complex64(np.exp(1j * rx.ph_in)))
+    rx.ph_in = float((rx.ph_in + w * n) % (2 * np.pi))
+    return y.astype(np.complex64, copy=False)
+
+
+class _Pre:
+    """Primo stadio leggero: riduce il campionamento di k (FIR corto, calcolato solo sui campioni tenuti).
+    Così i filtri ripidi dei ricevitori lavorano a 24–32 kHz invece che a 192 kHz: molto meno calcolo."""
+
+    def __init__(self, fs, k, taps_per=14):
+        self.k = int(k)
+        n = taps_per * self.k + 1
+        t = np.arange(n) - (n - 1) / 2
+        h = np.sinc(0.8 * t / self.k) * np.blackman(n)
+        self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
+        self.tail = np.zeros(n - 1, np.complex64)
+        self.ph = 0
+
+    def __call__(self, x):
+        n = len(self.h)
+        z = np.concatenate([self.tail, x])
+        idx = np.arange(self.ph, len(z) - n + 1, self.k)
+        if len(idx):
+            y = (np.lib.stride_tricks.sliding_window_view(z, n)[idx] @ self.h).astype(np.complex64)
+            self.ph = int(idx[-1] + self.k - (len(z) - (n - 1)))
+        else:
+            y = np.zeros(0, np.complex64)
+            self.ph -= len(x)
+        self.tail = z[-(n - 1):].copy()
+        return y
+
+
+def _pre_factor(fs, adec, min_rate):
+    """Il fattore più grande che divide adec lasciando almeno min_rate dopo il primo stadio."""
+    best = 1
+    for k in range(1, int(adec) + 1):
+        if adec % k == 0 and fs / k >= min_rate:
+            best = k
+    return best
+
+
 class SsbRx:
     """Un ricevitore del modo «ricevitore puro» (SSB, CW, RTTY, FT8).
 
@@ -300,13 +349,16 @@ class SsbRx:
     Fase continua: si può spostare senza clic."""
 
     def __init__(self, fs, adec, half=1350.0):
-        self.fs, self.d = float(fs), int(adec)
-        self.arate = self.fs / self.d
+        self.fs = float(fs)
+        self.arate = self.fs / int(adec)
+        k = _pre_factor(self.fs, int(adec), 24000.0)            # primo stadio fino a ~24 kHz
+        self.pre = _Pre(self.fs, k) if k > 1 else None
+        self.fs1, self.d = self.fs / k, int(adec) // k
         self.half = float(half)
         wide = max(self.half, 600.0)
-        n = int(5.5 * self.fs / 250.0) | 1                      # Blackman: transizione 250 Hz
+        n = int(5.5 * self.fs1 / 250.0) | 1                     # Blackman: transizione 250 Hz
         t = np.arange(n) - (n - 1) / 2
-        h = np.sinc(2 * (wide + 125) / self.fs * t) * np.blackman(n)
+        h = np.sinc(2 * (wide + 125) / self.fs1 * t) * np.blackman(n)
         self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
         self.tail = np.zeros(n - 1, np.complex64)
         self.h2 = None
@@ -328,9 +380,9 @@ class SsbRx:
     def process(self, iq, center_hz, aud_hz, sb, freeze=False):
         """iq al campionamento pieno -> audio reale a arate (float, AGC già applicato)."""
         n = len(iq)
-        ph = self.ph_in + (-2 * np.pi * center_hz / self.fs) * np.arange(n)
-        self.ph_in = float((ph[-1] - 2 * np.pi * center_hz / self.fs) % (2 * np.pi)) if n else self.ph_in
-        y = (iq * np.exp(1j * ph).astype(np.complex64)).astype(np.complex64)
+        y = _mix(self, iq, center_hz)
+        if self.pre is not None:
+            y = self.pre(y)
         z = np.concatenate([self.tail, y])
         L = len(self.h)
         idx = np.arange(self.pos, len(z) - L + 1, self.d)
@@ -340,7 +392,7 @@ class SsbRx:
             self.pos = int(idx[-1] + self.d - (len(z) - (L - 1)))
         else:
             b = np.zeros(0, np.complex64)
-            self.pos -= n
+            self.pos -= len(y)
         self.tail = z[-(L - 1):].copy()
         if not len(b):
             return np.zeros(0, np.float64)
@@ -480,10 +532,12 @@ class NarrowRx:
         self.d2 = next((k for k in (4, 3, 2) if self.adec % k == 0 and self.fs / (self.adec // k) >= 2.2 * self.half), 1)
         self.d1 = self.adec // self.d2
         self.r1 = self.fs / self.d1
+        # primo stadio leggero fino a r1 (~32 kHz), poi il filtro di canale a r1
+        self.pre = _Pre(self.fs, self.d1, 16) if self.d1 > 1 else None
         tr = max(1500.0, 0.25 * self.half)
-        n = int(5.5 * self.fs / tr) | 1
+        n = int(5.5 * self.r1 / tr) | 1
         t = np.arange(n) - (n - 1) / 2
-        h = np.sinc(2 * (self.half + tr / 2) / self.fs * t) * np.blackman(n)
+        h = np.sinc(2 * (self.half + tr / 2) / self.r1 * t) * np.blackman(n)
         self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
         self.tail = np.zeros(n - 1, np.complex64)
         self.pos = 0
@@ -513,20 +567,14 @@ class NarrowRx:
 
     def process(self, iq, center_hz, aud_hz=0.0, sb=1, freeze=False):
         n = len(iq)
-        ph = self.ph_in + (-2 * np.pi * center_hz / self.fs) * np.arange(n)
-        self.ph_in = float((ph[-1] - 2 * np.pi * center_hz / self.fs) % (2 * np.pi)) if n else self.ph_in
-        y = (iq * np.exp(1j * ph).astype(np.complex64)).astype(np.complex64)
+        y = _mix(self, iq, center_hz)
+        if self.pre is not None:
+            y = self.pre(y)                                   # ~32 kHz
+        if not len(y):
+            return np.zeros(0, np.float64)
         z = np.concatenate([self.tail, y])
-        L = len(self.h)
-        idx = np.arange(self.pos, len(z) - L + 1, self.d1)
-        if len(idx):
-            w = np.lib.stride_tricks.sliding_window_view(z, L)[idx]
-            b = (w @ self.h).astype(np.complex64)
-            self.pos = int(idx[-1] + self.d1 - (len(z) - (L - 1)))
-        else:
-            b = np.zeros(0, np.complex64)
-            self.pos -= n
-        self.tail = z[-(L - 1):].copy()
+        b = np.convolve(z, self.h[::-1], mode='valid').astype(np.complex64)   # filtro di canale
+        self.tail = z[-(len(self.h) - 1):].copy()
         if not len(b):
             return np.zeros(0, np.float64)
         p = float(np.mean(np.abs(b) ** 2)) + 1e-20
@@ -717,15 +765,17 @@ class Engine:
         while done < nfr:
             m = min(step, nfr - done)
             idx = ar[None, :] + self.hop * (done + np.arange(m))[:, None]
-            Fw = self.buf[idx] * self.win
-            A = np.abs(np.fft.fft(Fw, axis=1)).astype(np.float32)
+            # ricevitore puro (non RTTY): niente decodifica, basta il waterfall
+            light = not self.decode_on and getattr(self, 'rtty', None) is None
+            Fw = None if light else self.buf[idx] * self.win
+            A = None if light else np.abs(np.fft.fft(Fw, axis=1)).astype(np.float32)
             # righe del waterfall: una ogni ROW_EVERY frame, finestra lunga
             ri = [i for i in range(m) if (self.frame_no + i) % ROW_EVERY == 0]
             rows = None
             if ri:
                 idx2 = np.arange(self.L)[None, :] + self.hop * (done + np.array(ri))[:, None]
                 rows = (ri, (np.abs(np.fft.fft(self.buf[idx2] * self.wwin, axis=1)) ** 2).astype(np.float32))
-            if self.elen == self.nfft:
+            if light or self.elen == self.nfft:
                 Fe = Fw
             else:
                 Fe = self.buf[np.arange(self.elen)[None, :] + self.hop * (done + np.arange(m))[:, None]] * self.ewin
@@ -921,23 +971,7 @@ class Engine:
     def _ftime(self, j):
         return j * self.hop / self.fs + self.nfft / 2 / self.fs
 
-    def _frames(self, A, Fw, m, rows, done):
-        fr_dt = 1.0 / FRAMES_PER_S
-        tA = self._ftime(self.frame_no)
-        if self.nf is None:
-            self.nf = np.percentile(A, 30, axis=0).astype(np.float32) + 1e-9
-        p25 = np.partition(A, m // 4, axis=0)[m // 4]
-        self.nf = np.where(p25 < self.nf, self.nf * 0.8 + p25 * 0.2, self.nf * 0.985 + p25 * 0.015).astype(np.float32)
-        cm = A.max(0)
-        self.pk = np.maximum(self.pk * 0.85, cm)
-        snr_ok = self.pk > self.min_snr * self.nf
-        th = self.nf + 0.5 * (self.pk - self.nf)
-        act = (A > th[None, :]) & snr_ok[None, :]
-        strong = A > 6.0 * self.nf[None, :]
-        sm_ = strong.mean(0)
-        self.duty = self.duty * 0.997 + sm_ * 0.003
-        self.duty_f = self.duty_f * 0.98 + sm_ * 0.02
-
+    def _rows(self, rows, tA, fr_dt):
         # waterfall e statistiche dei segnali (finestra lunga)
         if rows is not None:
             ri, P = rows
@@ -952,6 +986,29 @@ class Engine:
             self.lavg = self.lavg * 0.97 + R.mean(0) * 0.03
             for i, p in zip(ri, P):
                 self._emit_row(tA + i * fr_dt, p)
+
+    def _frames(self, A, Fw, m, rows, done):
+        fr_dt = 1.0 / FRAMES_PER_S
+        tA = self._ftime(self.frame_no)
+        if A is None:                                   # solo waterfall
+            self._rows(rows, tA, fr_dt)
+            self.frame_no += m
+            return
+        if self.nf is None:
+            self.nf = np.percentile(A, 30, axis=0).astype(np.float32) + 1e-9
+        p25 = np.partition(A, m // 4, axis=0)[m // 4]
+        self.nf = np.where(p25 < self.nf, self.nf * 0.8 + p25 * 0.2, self.nf * 0.985 + p25 * 0.015).astype(np.float32)
+        cm = A.max(0)
+        self.pk = np.maximum(self.pk * 0.85, cm)
+        snr_ok = self.pk > self.min_snr * self.nf
+        th = self.nf + 0.5 * (self.pk - self.nf)
+        act = (A > th[None, :]) & snr_ok[None, :]
+        strong = A > 6.0 * self.nf[None, :]
+        sm_ = strong.mean(0)
+        self.duty = self.duty * 0.997 + sm_ * 0.003
+        self.duty_f = self.duty_f * 0.98 + sm_ * 0.02
+
+        self._rows(rows, tA, fr_dt)
 
         tend = tA + m * fr_dt
         if not self.decode_on:                          # ricevitore: niente CW (in RTTY lo skimmer RTTY)
