@@ -37,7 +37,7 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info)
 
-VERSION = '1.33'
+VERSION = '1.34'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -967,6 +967,7 @@ class Hub:
                 self.engine.min_snr = float(self.cfg.get('sensibilita', 5.0))
                 self.engine.listen_on = self.cfg.get('modo', 'dx') == 'dx'
                 self.engine.set_agc(self.cfg.get('agc', 'slow'), float(self.cfg.get('rfgain', 60)))
+                self.nrnb_apply()
             else:
                 self.engine.set_dx(self.dx_abs - center)
             self.ssb_apply()
@@ -1015,6 +1016,7 @@ class Hub:
         elif c[0] == 'agc':
             if self.engine:
                 self.engine.set_agc(self.cfg.get('agc', 'slow'), float(self.cfg.get('rfgain', 60)))
+                self.nrnb_apply()
         elif c[0] == 'ptt':
             if self.engine:
                 self.engine.set_ptt(c[1])
@@ -1166,6 +1168,10 @@ class Hub:
                 return                                # l'audio viene dalla radio: è lei che comanda
             r.set_freq(self.dx_abs)
 
+    def nrnb_apply(self):
+        if self.engine:
+            self.engine.set_nrnb(int(self.cfg.get('nb', 0)), int(self.cfg.get('nr', 0)), bool(self.cfg.get('notch', False)))
+
     def rig_tx(self, hz):
         r = self.rig_ctl()
         if r and hz:
@@ -1306,6 +1312,7 @@ class Hub:
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
                 'passo': int(self.cfg.get('passo', 500)), 'split': bool(self.cfg.get('split', True)),
                 'agc': self.cfg.get('agc', 'slow'), 'rfgain': float(self.cfg.get('rfgain', 60)),
+                'nb': int(self.cfg.get('nb', 0)), 'nr': int(self.cfg.get('nr', 0)), 'notch': bool(self.cfg.get('notch', False)),
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
                 'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: self.band_mem(b) for b in BANDS if self.band_mem(b)},
@@ -1443,6 +1450,16 @@ class Hub:
                     self.post_json(self.cfg_msg())
                 elif k == 'agc' and c.get('v') in ('fast', 'med', 'slow', 'off'):
                     self.cfg['agc'] = c['v']
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('agc',))
+                    self.post_json(self.cfg_msg())
+                elif k == 'nrnb':
+                    # NB e NR 0–3, NOTCH acceso/spento (vale in SSB)
+                    for key in ('nb', 'nr'):
+                        if key in c:
+                            self.cfg[key] = max(0, min(3, int(c[key])))
+                    if 'notch' in c:
+                        self.cfg['notch'] = bool(c['notch'])
                     save_cfg(self.cfg)
                     self.cmd_q.put(('agc',))
                     self.post_json(self.cfg_msg())

@@ -366,6 +366,104 @@ class SsbRx:
         return a / (g * 2.2)                              # margine: il limitatore finale non distorce
 
 
+class NoiseBlanker:
+    """NB: toglie gli impulsi (scariche, motori, recinti elettrici) sull'IQ a banda piena, prima del filtro,
+    come il noise blanker delle radio. Un campione più alto di k volte il livello tipico della banda viene
+    azzerato insieme a ~0,2 ms intorno."""
+    K = {1: 10.0, 2: 6.5, 3: 4.5}
+
+    def __init__(self, fs):
+        self.fs = float(fs)
+        self.lvl = None
+        self.guard = max(3, int(self.fs * 0.0002))
+        self.hits = 0
+
+    def process(self, iq, level):
+        if not level or not len(iq):
+            return iq
+        mag = np.abs(iq)
+        med = float(np.median(mag)) + 1e-12
+        self.lvl = med if self.lvl is None else (self.lvl * 0.9 + med * 0.1 if med > self.lvl else med)
+        bad = mag > self.K.get(int(level), 6.5) * self.lvl
+        if not bad.any():
+            return iq
+        bad = np.convolve(bad.astype(np.float32), np.ones(2 * self.guard + 1, np.float32), mode='same') > 0
+        self.hits += int(bad.sum())
+        out = iq.copy()
+        out[bad] = 0
+        return out
+
+
+class AudioNR:
+    """NR (riduzione del rumore) e NOTCH automatico sull'audio di un ricevitore (~8 kHz).
+
+    Analisi a blocchi di 32 ms sovrapposti a metà (finestra radice di Hann: ricostruzione perfetta).
+    NR: stima il rumore di fondo di ogni riga dello spettro (sale piano, scende subito) e attenua le righe
+    che non stanno sopra il rumore (filtro di Wiener con un minimo, così la voce resta naturale).
+    NOTCH: trova le portanti fisse (chi accorda, battimenti) che restano più di ~1 s e le spegne.
+    Ritardo fisso di 32 ms, sempre uguale (anche spento), così RX1 e RX2 restano allineati."""
+    LEV = {1: (1.6, 0.32), 2: (2.6, 0.18), 3: (4.0, 0.10)}      # (sottrazione, minimo del guadagno)
+
+    def __init__(self, rate, n=256):
+        self.rate, self.n, self.h = float(rate), int(n), int(n) // 2
+        k = np.arange(self.n)
+        self.w = np.sqrt(0.5 - 0.5 * np.cos(2 * np.pi * k / self.n))
+        self.inb = np.zeros(0)
+        self.ola = np.zeros(self.n - self.h)
+        self.outq = np.zeros(self.n)                              # ritardo iniziale
+        nb = self.h + 1
+        self.psm = None
+        self.noise = None
+        self.g = np.ones(nb)
+        self.long = np.zeros(nb)
+        f = np.arange(nb) * self.rate / self.n
+        self.band = (f > 120) & (f < 3400)
+
+    def process(self, x, level=0, notch=False):
+        x = np.asarray(x, np.float64)
+        if not len(x):
+            return x
+        self.inb = np.concatenate([self.inb, x])
+        outs = []
+        while len(self.inb) >= self.n:
+            fr = self.inb[:self.n]
+            self.inb = self.inb[self.h:]
+            X = np.fft.rfft(fr * self.w)
+            P = X.real ** 2 + X.imag ** 2
+            if self.psm is None:
+                self.psm = P.copy()
+                self.noise = P.copy() + 1e-12
+            self.psm = 0.65 * self.psm + 0.35 * P
+            lo = self.psm < self.noise
+            self.noise = np.where(lo, 0.85 * self.noise + 0.15 * self.psm, self.noise * 1.004) + 1e-15
+            G = np.ones_like(P)
+            if level:
+                a, fl = self.LEV.get(int(level), self.LEV[2])
+                g = np.clip(1.0 - a * self.noise / (self.psm + 1e-15), fl, 1.0)
+                g = np.maximum(g, np.convolve(g, [0.25, 0.5, 0.25], mode='same'))   # i picchi (voce, nota) restano pieni
+                self.g = 0.5 * self.g + 0.5 * g                     # meno «rumore musicale»
+                G = self.g
+            self.long = 0.985 * self.long + 0.015 * P
+            if notch:
+                med = float(np.median(self.long[self.band])) + 1e-15
+                side = 0.5 * (np.roll(self.long, 2) + np.roll(self.long, -2)) + 1e-15
+                tone = self.band & (self.long > 12 * med) & (self.long > 6 * side)
+                if tone.any():
+                    t = np.convolve(tone.astype(float), [1, 1, 1], mode='same') > 0
+                    G = np.where(t, 0.03, G)
+            y = np.fft.irfft(X * G, self.n) * self.w
+            y[:self.n - self.h] += self.ola
+            outs.append(y[:self.h])
+            self.ola = y[self.h:].copy()
+        if outs:
+            self.outq = np.concatenate([self.outq] + outs)
+        out = self.outq[:len(x)]
+        if len(out) < len(x):
+            out = np.concatenate([out, np.zeros(len(x) - len(out))])
+        self.outq = self.outq[len(x):]
+        return out
+
+
 def rx_geometry(mode, sb, bw, ssb_bw=2700.0):
     """(scostamento del centro della banda passante dalla frequenza dell'RX, metà larghezza, centro audio, verso).
 
@@ -457,6 +555,9 @@ class Engine:
         self.ssb_rx = None
         self.rx_geo = None
         self.decode_on = True
+        self.nb_lvl, self.nr_lvl, self.notch = 0, 0, False
+        self.nblank = NoiseBlanker(fs)
+        self.anr = (AudioNR(self.arate), AudioNR(self.arate))
         self.sm_pk = 0.0                                   # S-meter del DX (CW): potenza nella banda passante
 
     # ------------------------------------------------------------------ comandi
@@ -592,6 +693,12 @@ class Engine:
                 r.agc_fixed = fixed
                 r.agc_slow = self.AGC_TIMES.get(mode, (1.0, 1.2))[1]
 
+    def set_nrnb(self, nb=0, nr=0, notch=False):
+        """NB (0–3), NR (0–3) e NOTCH automatico (solo SSB)."""
+        self.nb_lvl = max(0, min(3, int(nb)))
+        self.nr_lvl = max(0, min(3, int(nr)))
+        self.notch = bool(notch)
+
     def set_ptt(self, on):
         """PTT letto dalla radio (CAT). La lettura arriva con un po' di ritardo, quindi in TX riporto l'AGC
         a com'era ~0,6 s prima e lo tengo fermo: il proprio segnale (sopra quel livello) è muto, e appena
@@ -619,11 +726,15 @@ class Engine:
             if m:
                 self.out_audio.append(np.zeros(2 * m if self.ssb and self.ssb_rx else m, '<i2'))
             return
+        iq = self.nblank.process(iq, self.nb_lvl)                # NB: impulsi via prima del filtro
         if self.ssb and self.ssb_rx:
             c, _, aud, sb = self.rx_geo
             fz = getattr(self, 'ptt', False)
             a1 = self.ssb_rx[0].process(iq, self.dx_off + c, aud, sb, fz)
             a2 = self.ssb_rx[1].process(iq, self.rx2_off + c, aud, sb, fz)
+            nt = self.notch and self.rx_mode == 'ssb'               # il notch spegne le portanti: solo in fonia
+            a1 = self.anr[0].process(a1, self.nr_lvl, nt)
+            a2 = self.anr[1].process(a2, self.nr_lvl, nt)
             m = min(len(a1), len(a2))
             if m:
                 st = np.empty(2 * m, np.float64)
@@ -659,6 +770,7 @@ class Engine:
         a = np.real(f * np.exp(1j * tt)) / (g * 1.6)
         if getattr(self, 'ptt', False):
             a[env > 6 * self.agc_st[0]] = 0.0
+        a = self.anr[0].process(a, self.nr_lvl, False)
         self.out_audio.append((np.tanh(a * 1.2) / 1.2 * 30000).astype('<i2'))
 
     # ------------------------------------------------------------------ frame STFT

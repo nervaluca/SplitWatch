@@ -1,4 +1,4 @@
-# FZR Skimmer 1.33
+# FZR Skimmer 1.34
 
 by IW1FZR
 
@@ -89,6 +89,19 @@ the **▴** button shrinks it to the two frequencies only (**▾** opens it agai
 
 The two **VOL** sliders replace the old DX ◀▶ RX2 knob: each receiver has its own volume next to its
 mute (double click = normal).
+
+## DSP: NB, NR, NOTCH (1.34) and display colours
+
+In the **Receiver** box, **DSP** row:
+- **NB** (noise blanker, B key): removes impulses (static crashes, motors, electric fences) before the filter.
+  Click = level 1, 2, 3, then off; right click = off. Higher levels remove weaker impulses too.
+- **NR** (noise reduction, N key): lowers the hiss between words and between CW elements. Level 1 light,
+  3 strong (at 3 the voice gets a little «metallic»). Works on RX1 and RX2 and in the Skimmer modes too.
+- **NOTCH** (SSB only): automatically kills steady carriers (tuners, heterodynes) lasting more than a second.
+- NB, NR and NOTCH are remembered. NR adds a fixed 32 ms delay (even when off), the same for RX1 and RX2.
+
+**Display** (next to Colours/Brightness/Contrast): radio panel colour, i.e. frequencies, S-meters and sliders:
+night (green/blue), amber, green, blue, red. It is remembered.
 
 ## Radio controls: AGC, RF, AF, ATT, PRE, SSB filter
 
@@ -213,7 +226,7 @@ Top left, **Mode**:
 - **Sensitivity**: High = more weak calls but more errors; Medium (default); Low = clean signals only.
 - **Colours / Brightness / Contrast**: waterfall palette and levels. Double click on a slider = default.
 - Keyboard: PgUp/PgDn ±5 kHz, up/down arrows scroll, left/right arrows move the DX (±50 Hz, Shift ±10 Hz),
-  Home = back to DX, S = SPLIT (Receiver modes), space = pause/resume in playback.
+  Home = back to DX, S = SPLIT (Receiver modes), B = NB, N = NR, space = pause/resume in playback.
 
 ## Station list (contest, S&P)
 

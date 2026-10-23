@@ -1,4 +1,4 @@
-# FZR Skimmer 1.33
+# FZR Skimmer 1.34
 
 IW1FZR
 
@@ -109,6 +109,19 @@ il pulsante **▴** lo riduce alle sole due frequenze (**▾** lo riapre); i tas
 I due **VOL** sostituiscono il vecchio potenziometro DX ◀▶ RX2: ogni ricevitore ha il suo volume
 accanto al suo mute (doppio clic = normale).
 
+## DSP: NB, NR, NOTCH (1.34) e colori del display
+
+Nel riquadro **Ricevitore**, riga **DSP**:
+- **NB** (noise blanker, tasto B): toglie gli impulsi (scariche, motori, recinti elettrici) prima del filtro.
+  Clic = livello 1, 2, 3, poi spento; tasto destro = spento. Più alto il livello, più impulsi deboli toglie.
+- **NR** (riduzione del rumore, tasto N): abbassa il fruscio fra le parole e fra i segni CW. Livello 1 leggero,
+  3 forte (con il 3 la voce diventa un po' «metallica»). Vale per RX1 e RX2 e anche nei modi Skimmer.
+- **NOTCH** (solo SSB): spegne da solo le portanti fisse (chi accorda, battimenti) che restano più di un secondo.
+- NB, NR e NOTCH restano memorizzati. L'NR aggiunge un ritardo fisso di 32 ms (anche spento), uguale per RX1 e RX2.
+
+**Display** (accanto a Colori/Luce/Contrasto): colore del pannello radio, cioè frequenze, S-meter e cursori:
+notte (verde/azzurro), ambra, verde, blu, rosso. Resta memorizzato.
+
 ## Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB
 
 - **AGC** FAST (pile-up, segnali che vanno e vengono), MED, SLOW (ascolto riposante, il predefinito) oppure
@@ -191,7 +204,7 @@ sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 - **Sensibilità**: Alta = più nominativi deboli ma più errori; Media (iniziale); Bassa = solo segnali puliti.
 - **Colori / Luce / Contrasto**: tavolozza del waterfall (Skimmer, Classica, Fosfori, Grigio, Notte),
   luminosità e contrasto. Doppio clic su un cursore = valore iniziale. Restano memorizzati.
-- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX, S = SPLIT (modi Ricevitore).
+- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX, S = SPLIT (modi Ricevitore), B = NB, N = NR.
 
 ## Registrare
 
