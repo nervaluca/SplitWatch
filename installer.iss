@@ -49,12 +49,12 @@ it.DesktopIcon=Icona sul desktop
 it.Leggimi=Istruzioni (LEGGIMI)
 it.CopiaPerseus=Copia i file del Perseus
 it.Avvia=Avvia FZR Skimmer
-it.NoPerseus=Non ho trovato perseususb.dll (CW Skimmer, software Perseus o HDSDR).%n%nSe usi il Perseus, installa il suo software oppure copia perseususb.dll e i file perseus*.sbs nella cartella del programma; poi dal menu Start: «Copia i file del Perseus».%n%nCon ExtIO, l'audio della radio o le registrazioni non servono.
+it.NoPerseus=Non ho trovato perseususb.dll (CW Skimmer, software Perseus o HDSDR).%n%nCon una chiavetta RTL-SDR non serve: scegli «RTL-SDR (chiavetta)» in basso in FZR Skimmer.%n%nSe usi il Perseus, installa il suo software oppure copia perseususb.dll e i file perseus*.sbs nella cartella del programma; poi dal menu Start: «Copia i file del Perseus».%n%nCon ExtIO, l'audio della radio o le registrazioni non servono.
 en.DesktopIcon=Desktop icon
 en.Leggimi=Instructions (README)
 en.CopiaPerseus=Copy the Perseus files
 en.Avvia=Start FZR Skimmer
-en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR).%n%nIf you use the Perseus, install its software or copy perseususb.dll and the perseus*.sbs files into the program folder; then from the Start menu: «Copy the Perseus files».%n%nThey are not needed for ExtIO, radio audio or recordings.
+en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR).%n%nWith an RTL-SDR dongle it is not needed: pick «RTL-SDR (dongle)» at the bottom of FZR Skimmer.%n%nIf you use the Perseus, install its software or copy perseususb.dll and the perseus*.sbs files into the program folder; then from the Start menu: «Copy the Perseus files».%n%nThey are not needed for ExtIO, radio audio or recordings.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -65,6 +65,7 @@ Source: "LEGGIMI.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README_EN.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "prepara_cartella.bat"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "logo.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\rtl\*"; DestDir: "{app}\rtl"; Flags: ignoreversion skipifsourcedoesntexist recursesubdirs
 ; file del Perseus e nominativi: presi dal PC durante l'installazione (external)
 Source: "{code:PerseusDir}\perseususb.dll"; DestDir: "{app}"; Flags: external skipifsourcedoesntexist ignoreversion
 Source: "{code:PerseusDir}\perseus*.sbs"; DestDir: "{app}"; Flags: external skipifsourcedoesntexist ignoreversion
@@ -83,6 +84,7 @@ Filename: "{app}\{#MyAppExe}"; Description: "{cm:Avvia}"; Flags: nowait postinst
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExe}"; Flags: runhidden; RunOnceId: "ChiudiFZR"
+Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM rtl_tcp.exe"; Flags: runhidden; RunOnceId: "ChiudiRTL"
 
 [Code]
 var
@@ -132,6 +134,7 @@ var
   RC: Integer;
 begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#MyAppExe}', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM rtl_tcp.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
   Sleep(800);
   Result := '';
 end;

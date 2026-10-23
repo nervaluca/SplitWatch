@@ -1,4 +1,4 @@
-# FZR Skimmer 1.34
+# FZR Skimmer 1.40
 
 IW1FZR
 
@@ -12,6 +12,23 @@ il DX sta ascoltando.
 English instructions: `README_EN.md`.
 
 ## Installazione
+
+**Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.40.exe`.
+- Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
+  (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
+  vanno in `%APPDATA%\FZRSkimmer`).
+- Copia da solo `perseususb.dll` e i file `.sbs` da CW Skimmer, software Perseus o HDSDR, e l'elenco
+  nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il Perseus lo installi dopo:
+  menu Start → FZR Skimmer → «Copia i file del Perseus».
+- Icona sul desktop e nel menu Start, disinstallazione da Impostazioni → App.
+- Per aggiornare basta avviare il setup nuovo: chiude FZR Skimmer e non tocca impostazioni, memorie,
+  licenza e registrazioni.
+- Chi usava lo zip: per tenere impostazioni e memorie copia `fzrskimmer.json` dalla vecchia cartella
+  in quella nuova (con il programma chiuso).
+- Windows può mostrare l'avviso SmartScreen (programma non firmato): «Ulteriori informazioni» → «Esegui comunque».
+
+**Con lo zip** (come prima):
 
 1. Scarica da GitHub → **Actions** → ultima compilazione → **Artifacts** lo zip `FZRSkimmer`
    e scompattalo dove vuoi (es. `C:\FZRSkimmer`).
@@ -86,6 +103,36 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   - Chiudi HDSDR o gli altri programmi che usano il ricevitore.
 
 **Ingresso**: la scheda audio da cui leggere.
+
+## Chiavetta RTL-SDR, VHF/UHF, FM e AM (1.40)
+
+FZR Skimmer funziona anche **senza Perseus**, con una chiavetta **RTL-SDR** (RTL-SDR Blog V3/V4, Nooelec…):
+24 MHz – 1,7 GHz (10 m, 6 m, 2 m, 70 cm, 23 cm, aeronautica, nautica, PMR446, satelliti); con il direct sampling
+delle V3/V4 anche le onde corte (con meno dinamica del Perseus).
+- **Driver**: WinUSB installato con **Zadig** (lo stesso di SDR#). Se SDR# o SDR++ la vedono, è a posto.
+- **rtl_tcp**: il programma parla con la chiavetta tramite `rtl_tcp.exe` (sottocartella `rtl`, incluso nel setup
+  e nello zip; licenza GPL v2, sorgenti su github.com/rtlsdrblog/rtl-sdr-blog) e lo avvia da solo. Si può usare
+  anche una chiavetta su un altro PC o un Raspberry: là `rtl_tcp -a 0.0.0.0`, qui l'indirizzo nella casella
+  **rtl_tcp** (es. `192.168.1.50:1234`).
+- **Primo avvio** senza Perseus ma con la chiavetta: parte da solo con la RTL-SDR in FM sui 2 m. Altrimenti in basso
+  **Ricevitore → RTL-SDR (chiavetta)** (✓ se il PC la vede).
+- In basso: **Guadagno** (Auto o a mano), **HF** (direct sampling Q per V3/V4), **Bias-T**, **AGC chip**, **rtl_tcp**.
+  Errore del quarzo: **Correzione ppm** / **Calibra…**.
+- **Bande** 10, 6, 2, 70cm, 23cm (con il direct sampling quelle HF), ognuna con la sua memoria per modo.
+- Modi **FM** e **AM** (fra i modi Ricevitore, con tutti i ricevitori): RX1/RX2, SPLIT, NB/NR come in SSB;
+  **Filtro** 6–25 kHz, **SQL** squelch (0 = aperto, doppio clic = 0) con la spia **SQ** su RX1 e RX2;
+  **Passo** 5 / 6,25 / 8,33 / 12,5 / 25 kHz. Sopra i 30 MHz lo S-meter usa la scala VHF (S9 = −93 dBm).
+
+## Banco di memorie (1.40)
+
+**📒 Memorie** (accanto a «Salva memoria», tasto K): frequenze con nome, modo e gruppo, per tutti i ricevitori
+e tutti i modi (anche HF).
+- **Clic** = vai lì, nel modo e con il filtro/squelch della memoria; il pannello resta aperto.
+- **＋ Salva qui**: salva la frequenza di RX1 con modo e impostazioni attuali (nome e gruppo).
+- **✎** modifica (nome, gruppo, frequenza, modo), **🗑** cancella (secondo clic per confermare); **Cerca** e filtro per gruppo.
+- Già pronte: chiamate FM/SSB VHF/UHF, APRS, ISS, FT8 2 m e 6 m, ripetitori R0–R7, PMR446 1–16,
+  aeronautica (121,5 / 123,45), nautica (16, 6). **Preset** rimette quelle cancellate.
+- Una memoria fuori portata del ricevitore in uso (es. 145,5 MHz col Perseus) non viene richiamata: lo dice la riga di stato.
 
 ## Pannello radio (1.33)
 
@@ -204,7 +251,7 @@ sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 - **Sensibilità**: Alta = più nominativi deboli ma più errori; Media (iniziale); Bassa = solo segnali puliti.
 - **Colori / Luce / Contrasto**: tavolozza del waterfall (Skimmer, Classica, Fosfori, Grigio, Notte),
   luminosità e contrasto. Doppio clic su un cursore = valore iniziale. Restano memorizzati.
-- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX, S = SPLIT (modi Ricevitore), B = NB, N = NR.
+- Tastiera: PagSu/PagGiù ±5 kHz, frecce su/giù scorrono, frecce sinistra/destra spostano il DX (±50 Hz, con Maiusc ±10 Hz), Home = torna al DX, S = SPLIT (modi Ricevitore), B = NB, N = NR, K = banco di memorie.
 
 ## Registrare
 

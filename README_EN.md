@@ -1,4 +1,4 @@
-# FZR Skimmer 1.34
+# FZR Skimmer 1.40
 
 by IW1FZR
 
@@ -11,6 +11,21 @@ where the DX is listening.
 **Language**: **EN / IT** button at the top right (English or Italian; it is remembered).
 
 ## Installation
+
+**With the installer (recommended, from 1.34)**: from GitHub → Actions → latest build → Artifacts download
+`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.40.exe`.
+- No administrator rights needed: it installs in `%LOCALAPPDATA%\Programs\FZR Skimmer`
+  (you can choose «all users», in Program Files: settings, log and licence then go to `%APPDATA%\FZRSkimmer`).
+- It copies `perseususb.dll` and the `.sbs` files from CW Skimmer, the Perseus software or HDSDR by itself,
+  plus the callsign list (N1MM MASTER.SCP or CW Skimmer MASTER.DTA). If you install the Perseus later:
+  Start menu → FZR Skimmer → «Copy the Perseus files».
+- Desktop and Start menu icons, uninstall from Settings → Apps.
+- To update, just run the new setup: it closes FZR Skimmer and leaves settings, memories, licence and recordings alone.
+- Coming from the zip: to keep settings and memories, copy `fzrskimmer.json` from the old folder into the new one
+  (with the program closed).
+- Windows may show the SmartScreen warning (unsigned program): «More info» → «Run anyway».
+
+**With the zip** (as before):
 
 1. Download the `FZRSkimmer` zip and unpack it anywhere (e.g. `C:\FZRSkimmer`).
 2. Run **prepara_cartella.bat** once: it copies `perseususb.dll` and the `perseus*.sbs` files from
@@ -67,6 +82,35 @@ Chosen at the bottom of the page under **Receiver**, without restarting:
 - **Recording (WAV)** – playback, see below.
 
 **Input**: the sound card to read from.
+
+## RTL-SDR dongle, VHF/UHF, FM and AM (1.40)
+
+FZR Skimmer also works **without a Perseus**, with an **RTL-SDR** dongle (RTL-SDR Blog V3/V4, Nooelec…):
+24 MHz – 1.7 GHz (10 m, 6 m, 2 m, 70 cm, 23 cm, airband, marine, PMR446, satellites); with V3/V4 direct sampling
+shortwave too (with less dynamic range than the Perseus).
+- **Driver**: WinUSB installed with **Zadig** (the same as SDR#). If SDR# or SDR++ see it, it is fine.
+- **rtl_tcp**: the program talks to the dongle through `rtl_tcp.exe` (subfolder `rtl`, included in the setup and
+  the zip; GPL v2, sources at github.com/rtlsdrblog/rtl-sdr-blog) and starts it by itself. A dongle on another PC
+  or a Raspberry works too: `rtl_tcp -a 0.0.0.0` there, its address in the **rtl_tcp** box here (e.g. `192.168.1.50:1234`).
+- **First start** with no Perseus but a dongle: it starts with the RTL-SDR, FM on 2 m. Otherwise at the bottom
+  **Receiver → RTL-SDR (dongle)** (✓ when the PC sees it).
+- At the bottom: **Gain** (Auto or manual), **HF** (direct sampling Q for V3/V4), **Bias-T**, **Chip AGC**, **rtl_tcp**.
+  Crystal error: **Correction ppm** / **Calibrate…**.
+- **Bands** 10, 6, 2, 70cm, 23cm (HF ones with direct sampling), each with its memory per mode.
+- **FM** and **AM** modes (among the Receiver modes, with every receiver): RX1/RX2, SPLIT, NB/NR as in SSB;
+  **Filter** 6–25 kHz, **SQL** squelch (0 = open, double click = 0) with the **SQ** lamp on RX1 and RX2;
+  **Step** 5 / 6.25 / 8.33 / 12.5 / 25 kHz. Above 30 MHz the S-meter uses the VHF scale (S9 = −93 dBm).
+
+## Memory bank (1.40)
+
+**📒 Memories** (next to «Save memory», K key): frequencies with name, mode and group, for every receiver and
+every mode (HF too).
+- **Click** = go there, in the memory mode with its filter/squelch; the panel stays open.
+- **＋ Save here**: saves the RX1 frequency with the current mode and settings (name and group).
+- **✎** edit (name, group, frequency, mode), **🗑** delete (second click to confirm); **Search** and group filter.
+- Ready-made: FM/SSB VHF/UHF calling, APRS, ISS, FT8 2 m and 6 m, repeaters R0–R7, PMR446 1–16,
+  airband (121.5 / 123.45), marine (16, 6). **Preset** restores deleted ones.
+- A memory out of reach of the receiver in use (e.g. 145.5 MHz with the Perseus) is not recalled: the status line says so.
 
 ## Radio panel (1.33)
 
@@ -226,7 +270,7 @@ Top left, **Mode**:
 - **Sensitivity**: High = more weak calls but more errors; Medium (default); Low = clean signals only.
 - **Colours / Brightness / Contrast**: waterfall palette and levels. Double click on a slider = default.
 - Keyboard: PgUp/PgDn ±5 kHz, up/down arrows scroll, left/right arrows move the DX (±50 Hz, Shift ±10 Hz),
-  Home = back to DX, S = SPLIT (Receiver modes), B = NB, N = NR, space = pause/resume in playback.
+  Home = back to DX, S = SPLIT (Receiver modes), B = NB, N = NR, K = memory bank, space = pause/resume in playback.
 
 ## Station list (contest, S&P)
 

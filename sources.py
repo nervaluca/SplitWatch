@@ -1047,3 +1047,251 @@ class AudioCard:
 
     def set_swap(self, on):
         self.swap_iq = bool(on)
+
+
+# ---------------------------------------------------------------------------------------------- RTL-SDR
+RTL_RATE = 960000                 # 960 kS/s ÷ 5 = 192 kHz di banda al programma
+RTL_GAINS = [0, 9, 14, 27, 37, 77, 87, 125, 144, 157, 166, 197, 207, 229, 254, 280, 297, 328, 338, 364, 372,
+             386, 402, 421, 434, 439, 445, 480, 496]          # R820T/R828D, decimi di dB
+RTL_TUNERS = {1: 'E4000', 2: 'FC0012', 3: 'FC0013', 4: 'FC2580', 5: 'R820T', 6: 'R828D'}
+RTL_IDS = ('VID_0BDA&PID_2838', 'VID_0BDA&PID_2832')
+
+
+def find_rtl_tcp(extra=()):
+    """rtl_tcp.exe: nella cartella del programma (anche sottocartella rtl), in quelle note o nel PATH."""
+    import shutil
+    exe = 'rtl_tcp.exe' if os.name == 'nt' else 'rtl_tcp'
+    base = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+    pf = [os.environ.get(k) for k in ('ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA')]
+    cands = list(extra) + [base, os.path.join(base, 'rtl')]
+    for p in pf:
+        if p:
+            cands += [os.path.join(p, d) for d in ('rtl-sdr', 'rtl-sdr-blog', 'RTL-SDR Blog', 'rtlsdr', 'SDRSharp', 'airspy-sdrsharp')]
+    for d in cands:
+        if d and os.path.isfile(os.path.join(d, exe)):
+            return os.path.join(d, exe)
+        if d and os.path.isdir(d):                       # zip delle release: x64/, x86/, Release/
+            for sub in ('x64', 'x86', 'Release', 'release', 'bin'):
+                q = os.path.join(d, sub, exe)
+                if os.path.isfile(q):
+                    return q
+    return shutil.which(exe)
+
+
+_rtl_seen = {'t': 0.0, 'v': []}
+
+
+def find_rtl_dongles(max_age=30.0):
+    """Chiavette RTL-SDR collegate (nome), cercate fra le periferiche USB. Non serve aprirle."""
+    if time.time() - _rtl_seen['t'] < max_age:
+        return list(_rtl_seen['v'])
+    found = []
+    try:
+        if os.name == 'nt':
+            import subprocess
+            ps = ("Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0BDA&PID_283[28]' } | "
+                  "ForEach-Object { $_.FriendlyName }")
+            r = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', ps], capture_output=True,
+                               text=True, timeout=12, creationflags=0x08000000)
+            found = [x.strip() for x in r.stdout.splitlines() if x.strip()]
+        else:
+            import glob
+            for d in glob.glob('/sys/bus/usb/devices/*'):
+                try:
+                    v = open(os.path.join(d, 'idVendor')).read().strip().lower()
+                    p = open(os.path.join(d, 'idProduct')).read().strip().lower()
+                except OSError:
+                    continue
+                if v == '0bda' and p in ('2838', '2832'):
+                    try:
+                        found.append(open(os.path.join(d, 'product')).read().strip())
+                    except OSError:
+                        found.append('RTL2838')
+    except Exception:
+        found = []
+    # con il driver di Zadig la chiavetta si chiama spesso «Bulk-In, Interface (Interface 0)»: la rinomino
+    out = [('RTL-SDR' if n.lower().startswith('bulk') else n) for n in found]
+    _rtl_seen.update(t=time.time(), v=out)
+    return list(out)
+
+
+class RtlTcpSource:
+    """Chiavetta RTL-SDR (24 MHz – 1,7 GHz; con il «direct sampling» anche le onde corte) tramite rtl_tcp.
+
+    Se il server è su questo PC e non è già acceso, FZR Skimmer avvia rtl_tcp.exe da solo (serve il driver
+    WinUSB della chiavetta, quello che si installa con Zadig per SDR#). Si può usare anche una chiavetta
+    su un altro computer (Raspberry, ecc.) con rtl_tcp acceso là: basta l'indirizzo.
+    I campioni (8 bit) arrivano a 960 kS/s e si riducono a 192 kHz."""
+
+    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, direct=0, bias=False,
+                 rtl_agc=False, dev=0, exe=None, ppm_hw=0):
+        self.host, self.port = host or '127.0.0.1', int(port or 1234)
+        self.center = float(lo_hz)
+        self.on_iq, self.on_status, self.on_rate = on_iq, on_status, on_rate
+        self.gain, self.direct, self.bias, self.rtl_agc = gain, int(direct or 0), bool(bias), bool(rtl_agc)
+        self.dev, self.exe, self.ppm_hw = int(dev or 0), exe, int(ppm_hw or 0)
+        self.sock = None
+        self.proc = None
+        self.dec = Decimator(RTL_RATE)
+        self.fs = self.dec.fs
+        self.tuner = None
+        self.ngains = 0
+        self.alive = False
+        self.lock = threading.Lock()
+        self.name = 'RTL-SDR'
+
+    def _local(self):
+        return self.host in ('127.0.0.1', 'localhost', '::1', '')
+
+    def _port_open(self):
+        import socket
+        try:
+            with socket.create_connection((self.host, self.port), timeout=0.6):
+                return True
+        except OSError:
+            return False
+
+    def _spawn(self):
+        import subprocess
+        exe = self.exe or find_rtl_tcp()
+        if not exe:
+            raise RuntimeError('Non trovo rtl_tcp.exe: mettilo nella cartella di FZR Skimmer (o nella sottocartella rtl), '
+                               'oppure avvialo a mano e scrivi l\'indirizzo')
+        args = [exe, '-a', '127.0.0.1', '-p', str(self.port), '-s', str(RTL_RATE), '-d', str(self.dev)]
+        self.proc = subprocess.Popen(args, cwd=os.path.dirname(exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     creationflags=0x08000000 if os.name == 'nt' else 0)
+        self.out_lines = []
+
+        def pump():
+            for raw in iter(self.proc.stdout.readline, b''):
+                self.out_lines.append(raw.decode('utf-8', 'replace').strip())
+                del self.out_lines[:-30]
+        threading.Thread(target=pump, daemon=True).start()
+        for _ in range(40):                                     # fino a 8 s: la chiavetta si apre e rtl_tcp ascolta
+            time.sleep(0.2)
+            if self.proc.poll() is not None:
+                break
+            if any('listening' in l.lower() for l in self.out_lines):
+                time.sleep(0.2)
+                return
+        txt = ' '.join(self.out_lines).lower()
+        if 'no supported devices' in txt or 'no matching devices' in txt:
+            raise RuntimeError('rtl_tcp non trova la chiavetta RTL-SDR: è collegata?')
+        if 'usb_open error' in txt or 'usb_claim_interface' in txt or 'access' in txt and 'denied' in txt:
+            raise RuntimeError('La chiavetta c\'è ma Windows non la lascia aprire: installa il driver WinUSB con Zadig '
+                               '(come per SDR#) e chiudi gli altri programmi che la usano')
+        if self.proc.poll() is not None:
+            raise RuntimeError('rtl_tcp si è chiuso: ' + (self.out_lines[-1] if self.out_lines else 'nessun messaggio'))
+
+    def _cmd(self, code, val):
+        s = self.sock
+        if s is None:
+            return
+        try:
+            with self.lock:
+                s.sendall(struct.pack('>BI', code, int(val) & 0xFFFFFFFF))
+        except OSError:
+            pass
+
+    def start(self):
+        import socket
+        if self._local() and not self._port_open():
+            self._spawn()
+        try:
+            self.sock = socket.create_connection((self.host, self.port), timeout=5)
+        except OSError as e:
+            raise RuntimeError(f'rtl_tcp non risponde su {self.host}:{self.port} ({e})')
+        self.sock.settimeout(5)
+        hdr = b''
+        while len(hdr) < 12:
+            d = self.sock.recv(12 - len(hdr))
+            if not d:
+                raise RuntimeError('rtl_tcp ha chiuso la connessione')
+            hdr += d
+        if hdr[:4] == b'RTL0':
+            t, self.ngains = struct.unpack('>II', hdr[4:12])
+            self.tuner = RTL_TUNERS.get(t, f'tuner {t}')
+            self.name = f'RTL-SDR {self.tuner}'
+        self._cmd(0x02, RTL_RATE)
+        self._cmd(0x09, self.direct)
+        self._cmd(0x01, int(self.center))
+        if self.ppm_hw:
+            self._cmd(0x05, self.ppm_hw)
+        self.set_gain(self.gain)
+        self._cmd(0x08, 1 if self.rtl_agc else 0)
+        self._cmd(0x0e, 1 if self.bias else 0)
+        self.alive = True
+        self.on_rate(self.fs, self.center)
+        threading.Thread(target=self._reader, daemon=True).start()
+        self.on_status(f'{self.name} · {RTL_RATE/1e6:.2f} MS/s → {self.fs/1000:.0f} kHz'
+                       + (' · direct sampling' if self.direct else '') + (f' · {self.host}:{self.port}' if not self._local() else ''))
+
+    def _reader(self):
+        blk = 2 * 32768                                         # ~34 ms a 960 kS/s
+        buf = bytearray()
+        s = self.sock
+        while self.alive:
+            try:
+                d = s.recv(262144)
+            except OSError:
+                d = b''
+            if not d:
+                if self.alive:
+                    self.on_status('RTL-SDR: connessione persa')
+                break
+            buf += d
+            if len(buf) >= blk:
+                n = len(buf) - (len(buf) % 2)
+                u = np.frombuffer(bytes(buf[:n]), np.uint8).astype(np.float32)
+                del buf[:n]
+                u = (u - 127.4) * (1.0 / 128.0)
+                iq = u.view(np.complex64)
+                y = self.dec(iq)
+                if len(y):
+                    self.on_iq(y)
+        self.alive = False
+
+    def stop(self):
+        self.alive = False
+        try:
+            if self.sock:
+                self.sock.close()
+        except OSError:
+            pass
+        self.sock = None
+        if self.proc and self.proc.poll() is None:
+            try:
+                self.proc.terminate()
+                self.proc.wait(3)
+            except Exception:
+                try:
+                    self.proc.kill()
+                except Exception:
+                    pass
+        self.proc = None
+
+    def set_lo(self, hz):
+        self.center = float(hz)
+        self._cmd(0x01, int(hz))
+        self.on_rate(self.fs, self.center)
+
+    def set_gain(self, tenths):
+        """None = automatico (AGC del tuner), altrimenti decimi di dB (il più vicino fra quelli possibili)."""
+        self.gain = tenths
+        if tenths is None:
+            self._cmd(0x03, 0)
+        else:
+            self._cmd(0x03, 1)
+            self._cmd(0x04, min(RTL_GAINS, key=lambda g: abs(g - int(tenths))))
+
+    def set_bias(self, on):
+        self.bias = bool(on)
+        self._cmd(0x0e, 1 if on else 0)
+
+    def set_direct(self, mode):
+        self.direct = int(mode)
+        self._cmd(0x09, self.direct)
+
+    def set_rtl_agc(self, on):
+        self.rtl_agc = bool(on)
+        self._cmd(0x08, 1 if on else 0)

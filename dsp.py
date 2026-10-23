@@ -464,6 +464,119 @@ class AudioNR:
         return out
 
 
+class NarrowRx:
+    """Ricevitore FM (banda stretta) e AM, per VHF/UHF e aeronautica. Stessa interfaccia di SsbRx.
+
+    Canale portato a 0 Hz e filtrato a un campionamento intermedio (~32 kHz, abbastanza per 16 kHz di canale),
+    demodulato (FM: discriminatore + deenfasi 750 µs; AM: inviluppo), poi audio 300–3400 Hz
+    (via i toni CTCSS) ridotto a ~8 kHz come gli altri ricevitori. SQUELCH: apre quando il canale sta
+    `sql` dB sopra il rumore di fondo (0 = sempre aperto)."""
+
+    def __init__(self, fs, adec, half=6000.0, mode='fm'):
+        self.fs, self.adec, self.mode = float(fs), int(adec), mode
+        self.arate = self.fs / self.adec
+        self.half = float(half)
+        # fattore finale (audio): il più grande fra 4, 3, 2 che divide adec lasciando ≥ 2,2 volte il canale
+        self.d2 = next((k for k in (4, 3, 2) if self.adec % k == 0 and self.fs / (self.adec // k) >= 2.2 * self.half), 1)
+        self.d1 = self.adec // self.d2
+        self.r1 = self.fs / self.d1
+        tr = max(1500.0, 0.25 * self.half)
+        n = int(5.5 * self.fs / tr) | 1
+        t = np.arange(n) - (n - 1) / 2
+        h = np.sinc(2 * (self.half + tr / 2) / self.fs * t) * np.blackman(n)
+        self.h = (h / h.sum()).astype(np.float32)[::-1].copy()
+        self.tail = np.zeros(n - 1, np.complex64)
+        self.pos = 0
+        # audio: passa-banda 300–3400 Hz al campionamento intermedio, poi ÷ d2
+        na = int(4.0 * self.r1 / 300.0) | 1
+        ta = np.arange(na) - (na - 1) / 2
+        lp = lambda fc: np.sinc(2 * fc / self.r1 * ta)
+        ha = (2 * 3400 / self.r1 * lp(3400) - 2 * 300 / self.r1 * lp(300)) * np.blackman(na)
+        self.ha = ha.astype(np.float64)[::-1].copy()
+        self.atail = np.zeros(na - 1)
+        self.apos = 0
+        self.prev = np.complex64(0)
+        a = math.exp(-1.0 / (self.r1 * 750e-6))
+        kd = int(math.log(1e-3) / math.log(a)) + 1
+        self.h_de = (1 - a) * a ** np.arange(kd)
+        self.de_tail = np.zeros(kd - 1)
+        self.ph_in = 0.0
+        self.agc_st = [1e-6, 1e-6, 0]
+        self.agc_slow = 0.4
+        self.agc_fixed = None
+        self.pk = 0.0
+        self.sql = 0.0
+        self.floor = None
+        self.open = True
+        self.gate = 1.0
+        self.am_lvl = None
+
+    def process(self, iq, center_hz, aud_hz=0.0, sb=1, freeze=False):
+        n = len(iq)
+        ph = self.ph_in + (-2 * np.pi * center_hz / self.fs) * np.arange(n)
+        self.ph_in = float((ph[-1] - 2 * np.pi * center_hz / self.fs) % (2 * np.pi)) if n else self.ph_in
+        y = (iq * np.exp(1j * ph).astype(np.complex64)).astype(np.complex64)
+        z = np.concatenate([self.tail, y])
+        L = len(self.h)
+        idx = np.arange(self.pos, len(z) - L + 1, self.d1)
+        if len(idx):
+            w = np.lib.stride_tricks.sliding_window_view(z, L)[idx]
+            b = (w @ self.h).astype(np.complex64)
+            self.pos = int(idx[-1] + self.d1 - (len(z) - (L - 1)))
+        else:
+            b = np.zeros(0, np.complex64)
+            self.pos -= n
+        self.tail = z[-(L - 1):].copy()
+        if not len(b):
+            return np.zeros(0, np.float64)
+        p = float(np.mean(np.abs(b) ** 2)) + 1e-20
+        self.pk = max(self.pk, p)
+        # squelch: rumore di fondo = minimo lento della potenza del canale
+        if self.floor is None or p < self.floor:
+            self.floor = p if self.floor is None else 0.7 * self.floor + 0.3 * p
+        else:
+            self.floor *= 1.0 + 0.02 * len(b) / self.r1          # risale piano (~2 %/s)
+        snr = 10 * math.log10(p / self.floor)
+        if self.sql <= 0:
+            self.open = True
+        elif self.open:
+            self.open = snr > self.sql - 3
+        else:
+            self.open = snr > self.sql
+        if self.mode == 'am':
+            env = np.abs(b).astype(np.float64)
+            m = float(np.mean(env)) + 1e-12
+            self.am_lvl = m if self.am_lvl is None else (self.am_lvl * 0.9 + m * 0.1)
+            dem = env / self.am_lvl - 1.0
+        else:
+            bb = np.concatenate([[self.prev], b])
+            self.prev = b[-1]
+            dem = np.angle(bb[1:] * np.conj(bb[:-1])).astype(np.float64) * (self.r1 / (2 * np.pi * 3000.0))
+            dd = np.concatenate([self.de_tail, dem])            # deenfasi 750 µs (6 dB/ottava), come FIR
+            out = np.convolve(dd, self.h_de, mode='valid')
+            self.de_tail = dd[-(len(self.h_de) - 1):]
+            dem = out * 4.0
+        zz = np.concatenate([self.atail, dem])
+        La = len(self.ha)
+        ia = np.arange(self.apos, len(zz) - La + 1, self.d2)
+        if len(ia):
+            wa = np.lib.stride_tricks.sliding_window_view(zz, La)[ia]
+            a_out = wa @ self.ha
+            self.apos = int(ia[-1] + self.d2 - (len(zz) - (La - 1)))
+        else:
+            a_out = np.zeros(0)
+            self.apos -= len(dem)
+        self.atail = zz[-(La - 1):].copy()
+        # porta dello squelch con rampa di ~10 ms (niente clic)
+        target = 1.0 if (self.open and not freeze) else 0.0
+        if len(a_out):
+            k = min(1.0, 100.0 / self.arate)
+            g = target + (self.gate - target) * (1 - k) ** np.arange(1, len(a_out) + 1)
+            self.gate = float(g[-1])
+            a_out = a_out * g
+        return a_out * 0.5
+
+
 def rx_geometry(mode, sb, bw, ssb_bw=2700.0):
     """(scostamento del centro della banda passante dalla frequenza dell'RX, metà larghezza, centro audio, verso).
 
@@ -471,6 +584,8 @@ def rx_geometry(mode, sb, bw, ssb_bw=2700.0):
     FT8: frequenza di sintonia USB, 100–3100 Hz sopra.
     RTTY: frequenza = mark (come gli Icom), space 170 Hz sotto, in LSB: mark a 2125 Hz e space a 2295 Hz.
     CW: frequenza = quella del segnale, sentito a 600 Hz, filtro = «Filtro RX»."""
+    if mode in ('fm', 'am'):
+        return 0.0, max(2500.0, float(ssb_bw) / 2), 0.0, 1          # FM/AM: canale centrato, larghezza intera
     if mode == 'ft8':
         return 1600.0, 1500.0, 1600.0, 1
     if mode == 'rtty':
@@ -639,8 +754,15 @@ class Engine:
             self.rtty = None
         if self.ssb:
             geo = rx_geometry(mode, self.sb, bw, ssb_bw)
-            if self.ssb_rx is None or self.rx_geo is None or self.rx_geo[1] != geo[1]:
-                self.ssb_rx = (SsbRx(self.fs, self.adec, geo[1]), SsbRx(self.fs, self.adec, geo[1]))
+            kind = 'n' + mode if mode in ('fm', 'am') else 's'
+            if self.ssb_rx is None or self.rx_geo is None or self.rx_geo[1] != geo[1] or getattr(self, 'rx_kind', None) != kind:
+                self.rx_kind = kind
+                if mode in ('fm', 'am'):
+                    self.ssb_rx = tuple(NarrowRx(self.fs, self.adec, geo[1], mode) for _ in range(2))
+                    for r in self.ssb_rx:
+                        r.sql = getattr(self, 'sql_db', 0.0)
+                else:
+                    self.ssb_rx = (SsbRx(self.fs, self.adec, geo[1]), SsbRx(self.fs, self.adec, geo[1]))
             self.rx_geo = geo
             self._agc_apply()
             for k in [k for k, c in self.channels.items()]:
@@ -692,6 +814,19 @@ class Engine:
             for r in self.ssb_rx:
                 r.agc_fixed = fixed
                 r.agc_slow = self.AGC_TIMES.get(mode, (1.0, 1.2))[1]
+
+    def set_sql(self, db):
+        """Squelch FM/AM in dB sopra il rumore (0 = aperto)."""
+        self.sql_db = max(0.0, min(40.0, float(db)))
+        if self.ssb_rx:
+            for r in self.ssb_rx:
+                if isinstance(r, NarrowRx):
+                    r.sql = self.sql_db
+
+    def sq_state(self):
+        if self.ssb_rx and isinstance(self.ssb_rx[0], NarrowRx):
+            return [bool(r.open) for r in self.ssb_rx]
+        return None
 
     def set_nrnb(self, nb=0, nr=0, notch=False):
         """NB (0–3), NR (0–3) e NOTCH automatico (solo SSB)."""

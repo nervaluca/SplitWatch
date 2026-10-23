@@ -63,6 +63,8 @@ def main():
     ok = '5NN' in txt and 'DL1ABC' in txt and any(abs(l['f'] - 2300) < 120 for l in listen)
     ok = ok and test_wav(x[:FS])
     ok = ok and test_rtty()
+    ok = ok and test_fm()
+    ok = ok and test_banco()
     print('OK' if ok else 'FALLITO')
     return 0 if ok else 1
 
@@ -124,6 +126,40 @@ def test_rtty():
     txt = ' '.join(w['w'] for w in words)
     print('rtty:', txt)
     return 'DL1ABC' in txt and '599' in txt and 'K3LR' in txt
+
+
+
+def test_fm():
+    """FM: tono 1 kHz con 3 kHz di deviazione, squelch chiuso senza portante e aperto con."""
+    import dsp
+    fs, adec = 192000.0, 24
+    t = np.arange(int(fs * 2)) / fs
+    rng = np.random.default_rng(3)
+    ph = 2 * np.pi * np.cumsum(3000 * np.sin(2 * np.pi * 1000 * t)) / fs
+    x = ((t > 1.0) * np.exp(1j * (2 * np.pi * 20000 * t + ph)) * 0.05
+         + 0.01 * (rng.normal(size=len(t)) + 1j * rng.normal(size=len(t)))).astype(np.complex64)
+    r = dsp.NarrowRx(fs, adec, 6000, 'fm')
+    r.sql = 10
+    a = np.concatenate([r.process(x[i:i + 9600], 20000.0) for i in range(0, len(x), 9600)])
+    R = fs / adec
+    quiet, seg = a[int(0.3 * R):int(0.9 * R)], a[int(1.3 * R):int(1.9 * R)]
+    Z = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    pk = np.fft.rfftfreq(len(seg), 1 / R)[np.argmax(Z)]
+    ok = abs(pk - 1000) < 20 and np.sqrt(np.mean(quiet ** 2)) < 0.01 < np.sqrt(np.mean(seg ** 2))
+    print(f'fm: tono {pk:.0f} Hz, squelch {"ok" if ok else "NO"}')
+    return ok
+
+
+def test_banco():
+    import banco
+    cfg = {}
+    n = len(banco.lista(cfg))
+    m = banco.aggiungi(cfg, 'Prova', 145600000, 'fm', 'Mie')
+    banco.modifica(cfg, m['id'], {'nome': 'R0', 'hz': 145600000})
+    banco.cancella(cfg, m['id'])
+    ok = n > 20 and len(banco.lista(cfg)) == n and banco.preset(cfg) == 0
+    print(f'banco: {n} memorie predefinite', 'ok' if ok else 'NO')
+    return ok
 
 
 if __name__ == '__main__':

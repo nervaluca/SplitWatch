@@ -35,9 +35,10 @@ from dsp import Engine
 from rbn import RBN
 from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
-                     list_audio_inputs, wav_info)
+                     list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
+import banco
 
-VERSION = '1.34'
+VERSION = '1.40'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -130,7 +131,13 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
     '15':  (21000000, 21450000, 21035000, 21025000),
     '12':  (24890000, 24990000, 24905000, 24895000),
     '10':  (28000000, 29700000, 28035000, 28025000),
+    '6':   (50000000, 52000000, 50100000, 50090000),      # VHF/UHF: con la chiavetta RTL-SDR (o ExtIO a larga banda)
+    '2':   (144000000, 146000000, 144100000, 144050000),
+    '70':  (430000000, 440000000, 432100000, 432050000),
+    '23':  (1240000000, 1300000000, 1296100000, 1296050000),
 }
+HF_BANDS = ('160', '80', '60', '40', '30', '20', '17', '15', '12', '10')
+VHF_BANDS = ('6', '2', '70', '23')
 
 
 # memorie SSB: segmenti fonia (IARU Regione 1), DX con spazio UP sopra; 30 m niente fonia
@@ -144,16 +151,22 @@ BANDS_SSB = {
     '15':  (21300000, 21295000),
     '12':  (24950000, 24945000),
     '10':  (28500000, 28495000),
+    '6':   (50160000, 50150000),
+    '2':   (144310000, 144300000),
+    '70':  (432210000, 432200000),
+    '23':  (1296210000, 1296200000),
 }
+# FM e AM: frequenze di chiamata (IARU Regione 1)
+BANDS_FM = {'10': 29600000, '6': 51510000, '2': 145500000, '70': 433500000, '23': 1297500000}
 
 
 # Ricevitore "puro" (due RX in stereo, niente skimmer): modi e memorie di banda per ciascuno.
-RX_MODES = ('rxcw', 'ssb', 'rtty', 'ft8')
+RX_MODES = ('rxcw', 'ssb', 'rtty', 'ft8', 'fm', 'am')
 # RTTY: frequenza = mark (come gli Icom), shift 170 Hz. DIGI (modo interno 'ft8'): frequenze FT8 standard (USB-D).
 BANDS_RTTY = {'160': 1838000, '80': 3590000, '40': 7040000, '30': 10142000, '20': 14083000,
               '17': 18101000, '15': 21083000, '12': 24921000, '10': 28083000}
 BANDS_FT8 = {'160': 1840000, '80': 3573000, '60': 5357000, '40': 7074000, '30': 10136000, '20': 14074000,
-             '17': 18100000, '15': 21074000, '12': 24915000, '10': 28074000}
+             '17': 18100000, '15': 21074000, '12': 24915000, '10': 28074000, '6': 50313000, '2': 144174000, '70': 432174000}
 
 SM_CAL_DEFAULT = -10.0      # taratura indicativa (dBm = dBFS - 10) finché non la allinei
 
@@ -373,6 +386,25 @@ class Hub:
             src.start()
             self.src = src
             return
+        if kind == 'rtl':
+            r = self.cfg.get('rtl', {})
+            lo = float(self.cfg.get('rtl_lo', 145540000))
+            direct = int(r.get('direct', 0))
+            if not direct and lo < 24e6:
+                lo = 145540000.0                          # la chiavetta non scende sotto i 24 MHz
+            self.src = RtlTcpSource(r.get('host', '127.0.0.1'), int(r.get('port', 1234)), lo, self.on_iq, self.on_status,
+                                    self.on_rate, gain=r.get('gain'), direct=direct, bias=bool(r.get('bias', False)),
+                                    rtl_agc=bool(r.get('agc', False)), dev=int(r.get('dev', 0)), exe=r.get('exe'))
+            try:
+                self.src.start()
+            except Exception:
+                try:
+                    self.src.stop()
+                except Exception:
+                    pass
+                self.src = None
+                raise
+            return
         if kind in ('audio', 'iq'):
             devs = list_audio_inputs()
             want = self.cfg.get('audio_dev')
@@ -415,7 +447,7 @@ class Hub:
         self.src = None
         raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
 
-    PPM_KINDS = ('perseus', 'extio', 'iq')
+    PPM_KINDS = ('perseus', 'extio', 'iq', 'rtl')
 
     def ppm(self):
         """Correzione di frequenza (ppm) del ricevitore attuale."""
@@ -448,7 +480,7 @@ class Hub:
 
         def run():
             prev_hw, prev_dx = self.hw_center, self.dx_abs
-            tunable = isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource))
+            tunable = self.tunable()
             k = 1 + self.ppm() * 1e-6
             try:
                 if tunable:
@@ -548,7 +580,7 @@ class Hub:
         log(f"Registrazione: {info['testo']}")
         if self.locked:
             self.locked = False
-            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio') else 'perseus')
+            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl') else 'perseus')
         self.post_json(self.cfg_msg())
         return True, info['testo']
 
@@ -953,6 +985,8 @@ class Hub:
             if self.dx_abs is None:
                 d = self.args.dx * 1000 if self.args.dx else self.cfg.get('dx')
                 self.dx_abs = float(d) if d else center
+            if self.src_kind != 'file' and abs(self.dx_abs - center) > fs / 2:
+                self.dx_abs = round(center - fs * 0.2, -2)       # altro ricevitore / altra gamma: DX dentro la vista
             changed = (self.fs != fs)
             self.fs, self.center = fs, center
             if self.src_kind != 'file':
@@ -978,6 +1012,9 @@ class Hub:
             self.listen_hist.clear()
             if self.src_kind in ('perseus', 'extio'):
                 self.cfg['lo'] = int(round(hw))
+                save_cfg(self.cfg)
+            elif self.src_kind == 'rtl':
+                self.cfg['rtl_lo'] = int(round(hw))
                 save_cfg(self.cfg)
             elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
                 self.cfg['dial'] = self.src.dial
@@ -1060,7 +1097,8 @@ class Hub:
         cal = self.sm_cal()
         c = (SM_CAL_DEFAULT if cal is None else cal) + self.sm_att()
         self.post_json({'type': 'sm', 'dx': None if dx is None else round(dx + c, 1),
-                        'rx2': None if rx2 is None else round(rx2 + c, 1), 'tarato': cal is not None})
+                        'rx2': None if rx2 is None else round(rx2 + c, 1), 'tarato': cal is not None,
+                        'sq': self.engine.sq_state()})
 
     def sm_set(self, dbm):
         """Il segnale del DX adesso vale dbm: ricavo la taratura dagli ultimi livelli misurati."""
@@ -1159,6 +1197,8 @@ class Hub:
             return 'RTTY'
         if m == 'ft8':
             return 'PKTUSB'                          # USB-D sugli Icom
+        if m in ('fm', 'am'):
+            return m.upper()
         return 'CW'
 
     def rig_follow_dx(self):
@@ -1225,7 +1265,7 @@ class Hub:
         # manopola della radio girata: il DX (o l'RX) di FZR Skimmer va lì
         self.cmd_q.put(('dx', float(f), 'radio'))
         if self.fs and self.center and abs(f - self.center) > self.fs * 0.42 and \
-                isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
+                self.tunable():
             self.tune(f + (self.fs * 0.2 if self.modo() in ('dx',) + RX_MODES else 0))   # spazio UP sopra
 
     def modo(self):
@@ -1237,7 +1277,8 @@ class Hub:
 
     def mem_key(self, modo=None):
         """Memorie di banda: CW (skimmer e RX CW), fonia (SSB), RTTY, FT8."""
-        return {'ssb': 'memorie_ssb', 'rtty': 'memorie_rtty', 'ft8': 'memorie_ft8'}.get(modo or self.modo(), 'memorie')
+        return {'ssb': 'memorie_ssb', 'rtty': 'memorie_rtty', 'ft8': 'memorie_ft8', 'fm': 'memorie_fm',
+                'am': 'memorie_am'}.get(modo or self.modo(), 'memorie')
 
     def band_mem(self, b, modo=None):
         k = self.mem_key(modo)
@@ -1246,17 +1287,184 @@ class Hub:
             return m
         if k == 'memorie_ssb':
             return {'centro': BANDS_SSB[b][0], 'dx': BANDS_SSB[b][1], 'pred': True} if b in BANDS_SSB else None
+        if k in ('memorie_fm', 'memorie_am'):
+            return {'centro': BANDS_FM[b] + 40000, 'dx': BANDS_FM[b], 'pred': True} if b in BANDS_FM else None
         if k in ('memorie_rtty', 'memorie_ft8'):
             t = BANDS_RTTY if k == 'memorie_rtty' else BANDS_FT8
             return {'centro': t[b] + (15000 if k == 'memorie_rtty' else 10000), 'dx': t[b], 'pred': True} if b in t else None
         return {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
+
+    def rtl_msg(self):
+        r = self.cfg.get('rtl', {})
+        src = self.src if isinstance(self.src, RtlTcpSource) else None
+        return {'present': getattr(self, 'rtl_found', []), 'exe': r.get('exe') or getattr(self, 'rtl_exe', None),
+                'host': r.get('host', '127.0.0.1'), 'port': int(r.get('port', 1234)), 'gain': r.get('gain'),
+                'gains': RTL_GAINS, 'bias': bool(r.get('bias', False)), 'direct': int(r.get('direct', 0)),
+                'agc': bool(r.get('agc', False)), 'tuner': src.tuner if src else None}
+
+    def rtl_set(self, v):
+        """Impostazioni della chiavetta: guadagno, bias-T, direct sampling, AGC del chip, indirizzo di rtl_tcp."""
+        r = self.cfg.setdefault('rtl', {})
+        restart = False
+        if 'gain' in v:
+            r['gain'] = None if v['gain'] in (None, '', 'auto') else int(v['gain'])
+            if isinstance(self.src, RtlTcpSource):
+                self.src.set_gain(r['gain'])
+        if 'bias' in v:
+            r['bias'] = bool(v['bias'])
+            if isinstance(self.src, RtlTcpSource):
+                self.src.set_bias(r['bias'])
+        if 'agc' in v:
+            r['agc'] = bool(v['agc'])
+            if isinstance(self.src, RtlTcpSource):
+                self.src.set_rtl_agc(r['agc'])
+        if 'direct' in v:
+            r['direct'] = int(v['direct'])
+            restart = True
+        for key in ('host', 'port', 'dev'):
+            if key in v and v[key] not in (None, ''):
+                r[key] = int(v[key]) if key in ('port', 'dev') else str(v[key]).strip()
+                restart = True
+        save_cfg(self.cfg)
+        if restart and self.src_kind == 'rtl':
+            if 'direct' in v:                              # cambiano le bande possibili: vado su una che si riceve
+                self.cfg['rtl_lo'] = 14035000 if r['direct'] else 145540000
+                self.dx_abs = 14025000.0 if r['direct'] else 145500000.0
+                if not r['direct'] and self.modo() not in RX_MODES:
+                    self.cfg['modo'] = 'fm'
+            self.switch_source('rtl')
+        else:
+            self.post_json(self.cfg_msg())
+
+    def first_run_source(self):
+        """Primo avvio senza Perseus ma con una chiavetta RTL-SDR: parto con la chiavetta in FM sui 2 m."""
+        if self.args.file or self.args.sorgente or 'sorgente' in self.cfg or 'dx' in self.cfg:
+            return                                      # non è il primo avvio: resta il ricevitore di sempre
+        if os.path.exists(os.path.join(find_perseus_folder(self.cfg, self.args.cartella), 'perseususb.dll')):
+            return
+        d = find_rtl_dongles(0)
+        if not d:
+            return
+        log(f'Primo avvio: niente Perseus, chiavetta {d[0]}: parto con la RTL-SDR in FM sui 2 m')
+        self.cfg.update(sorgente='rtl', modo='fm', rtl_lo=145540000, dx=145500000.0)
+        save_cfg(self.cfg)
+        self.src_kind = 'rtl'
+
+    def rtl_scan(self):
+        """In sottofondo: c'è una chiavetta RTL-SDR collegata? (e dove sta rtl_tcp)"""
+        def run():
+            try:
+                self.rtl_found = find_rtl_dongles(0)
+                self.rtl_exe = find_rtl_tcp()
+                if self.rtl_found:
+                    log(f'Chiavetta RTL-SDR: {", ".join(self.rtl_found)} · rtl_tcp: {self.rtl_exe or "non trovato"}')
+                self.post_json(self.cfg_msg())
+            except Exception as e:
+                log(f'Ricerca RTL-SDR: {e}')
+        threading.Thread(target=run, daemon=True).start()
+
+    def banco_cmd(self, k, c):
+        """Banco di memorie: salva, richiama, modifica, cancella, ripristina i preset."""
+        if k == 'banco_add':
+            if not self.dx_abs:
+                return
+            m = banco.aggiungi(self.cfg, c.get('nome') or '', self.dx_abs, self.modo(), c.get('gruppo') or '',
+                               self.extra_mem())
+            self.on_status(f'Memoria salvata: {m["nome"]} · {m["hz"]/1e6:.5f} MHz {banco.MODI.get(m["modo"], m["modo"])}')
+        elif k == 'banco_edit':
+            banco.modifica(self.cfg, c.get('id'), c)
+        elif k == 'banco_del':
+            banco.cancella(self.cfg, c.get('id'))
+        elif k == 'banco_preset':
+            n = banco.preset(self.cfg)
+            self.on_status(f'Memorie predefinite: {n} aggiunte')
+        elif k == 'banco_go':
+            m = banco.trova(self.cfg, c.get('id'))
+            if m:
+                self.banco_go(m)
+            return
+        elif k == 'banco_list':
+            self.post_json({'type': 'banco', 'v': banco.versione(self.cfg), 'list': banco.lista(self.cfg),
+                            'gruppi': banco.gruppi(self.cfg), 'modi': banco.MODI})
+            return
+        banco.toccato(self.cfg)
+        save_cfg(self.cfg)
+        self.post_json({'type': 'banco', 'v': banco.versione(self.cfg), 'list': banco.lista(self.cfg),
+                        'gruppi': banco.gruppi(self.cfg), 'modi': banco.MODI})
+        self.post_json(self.cfg_msg())
+
+    def extra_mem(self):
+        """Impostazioni che una memoria si porta dietro (filtro, banda laterale, squelch)."""
+        m = self.modo()
+        x = {}
+        if m == 'ssb':
+            x = {'sb': self.cfg.get('sb', 'auto'), 'ssb_bw': int(self.cfg.get('ssb_bw', 2700))}
+        elif m in ('fm', 'am'):
+            x = {m + '_bw': int(self.cfg.get(m + '_bw', 12000 if m == 'fm' else 8000)), 'sql': float(self.cfg.get('sql', 0))}
+        elif m in ('rxcw', 'dx', 'contest', 'normale'):
+            x = {'filtro': float(self.cfg.get('filtro', 500))}
+        return x
+
+    def banco_go(self, m):
+        hz, modo = float(m['hz']), m.get('modo', 'fm')
+        if not self.band_reach(hz):
+            self.on_status(f'{m["nome"]}: {hz/1e6:.4f} MHz non si riceve con questo ricevitore')
+            return
+        was_mode = self.modo()
+        if modo in ('dx', 'contest', 'normale') + RX_MODES:
+            self.cfg['modo'] = modo
+        for key in ('sb', 'ssb_bw', 'fm_bw', 'am_bw', 'sql', 'filtro'):
+            if key in m.get('x', {}):
+                self.cfg[key] = m['x'][key]
+        save_cfg(self.cfg)
+        if self.engine:
+            self.engine.listen_on = self.modo() == 'dx'
+            if 'filtro' in m.get('x', {}):
+                self.cmd_q.put(('bw', float(m['x']['filtro'])))
+        self.cmd_q.put(('dx', hz, 'band'))
+        if self.tunable() and (not self.fs or not self.center or abs(hz - self.center) > self.fs * 0.42
+                               or abs(hz - self.center) < 8000):
+            self.tune(hz + (self.fs or 192000) * 0.2)
+        elif isinstance(self.src, AudioCard):
+            self.src.set_lo(hz)
+        self.cmd_q.put(('ssbcfg',))
+        r = self.rig_ctl()
+        if r:
+            if was_mode != self.modo():
+                r.set_mode(self.rig_mode_for())
+        self.on_status(f'{m["nome"]} · {hz/1e6:.5f} MHz {banco.MODI.get(self.modo(), self.modo())}')
+        self.post_json(self.cfg_msg())
+
+    def band_reach(self, hz):
+        k = self.src_kind
+        if k == 'perseus':
+            return hz < 40e6
+        if k == 'rtl':
+            return hz < 30e6 if int(self.cfg.get('rtl', {}).get('direct', 0)) else 24e6 <= hz <= 1766e6
+        return True
+
+    def band_ok(self, b):
+        """Bande che il ricevitore in uso può ricevere."""
+        k = self.src_kind
+        if k == 'perseus':
+            return b in HF_BANDS                        # Perseus: fino a 40 MHz
+        if k == 'rtl':
+            if int(self.cfg.get('rtl', {}).get('direct', 0)):
+                return b in HF_BANDS                    # direct sampling: solo onde corte
+            return b in ('10',) + VHF_BANDS             # chiavetta: da 24 MHz in su
+        if k == 'audio':
+            return b in HF_BANDS + ('6', '2', '70')     # la radio
+        return True
+
+    def tunable(self):
+        return isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource, RtlTcpSource))
 
     def go_band(self, b):
         m = self.band_mem(b)
         if not m:
             return False
         self.cmd_q.put(('dx', float(m['dx']), 'band'))
-        if isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource)):
+        if self.tunable():
             self.tune(m['centro'])
         elif isinstance(self.src, AudioCard):
             self.src.set_lo(float(m['dx']))      # senza CAT: sintonizza la radio sul DX
@@ -1291,8 +1499,12 @@ class Hub:
         on = self.is_ssb()
         if on != e.ssb:
             e.out_audio = []
-        e.set_rx(on, self.modo(), self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)),
-                 float(self.cfg.get('filtro', 500)), float(self.cfg.get('ssb_bw', 2700)))
+        m = self.modo()
+        w = float(self.cfg.get('fm_bw', 12000) if m == 'fm' else self.cfg.get('am_bw', 8000) if m == 'am'
+                  else self.cfg.get('ssb_bw', 2700))
+        e.set_rx(on, m, self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)),
+                 float(self.cfg.get('filtro', 500)), w)
+        e.set_sql(float(self.cfg.get('sql', 0)))
 
     def cfg_msg(self):
         e = self.engine
@@ -1315,7 +1527,10 @@ class Hub:
                 'nb': int(self.cfg.get('nb', 0)), 'nr': int(self.cfg.get('nr', 0)), 'notch': bool(self.cfg.get('notch', False)),
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
                 'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
-                'bands': {b: self.band_mem(b) for b in BANDS if self.band_mem(b)},
+                'bands': {b: self.band_mem(b) for b in BANDS if self.band_ok(b) and self.band_mem(b)},
+                'band_order': [b for b in HF_BANDS + VHF_BANDS if self.band_ok(b)],
+                'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
+                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
@@ -1389,7 +1604,7 @@ class Hub:
                     if b:
                         self.cfg.setdefault(self.mem_key(), {})[b] = {'centro': int(self.center), 'dx': float(self.dx_abs)}
                         save_cfg(self.cfg)
-                        self.on_status(f'Memoria {b} m{" " + {"rxcw": "CW", "ssb": "SSB", "rtty": "RTTY", "ft8": "DIGI"}[self.modo()] if self.is_ssb() else ""} salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
+                        self.on_status(f'Memoria {b} m{" " + {"rxcw": "CW", "ssb": "SSB", "rtty": "RTTY", "ft8": "DIGI", "fm": "FM", "am": "AM"}[self.modo()] if self.is_ssb() else ""} salvata: centro {self.center/1000:.1f} · DX {self.dx_abs/1000:.2f} kHz')
                         self.post_json(self.cfg_msg())
                     else:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
@@ -1400,7 +1615,7 @@ class Hub:
                     ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
-                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio') else 'perseus')
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
                     for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list', 'lang'):
@@ -1614,8 +1829,22 @@ class Hub:
                     self.cfg['extio_rate'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
-                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio'):
+                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl'):
                     self.switch_source(c['kind'], c.get('dev'))
+                elif k == 'rtl' and isinstance(c.get('v'), dict):
+                    self.rtl_set(c['v'])
+                elif k == 'sql':
+                    self.cfg['sql'] = max(0.0, min(40.0, float(c.get('v', 0))))
+                    save_cfg(self.cfg)
+                    if self.engine:
+                        self.engine.set_sql(self.cfg['sql'])
+                elif k in ('fm_bw', 'am_bw') and int(c.get('v', 0)) in (6000, 8000, 10000, 12000, 16000, 25000):
+                    self.cfg[k] = int(c['v'])
+                    save_cfg(self.cfg)
+                    self.cmd_q.put(('ssbcfg',))
+                    self.post_json(self.cfg_msg())
+                elif k.startswith('banco_'):
+                    self.banco_cmd(k, c)
                 elif k == 'audiodev':
                     self.switch_source(self.src_kind if self.src_kind in ('audio', 'iq') else 'audio', c.get('dev'))
                 elif k == 'offset' and isinstance(self.src, AudioCard):
@@ -1705,6 +1934,8 @@ class Hub:
         log(f'Impostazioni in {CFG_PATH}')
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
+        self.first_run_source()
+        self.rtl_scan()
         try:
             self.start_source()
         except Exception as e:
@@ -1870,7 +2101,7 @@ def main():
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
-    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
+    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio', 'rtl'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')
