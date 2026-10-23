@@ -69,3 +69,27 @@ jobs:
         with:
           name: FZRSkimmer
           path: FZRSkimmer
+
+      # installazione per Windows (Inno Setup): FZRSkimmer_Setup_<versione>.exe
+      - name: Crea l'installazione
+        run: |
+          $v = python -c "import re;s=open('splitwatch.py',encoding='utf-8').read();print(re.search('^VERSION = .(.+?).$',s,re.M).group(1))"
+          Write-Host "versione $v"
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DMyAppVersion=$v" installer.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+        shell: pwsh
+
+      - name: Prova l'installazione (silenziosa)
+        run: |
+          $setup = Get-ChildItem Output\FZRSkimmer_Setup_*.exe | Select-Object -First 1
+          Start-Process -FilePath $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/CURRENTUSER','/NORESTART' -Wait
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\FZR Skimmer\FZRSkimmer.exe'
+          if (Test-Path $exe) { Write-Host "installato: $exe" } else { Write-Host 'exe non installato'; exit 1 }
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FZRSkimmer_Setup
+          path: Output/*.exe
