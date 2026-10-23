@@ -63,6 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download -R rtlsdrblog/rtl-sdr-blog --pattern '*.zip' -D rtlzip
+          if (-not (Get-ChildItem rtlzip -Filter *.zip -ErrorAction SilentlyContinue)) { gh release download v1.3.6 -R rtlsdrblog/rtl-sdr-blog --pattern '*.zip' -D rtlzip }
           Get-ChildItem rtlzip -Filter *.zip | ForEach-Object { Expand-Archive $_.FullName -DestinationPath (Join-Path 'rtlx' $_.BaseName) -Force }
           $all = Get-ChildItem rtlx -Recurse -Filter rtl_tcp.exe
           $exe = ($all | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1)
