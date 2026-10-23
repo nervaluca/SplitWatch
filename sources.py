@@ -1110,7 +1110,14 @@ def find_rtl_dongles(max_age=30.0):
     except Exception:
         found = []
     # con il driver di Zadig la chiavetta si chiama spesso «Bulk-In, Interface (Interface 0)»: la rinomino
-    out = [('RTL-SDR' if n.lower().startswith('bulk') else n) for n in found]
+    out = []
+    for n in found:
+        n = 'RTL-SDR' if n.lower().startswith('bulk') else n
+        if 'composit' in n.lower() or n in out:          # «Dispositivo USB composito»: è la stessa chiavetta
+            continue
+        out.append(n)
+    if found and not out:
+        out = ['RTL-SDR']
     _rtl_seen.update(t=time.time(), v=out)
     return list(out)
 

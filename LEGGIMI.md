@@ -1,4 +1,4 @@
-# FZR Skimmer 1.40
+# FZR Skimmer 1.41
 
 IW1FZR
 
@@ -11,10 +11,27 @@ il DX sta ascoltando.
 **Lingua**: pulsante **EN / IT** in alto a destra (italiano o inglese; resta memorizzato).
 English instructions: `README_EN.md`.
 
+## Download: file e programmi aggiuntivi
+
+Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
+- Driver USB del Perseus: https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip
+- perseususb.dll e file .sbs (ExtIO_perseus): https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip
+- CW Skimmer (facoltativo, ha già i file del Perseus): https://dxatlas.com/CwSkimmer/
+- Zadig, driver WinUSB per la chiavetta RTL-SDR: https://zadig.akeo.ie/
+- rtl_tcp / driver RTL-SDR Blog (già nella cartella `rtl`): https://github.com/rtlsdrblog/rtl-sdr-blog/releases
+- Microsoft Visual C++ Redistributable (solo se rtl_tcp.exe non parte): https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist
+- Hamlib (rigctld, comando della radio): https://github.com/Hamlib/Hamlib/releases
+- SDRplay API e plugin ExtIO: https://www.sdrplay.com/windows.html
+- Plugin ExtIO Airspy HF+: https://airspy.com/download/
+- HDSDR (facoltativo): https://hdsdr.de/
+- MASTER.SCP (nominativi da contest): https://www.supercheckpartial.com/
+- VB-Cable (audio verso WSJT-X): https://vb-audio.com/Cable/
+- WSJT-X: https://wsjtx.sourceforge.io/
+
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.40.exe`.
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.41.exe`.
 - Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
   vanno in `%APPDATA%\FZRSkimmer`).
@@ -22,6 +39,10 @@ scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.40.exe`.
   nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il Perseus lo installi dopo:
   menu Start → FZR Skimmer → «Copia i file del Perseus».
 - Icona sul desktop e nel menu Start, disinstallazione da Impostazioni → App.
+- **Dov'è la cartella**: è nascosta in AppData. Win+R → `%LOCALAPPDATA%\Programs\FZR Skimmer` → Invio
+  (lì ci sono fzrskimmer.json, fzrskimmer.log, rtl e registrazioni). Oppure menu Start → tasto destro su
+  FZR Skimmer → Apri percorso file. Installato «per tutti gli utenti»: programma in `C:\Program Files\FZR Skimmer`,
+  impostazioni, log e registrazioni in `%APPDATA%\FZRSkimmer`.
 - Per aggiornare basta avviare il setup nuovo: chiude FZR Skimmer e non tocca impostazioni, memorie,
   licenza e registrazioni.
 - Chi usava lo zip: per tenere impostazioni e memorie copia `fzrskimmer.json` dalla vecchia cartella

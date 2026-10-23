@@ -848,6 +848,15 @@ class Engine:
         self.ptt = on
 
     def _audio(self, iq):
+        # a pezzi di ~40 ms: con il programma a 32 bit i filtri lunghi su blocchi grandi (ricevitori a 192 kHz,
+        # o tanti blocchi arrivati insieme) supererebbero il limite di memoria di una singola operazione
+        if len(iq) > 8192:
+            for i in range(0, len(iq), 8192):
+                self._audio_blk(iq[i:i + 8192])
+            return
+        self._audio_blk(iq)
+
+    def _audio_blk(self, iq):
         if not getattr(self, 'ptt', False):
             # fotografie dell'AGC degli ultimi ~0,6 s (servono quando arriva il PTT)
             self.agc_snap.append((list(self.agc_st), [list(r.agc_st) for r in self.ssb_rx] if self.ssb_rx else None))

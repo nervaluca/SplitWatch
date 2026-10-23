@@ -38,7 +38,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
 import banco
 
-VERSION = '1.40'
+VERSION = '1.41'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -846,7 +846,7 @@ class Hub:
             self.nodata_n = 0
             self.auto_rs = 0
             return
-        if (self.src_kind not in ('perseus', 'extio') or self.locked or self.cal_busy or self.starting
+        if (self.src_kind not in ('perseus', 'extio', 'rtl') or self.locked or self.cal_busy or self.starting
                 or time.time() - self.src_t0 < 8 or self.auto_rs >= 3):
             return
         self.nodata_n += 1

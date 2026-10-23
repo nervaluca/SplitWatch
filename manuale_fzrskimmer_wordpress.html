@@ -16,6 +16,9 @@
 <li><a href="#requisiti">Cosa serve</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
+<li><a href="#download">Download</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
 <li><a href="#installazione">Installazione</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
@@ -50,6 +53,12 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><a href="#fzrtty">RTTY: FZRTTY</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#vhf">Chiavetta RTL-SDR, VHF/UHF, FM e AM</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#memorie">Banco di memorie</a></li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><a href="#nominativi">Nominativi e decodifica</a></li>
@@ -89,7 +98,7 @@
 <li><strong>Microsoft Edge</strong> (c'è già in Windows) oppure Google Chrome: servono solo a disegnare la finestra.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Un ricevitore: <strong>Perseus</strong> (il modo migliore), oppure una radio collegata alla scheda audio, oppure un ricevitore IQ (SoftRock e simili), oppure un ricevitore con plugin ExtIO per HDSDR (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> e altri).</li>
+<li>Un ricevitore: <strong>Perseus</strong> (il modo migliore), oppure una radio collegata alla scheda audio, oppure un ricevitore IQ (SoftRock e simili), oppure un ricevitore con plugin ExtIO per HDSDR (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> e altri), oppure una <strong>chiavetta RTL-SDR</strong> per VHF/UHF (vedi <a href="#vhf">Chiavetta RTL-SDR</a>).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Per il Perseus: i file <code>perseususb.dll</code> e <code>perseus*.sbs</code>, che ha già chi usa CW Skimmer o il software del Perseus (<strong>prepara_cartella.bat</strong> li copia da lì). Altrimenti sono tutti nel pacchetto ufficiale <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a (Microtelecom)</a>; il driver USB del Perseus è nel pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">driver Perseus 2026a1</a>. Per aiuto: <a href="https://groups.io/g/Perseus-SDR" target="_blank" rel="noopener">gruppo utenti Perseus</a>.</li>
@@ -100,8 +109,54 @@
 </ul>
 <!-- /wp:list -->
 
+<!-- wp:heading {"level":2,"anchor":"download"} -->
+<h2 class="wp-block-heading" id="download">Download: file e programmi aggiuntivi</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Oltre a FZR Skimmer servono, a seconda del ricevitore e delle funzioni, alcuni file che non si possono distribuire con il programma. Tutti i link portano ai siti ufficiali.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Cosa</th><th>Serve per</th><th>Dove</th></tr></thead><tbody><tr><td><strong>Driver USB del Perseus</strong></td><td>Perseus, se Windows non lo riconosce (senza CW Skimmer né software Perseus)</td><td><a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">Microtelecom · PerseusDriversUpdate</a></td></tr><tr><td><strong>perseususb.dll e file .sbs</strong></td><td>Perseus (il setup li copia da CW Skimmer o dal software Perseus, se ci sono)</td><td><a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">Microtelecom · ExtIO_perseus</a></td></tr><tr><td><strong>CW Skimmer</strong></td><td>facoltativo: chi lo ha già ha anche i file del Perseus</td><td><a href="https://dxatlas.com/CwSkimmer/" target="_blank" rel="noopener">dxatlas.com/CwSkimmer</a></td></tr><tr><td><strong>Zadig (driver WinUSB)</strong></td><td>chiavetta RTL-SDR: si installa una volta, come per SDR#</td><td><a href="https://zadig.akeo.ie/" target="_blank" rel="noopener">zadig.akeo.ie</a></td></tr><tr><td><strong>rtl_tcp e driver RTL-SDR Blog</strong></td><td>chiavetta RTL-SDR (già nella cartella <code>rtl</code> del programma; da qui se manca)</td><td><a href="https://github.com/rtlsdrblog/rtl-sdr-blog/releases" target="_blank" rel="noopener">github.com/rtlsdrblog/rtl-sdr-blog</a></td></tr><tr><td><strong>Microsoft Visual C++ Redistributable</strong></td><td>solo se rtl_tcp.exe non parte (manca VCRUNTIME o MSVCP)</td><td><a href="https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist" target="_blank" rel="noopener">Microsoft · VC++ Redistributable</a></td></tr><tr><td><strong>Hamlib (rigctld)</strong></td><td>comando della radio (CAT): la versione più recente per Windows</td><td><a href="https://github.com/Hamlib/Hamlib/releases" target="_blank" rel="noopener">github.com/Hamlib/Hamlib</a></td></tr><tr><td><strong>SDRplay API e plugin ExtIO</strong></td><td>ricevitori SDRplay RSP (ExtIO)</td><td><a href="https://www.sdrplay.com/windows.html" target="_blank" rel="noopener">sdrplay.com · Windows</a></td></tr><tr><td><strong>Plugin ExtIO Airspy HF+</strong></td><td>Airspy HF+ e Discovery (ExtIO)</td><td><a href="https://airspy.com/download/" target="_blank" rel="noopener">airspy.com/download</a></td></tr><tr><td><strong>HDSDR</strong></td><td>facoltativo: i plugin ExtIO sono gli stessi</td><td><a href="https://hdsdr.de/" target="_blank" rel="noopener">hdsdr.de</a></td></tr><tr><td><strong>MASTER.SCP</strong></td><td>elenco dei nominativi da contest (Super Check Partial): va nella cartella del programma</td><td><a href="https://www.supercheckpartial.com/" target="_blank" rel="noopener">supercheckpartial.com</a></td></tr><tr><td><strong>VB-Cable</strong></td><td>cavo audio virtuale: audio di FZR Skimmer verso WSJT-X o altri programmi</td><td><a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">vb-audio.com/Cable</a></td></tr><tr><td><strong>WSJT-X</strong></td><td>decodifica FT8/FT4 con l’audio del modo DIGI</td><td><a href="https://wsjtx.sourceforge.io/" target="_blank" rel="noopener">wsjtx.sourceforge.io</a></td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
 <!-- wp:heading {"level":2,"anchor":"installazione"} -->
 <h2 class="wp-block-heading" id="installazione">Installazione</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Con l'installazione (consigliato)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.41.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il setup copia da solo <code>perseususb.dll</code> e i file <code>.sbs</code> del Perseus da CW Skimmer, dal software Perseus o da HDSDR, e l'elenco nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il software del Perseus lo installi dopo: menu Start → FZR Skimmer → <strong>Copia i file del Perseus</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Mette l'icona sul desktop e nel menu Start; si disinstalla da Impostazioni → App.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Dov'è la cartella</strong>: è nascosta in AppData. Premi Win+R, scrivi <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> e Invio: lì ci sono <code>fzrskimmer.json</code>, <code>fzrskimmer.log</code>, la cartella <code>rtl</code> e le registrazioni. Oppure menu Start → tasto destro su FZR Skimmer → <em>Apri percorso file</em>. Se hai installato «per tutti gli utenti», il programma è in <code>C:\Program Files\FZR Skimmer</code> e impostazioni, log e registrazioni in <code>%APPDATA%\FZRSkimmer</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per aggiornare basta avviare il setup nuovo: chiude FZR Skimmer e non tocca impostazioni, memorie, licenza e registrazioni.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Chi usava lo zip: per tenere impostazioni e memorie copia <code>fzrskimmer.json</code> dalla vecchia cartella in quella nuova, a programma chiuso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Windows può mostrare l'avviso SmartScreen (programma non firmato): <em>Ulteriori informazioni</em> → <em>Esegui comunque</em>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Con lo zip</h3>
 <!-- /wp:heading -->
 
 <!-- wp:list {"ordered":true} -->
@@ -168,7 +223,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Ricevitore</th><th>Quando usarlo</th><th>Cosa impostare</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>Il modo migliore: vedi e decodifichi fino a 96 kHz di banda (48 kHz bastano per quasi tutti i pile-up).</td><td><strong>Centro Perseus kHz</strong>, <strong>Campionamento</strong>. Se le stazioni appaiono specchiate, spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td><strong>Audio della radio</strong></td><td>Qualsiasi radio: l'uscita audio entra nella scheda audio del PC (per esempio USB Audio CODEC dell'IC-7600). Vedi solo la banda passante della radio, 2–3 kHz.</td><td><strong>Ingresso</strong>, <strong>Frequenza radio kHz</strong> (quella che mostra la radio), <strong>Offset</strong>: la nota CW, es. 600, se la radio mostra la frequenza del segnale come gli Icom in CW; 0 se mostra la portante.</td></tr><tr><td><strong>IQ da scheda audio</strong></td><td>Ricevitori che mandano I e Q sui canali sinistro e destro (SoftRock e simili).</td><td><strong>Ingresso</strong>, <strong>LO kHz</strong> (frequenza centrale), <strong>Campionamento</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>sperimentale</em></td><td>Qualsiasi ricevitore che abbia un plugin ExtIO <strong>a 32 bit</strong> per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube e altri. Se il ricevitore funziona in HDSDR, funziona anche qui. Serve il driver del ricevitore installato (per SDRplay la SDRplay API).</td><td><strong>Plugin</strong>: il programma lo cerca nelle cartelle di HDSDR, SDRplay e Airspy e nella sua; altrimenti <strong>Sfoglia…</strong> e scegli il file <code>ExtIO_….dll</code>. <strong>Campionamento</strong>: l'elenco viene dal plugin, scegli 192 kHz o meno; se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo sotto i 200 kHz (÷ n accanto al valore). <strong>Impostazioni ricevitore</strong> apre la finestra del plugin (guadagno, antenna, AGC). <strong>Centro kHz</strong>.</td></tr><tr><td><strong>Registrazione (WAV)</strong></td><td>Riascoltare una registrazione IQ.</td><td>Vedi <a href="#registrare">Registrare e riascoltare</a>.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Ricevitore</th><th>Quando usarlo</th><th>Cosa impostare</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>Il modo migliore: vedi e decodifichi fino a 96 kHz di banda (48 kHz bastano per quasi tutti i pile-up).</td><td><strong>Centro Perseus kHz</strong>, <strong>Campionamento</strong>. Se le stazioni appaiono specchiate, spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td><strong>Audio della radio</strong></td><td>Qualsiasi radio: l'uscita audio entra nella scheda audio del PC (per esempio USB Audio CODEC dell'IC-7600). Vedi solo la banda passante della radio, 2–3 kHz.</td><td><strong>Ingresso</strong>, <strong>Frequenza radio kHz</strong> (quella che mostra la radio), <strong>Offset</strong>: la nota CW, es. 600, se la radio mostra la frequenza del segnale come gli Icom in CW; 0 se mostra la portante.</td></tr><tr><td><strong>IQ da scheda audio</strong></td><td>Ricevitori che mandano I e Q sui canali sinistro e destro (SoftRock e simili).</td><td><strong>Ingresso</strong>, <strong>LO kHz</strong> (frequenza centrale), <strong>Campionamento</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>sperimentale</em></td><td>Qualsiasi ricevitore che abbia un plugin ExtIO <strong>a 32 bit</strong> per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube e altri. Se il ricevitore funziona in HDSDR, funziona anche qui. Serve il driver del ricevitore installato (per SDRplay la SDRplay API).</td><td><strong>Plugin</strong>: il programma lo cerca nelle cartelle di HDSDR, SDRplay e Airspy e nella sua; altrimenti <strong>Sfoglia…</strong> e scegli il file <code>ExtIO_….dll</code>. <strong>Campionamento</strong>: l'elenco viene dal plugin, scegli 192 kHz o meno; se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo sotto i 200 kHz (÷ n accanto al valore). <strong>Impostazioni ricevitore</strong> apre la finestra del plugin (guadagno, antenna, AGC). <strong>Centro kHz</strong>.</td></tr><tr><td><strong>RTL-SDR (chiavetta)</strong></td><td>VHF/UHF (24 MHz – 1,7 GHz), FM e AM; con il direct sampling anche le onde corte. Anche senza Perseus.</td><td>Driver WinUSB (Zadig). Vedi <a href="#vhf">Chiavetta RTL-SDR</a>.</td></tr><tr><td><strong>Registrazione (WAV)</strong></td><td>Riascoltare una registrazione IQ.</td><td>Vedi <a href="#registrare">Registrare e riascoltare</a>.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
@@ -612,6 +667,95 @@
 <!-- /wp:paragraph --></blockquote>
 <!-- /wp:quote -->
 
+<!-- wp:heading {"level":2,"anchor":"vhf"} -->
+<h2 class="wp-block-heading" id="vhf">Chiavetta RTL-SDR, VHF/UHF, FM e AM</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR Skimmer funziona anche <strong>senza Perseus</strong>, con una chiavetta <strong>RTL-SDR</strong> da pochi euro (RTL-SDR Blog V3/V4, Nooelec e simili): da 24 MHz a 1,7 GHz, cioè 10 m, 6 m, 2 m, 70 cm e 23 cm, più aeronautica, nautica, PMR446, satelliti. Con il <em>direct sampling</em> delle V3/V4 anche le onde corte, ma con meno dinamica del Perseus.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Driver</strong>: la chiavetta vuole il driver WinUSB, quello che si installa con <strong>Zadig</strong> (lo stesso che serve a SDR#). Se SDR# o SDR++ la vedono già, è a posto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>rtl_tcp</strong>: FZR Skimmer parla con la chiavetta attraverso <code>rtl_tcp.exe</code>, che si trova nella sottocartella <code>rtl</code> del programma e parte da solo. Così si può usare anche una chiavetta collegata a un <strong>altro computer</strong> (un Raspberry vicino all'antenna, per esempio): lì si avvia <code>rtl_tcp -a 0.0.0.0</code> e in FZR Skimmer si scrive il suo indirizzo nella casella <strong>rtl_tcp</strong> (es. <code>192.168.1.50:1234</code>).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Primo avvio</strong>: se il Perseus non c'è ma c'è una chiavetta, FZR Skimmer parte da solo con la chiavetta, in FM sui 2 m. Altrimenti: in basso <strong>Ricevitore → RTL-SDR (chiavetta)</strong> (con ✓ se il PC la vede).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Impostazioni</strong> (in basso): <strong>Guadagno</strong> (Auto o a mano; se compaiono segnali fantasma abbassalo), <strong>HF</strong> (direct sampling per le onde corte con le V3/V4, ramo Q), <strong>Bias-T</strong> (alimenta un LNA o un upconverter dal cavo), <strong>AGC chip</strong>. La chiavetta riceve 192 kHz alla volta; l'errore del quarzo si corregge con <strong>Correzione ppm</strong> (o <strong>Calibra…</strong> se arrivi alle stazioni campione).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Bande</strong>: i pulsanti diventano 10, 6, 2, 70cm, 23cm (con il direct sampling quelli delle onde corte). Ogni banda ricorda la sua memoria per ciascun modo, come in HF.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">FM e AM</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Nei modi <strong>Ricevitore</strong> ci sono <strong>FM</strong> (banda stretta: ripetitori, simplex, PMR, nautica, satelliti) e <strong>AM</strong> (aeronautica, 10 m). Funzionano con tutti i ricevitori, anche in HF (FM sui 10 m).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>RX1 e RX2, SPLIT, mute, volumi, NB e NR funzionano come in SSB: per esempio RX1 sull'uscita del ripetitore e RX2 sull'ingresso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Filtro</strong> da 6 a 25 kHz (FM 12 kHz per i canali da 12,5 kHz, 16 o 25 kHz per quelli larghi; AM 8 kHz).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>SQL</strong> (squelch): chiude l'audio quando sul canale c'è solo rumore; 0 = sempre aperto, più a destra = serve un segnale più forte (doppio clic = 0). La spia <strong>SQ</strong> accanto a RX1 e RX2 si accende quando il canale è aperto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Passo</strong> dei canali: 5, 6,25, 8,33 (aeronautica), 12,5 e 25 kHz, per RX1 e RX2.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Lo <strong>S-meter</strong> sopra i 30 MHz usa la scala VHF (S9 = −93 dBm).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"memorie"} -->
+<h2 class="wp-block-heading" id="memorie">Banco di memorie</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il pulsante <strong>📒 Memorie</strong> (accanto a «Salva memoria», tasto K) apre il banco di memorie: frequenze con un nome, il modo e un gruppo, per tutti i ricevitori e tutti i modi (anche HF: un DX, una rete, una frequenza di contest).</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Clic su una memoria</strong>: FZR Skimmer va su quella frequenza, nel suo modo, con il suo filtro (e squelch in FM/AM). Il pannello resta aperto, così si passa da una memoria all'altra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>＋ Salva qui</strong>: salva la frequenza di RX1 con il modo e le impostazioni attuali; scrivi il nome e il gruppo (quelli che hai già si scelgono dall'elenco).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>✎</strong> modifica nome, gruppo, frequenza e modo; <strong>🗑</strong> cancella (secondo clic per confermare).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Cerca</strong> per nome o frequenza, e filtra per <strong>gruppo</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Al primo uso il banco ha già: chiamate FM e SSB in VHF/UHF, APRS, ISS, FT8 2 m e 6 m, ripetitori R0–R7 (uscita), PMR446 canali 1–16, aeronautica (121,5 emergenza, 123,45 aria-aria), nautica (canali 16 e 6). <strong>Preset</strong> rimette quelli che hai cancellato.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se una memoria è fuori dalla portata del ricevitore in uso (per esempio 145,5 MHz con il Perseus) il programma lo dice e resta dov'è.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le memorie stanno in <code>fzrskimmer.json</code> insieme alle altre impostazioni.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
 <!-- wp:heading {"level":2,"anchor":"nominativi"} -->
 <h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>
 <!-- /wp:heading -->
@@ -691,7 +835,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>S</td><td>SPLIT acceso / spento (modi Ricevitore)</td></tr><tr><td>B / N</td><td>NB / NR: livello successivo</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>S</td><td>SPLIT acceso / spento (modi Ricevitore)</td></tr><tr><td>B / N</td><td>NB / NR: livello successivo</td></tr><tr><td>K</td><td>apre / chiude il banco di memorie</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":2,"anchor":"tablet"} -->
