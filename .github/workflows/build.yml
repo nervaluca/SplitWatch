@@ -44,13 +44,16 @@ jobs:
           Start-Process -FilePath dist\FZRSkimmer.exe -ArgumentList '--no-browser','--sorgente','audio' -PassThru | Set-Variable p
           # l'exe "a file unico" al primo avvio si scompatta e Windows Defender lo controlla: può volerci un po'
           $ok = $false
-          for ($i = 0; $i -lt 45; $i++) {
+          for ($i = 0; $i -lt 120; $i++) {
             Start-Sleep -Seconds 1
             try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 http://127.0.0.1:8073/ | Out-Null; $ok = $true; break } catch { }
             if ($p.HasExited) { Write-Host "il programma si è chiuso (codice $($p.ExitCode))"; break }
           }
-          Write-Host "attesa: $i s"
-          foreach ($f in 'fzrskimmer.log', 'dist\fzrskimmer.log') { if (Test-Path $f) { Write-Host "--- $f"; Get-Content $f } }
+          Write-Host "attesa: $i s · processo ancora acceso: $(-not $p.HasExited)"
+          Get-Process FZRSkimmer -ErrorAction SilentlyContinue | Format-Table Id, CPU, WorkingSet -AutoSize | Out-String | Write-Host
+          $found = $false
+          foreach ($f in 'fzrskimmer.log', 'dist\fzrskimmer.log', "$env:APPDATA\FZRSkimmer\fzrskimmer.log") { if (Test-Path $f) { $found = $true; Write-Host "--- $f"; Get-Content $f } }
+          if (-not $found) { Write-Host 'nessun fzrskimmer.log: il programma non è arrivato a scrivere (exe ancora in avvio?)' }
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
           if ($ok) { Write-Host 'interfaccia OK' } else { Write-Host 'interfaccia non raggiungibile'; exit 1 }
         shell: pwsh
