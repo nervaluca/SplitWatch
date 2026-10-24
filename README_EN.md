@@ -1,4 +1,4 @@
-# FZR Skimmer 1.44
+# FZR Skimmer 1.46
 
 by IW1FZR
 
@@ -24,13 +24,14 @@ All from the official sites; only needed for the receiver or feature shown.
 - Airspy HF+ ExtIO plugin: https://airspy.com/download/
 - HDSDR (optional): https://hdsdr.de/
 - MASTER.SCP (contest callsigns): https://www.supercheckpartial.com/
+- IK2ANE repeater list (pontixls.xls, to import into the bank): https://www.ik2ane.it/ham.htm
 - VB-Cable (audio to WSJT-X): https://vb-audio.com/Cable/
 - WSJT-X: https://wsjtx.sourceforge.io/
 
 ## Installation
 
 **With the installer (recommended, from 1.34)**: from GitHub → Actions → latest build → Artifacts download
-`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.44.exe`.
+`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.46.exe`.
 - No administrator rights needed: it installs in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (you can choose «all users», in Program Files: settings, log and licence then go to `%APPDATA%\FZRSkimmer`).
 - It copies `perseususb.dll` and the `.sbs` files from CW Skimmer, the Perseus software or HDSDR by itself,
@@ -135,6 +136,20 @@ every mode (HF too).
   Coming from 1.40 the bank updates itself: new ones are added, yours are left alone.
 - A memory out of reach of the receiver in use (e.g. 145.5 MHz with the Perseus) is not recalled: the status line says so.
 
+## Importing repeaters (IK2ANE) and CHIRP channels (1.45)
+
+In the memory bank, **📥 Import repeaters…**:
+- **IK2ANE repeater list** (Italy and neighbours): download `pontixls.xls` from https://www.ik2ane.it/ham.htm
+  («DOWNLOAD PONTI.xls») and pick it. Choose **by region and province** (tick a region to take all its provinces) or
+  **within N km of your locator**, the **bands** (2 m and 70 cm by default) and optionally digital-only repeaters (DMR,
+  C4FM, D-STAR: not decoded here, kept as reminders). The preview shows how many and in which groups.
+  Each repeater becomes an FM memory on its output, in the group **Ponti <province>** (e.g. «Ponti BI»), with name,
+  callsign and place; below, small: shift, CTCSS tone, system, locator and keeper (needed to transmit with the radio).
+  Importing the updated file again refreshes the repeaters of the chosen groups; your memories are left alone.
+  List © Walter De Vercelli IK2ANE, free for private amateur use crediting the author.
+- **CHIRP CSV**: the channels programmed in your handhelds (FM, AM, SSB, CW), in a group named after the file.
+- The **🗑** next to a group name deletes the whole group (second click to confirm).
+
 ## Radio panel (1.33)
 
 Below the modes there is a radio-style panel:
@@ -184,7 +199,8 @@ night (green/blue), amber, green, blue, red. It is remembered.
 ## S-meter
 
 At the top there is the DX S-meter (in SSB also the RX2 one): it measures the signal in the RX
-passband, like a radio (S9 = −73 dBm, 6 dB per S unit, then S9+10…+60). The bar rises at once and
+passband, like a radio (S9 = −73 dBm, 6 dB per S unit, then S9+10…+60; above 30 MHz the VHF scale, S9 = −93 dBm;
+an uncalibrated RTL-SDR dongle is referred to the channel noise floor, about S3 on VHF). The bar rises at once and
 falls slowly; the white tick is the peak of the last 2 s.
 
 Until it is calibrated, dBm values carry a ≈ (approximate). To calibrate, click the S-meter:

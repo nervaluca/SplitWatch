@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import collections
 import json
+import math
 import os
 import queue
 import socket
@@ -37,8 +38,9 @@ from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
 import banco
+import ponti
 
-VERSION = '1.44'
+VERSION = '1.46'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -804,6 +806,27 @@ class Hub:
             self.on_status(f'Impossibile aprire la finestra dei file: {e}')
             return None
 
+    def pick_list(self):
+        """Finestra di Windows per scegliere l'elenco dei ponti (IK2ANE .xls) o un CSV di CHIRP."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            start = os.path.dirname(self.cfg.get('ponti_path') or '') or os.path.join(os.path.expanduser('~'), 'Downloads')
+            p = filedialog.askopenfilename(parent=root, title='Elenco ponti (pontixls.xls di IK2ANE) o CSV di CHIRP',
+                                           initialdir=start, filetypes=[('Elenco ponti o CHIRP', '*.xls *.csv'),
+                                                                        ('Tutti i file', '*.*')])
+            root.destroy()
+            if p:
+                self.cfg['ponti_path'] = os.path.abspath(p)
+                save_cfg(self.cfg)
+            return os.path.abspath(p) if p else None
+        except Exception as e:
+            self.on_status(f'Impossibile aprire la finestra dei file: {e}')
+            return None
+
     # -------------------------------------------------------------- DSP
     def dsp_thread(self):
         while True:
@@ -985,6 +1008,7 @@ class Hub:
             if self.dx_abs is None:
                 d = self.args.dx * 1000 if self.args.dx else self.cfg.get('dx')
                 self.dx_abs = float(d) if d else center
+            self.sm_floor = None                             # S-meter della chiavetta: nuovo fondo
             if self.src_kind != 'file' and abs(self.dx_abs - center) > fs / 2:
                 self.dx_abs = round(center - fs * 0.2, -2)       # altro ricevitore / altra gamma: DX dentro la vista
             changed = (self.fs != fs)
@@ -1096,9 +1120,42 @@ class Hub:
             self.sm_hist.append(dx)
         cal = self.sm_cal()
         c = (SM_CAL_DEFAULT if cal is None else cal) + self.sm_att()
+        if cal is None and self.src_kind == 'rtl':
+            a = self.sm_auto(dx, rx2)                  # chiavetta non tarata: riferimento al rumore di fondo
+            if a is not None:
+                c = a
         self.post_json({'type': 'sm', 'dx': None if dx is None else round(dx + c, 1),
                         'rx2': None if rx2 is None else round(rx2 + c, 1), 'tarato': cal is not None,
                         'sq': self.engine.sq_state()})
+
+    def sm_bw(self):
+        """Larghezza di banda del ricevitore in uso (Hz), per il rumore di fondo atteso."""
+        m = self.modo()
+        if m == 'fm':
+            return float(self.cfg.get('fm_bw', 12000))
+        if m == 'am':
+            return float(self.cfg.get('am_bw', 8000))
+        if m in ('ssb', 'ft8'):
+            return float(self.cfg.get('ssb_bw', 2700)) if m == 'ssb' else 3000.0
+        if m == 'rtty':
+            return 600.0
+        return float(self.cfg.get('filtro', 500))
+
+    def sm_auto(self, dx, rx2):
+        """Taratura indicativa per la chiavetta (il livello dei suoi campioni dipende dal guadagno): il rumore
+        di fondo del canale vale quello di un buon ricevitore, -174 dBm/Hz + larghezza + 6 dB di cifra di rumore.
+        Il fondo si segue da solo: scende subito, risale piano (un segnale non lo sposta)."""
+        v = [x for x in (dx, rx2) if x is not None]
+        if not v:
+            return None
+        lo = min(v)
+        f = getattr(self, 'sm_floor', None)
+        if f is None or lo < f:
+            f = lo if f is None else f + (lo - f) * 0.3
+        else:
+            f += 0.02                                    # ~0,15 dB al secondo
+        self.sm_floor = f
+        return -174.0 + 10 * math.log10(max(100.0, self.sm_bw())) + 6.0 - f
 
     def sm_set(self, dbm):
         """Il segnale del DX adesso vale dbm: ricavo la taratura dagli ultimi livelli misurati."""
@@ -1306,6 +1363,7 @@ class Hub:
         """Impostazioni della chiavetta: guadagno, bias-T, direct sampling, AGC del chip, indirizzo di rtl_tcp."""
         r = self.cfg.setdefault('rtl', {})
         restart = False
+        self.sm_floor = None
         if 'gain' in v:
             r['gain'] = None if v['gain'] in (None, '', 'auto') else int(v['gain'])
             if isinstance(self.src, RtlTcpSource):
@@ -1383,6 +1441,21 @@ class Hub:
             if m:
                 self.banco_go(m)
             return
+        elif k == 'banco_import':
+            fonte, rows, path = getattr(self, 'ponti_file', (None, [], ''))
+            idx = [int(i) for i in c.get('idx', []) if 0 <= int(i) < len(rows)]
+            if not idx:
+                return
+            if c.get('locatore'):
+                self.cfg['locatore'] = str(c['locatore']).strip().upper()[:8]
+            gch = (c.get('gruppo') or '').strip()[:30] or 'CHIRP'
+            mems = [ponti.memoria(rows[i], fonte, gch) for i in idx]
+            grp = sorted({m['gruppo'] for m in mems})
+            n = banco.importa(self.cfg, mems, fonte, grp)
+            self.on_status(f'Importati {n} canali in {len(grp)} gruppi: {", ".join(grp[:6])}{"…" if len(grp) > 6 else ""}')
+        elif k == 'banco_delgroup':
+            n = banco.cancella_gruppo(self.cfg, c.get('gruppo', ''))
+            self.on_status(f'Gruppo «{c.get("gruppo", "")}» cancellato: {n} memorie')
         elif k == 'banco_list':
             self.post_json({'type': 'banco', 'v': banco.versione(self.cfg), 'list': banco.lista(self.cfg),
                             'gruppi': banco.gruppi(self.cfg), 'modi': banco.MODI})
@@ -1803,6 +1876,22 @@ class Hub:
                     if path and os.path.isfile(path):
                         self.cfg['file_path'] = path
                     self.switch_source('file')
+                elif k == 'banco_pick':
+                    path = c.get('path') if (c.get('path') and os.path.isfile(c['path'])
+                                             and c['path'].lower().endswith(('.xls', '.csv'))) else None
+                    if not path:
+                        path = await asyncio.get_running_loop().run_in_executor(None, self.pick_list)
+                    if path:
+                        try:
+                            fonte, rows = ponti.leggi(path)
+                        except Exception as e:
+                            self.on_status(f'Elenco non letto: {e}')
+                            continue
+                        self.ponti_file = (fonte, rows, path)
+                        keys = ('nome', 'hz', 'shift', 'tono', 'regione', 'prov', 'loc', 'grp', 'id', 'qra', 'banda', 'analog')
+                        await ws.send(json.dumps({'type': 'ponti', 'fonte': fonte, 'file': os.path.basename(path),
+                                                  'locatore': self.cfg.get('locatore', ''),
+                                                  'rows': [[r[k] for k in keys] for r in rows], 'keys': keys}))
                 elif k == 'browse':
                     path = await asyncio.get_running_loop().run_in_executor(None, self.pick_file)
                     if path:

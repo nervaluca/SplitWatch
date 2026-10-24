@@ -1,4 +1,4 @@
-# FZR Skimmer 1.44
+# FZR Skimmer 1.46
 
 IW1FZR
 
@@ -25,13 +25,14 @@ Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
 - Plugin ExtIO Airspy HF+: https://airspy.com/download/
 - HDSDR (facoltativo): https://hdsdr.de/
 - MASTER.SCP (nominativi da contest): https://www.supercheckpartial.com/
+- Elenco ponti di IK2ANE (pontixls.xls, da importare nel banco): https://www.ik2ane.it/ham.htm
 - VB-Cable (audio verso WSJT-X): https://vb-audio.com/Cable/
 - WSJT-X: https://wsjtx.sourceforge.io/
 
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.44.exe`.
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.46.exe`.
 - Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
   vanno in `%APPDATA%\FZRSkimmer`).
@@ -157,6 +158,20 @@ e tutti i modi (anche HF).
   Dalla 1.40 il banco si aggiorna da solo: arrivano le nuove, le tue non si toccano.
 - Una memoria fuori portata del ricevitore in uso (es. 145,5 MHz col Perseus) non viene richiamata: lo dice la riga di stato.
 
+## Importare i ponti (IK2ANE) e i canali di CHIRP (1.45)
+
+Nel banco di memorie, **📥 Importa ponti…**:
+- **Elenco ponti di IK2ANE**: scarica `pontixls.xls` da https://www.ik2ane.it/ham.htm («DOWNLOAD PONTI.xls») e sceglilo.
+  Scegli **per regione e provincia** (spunta la regione per prenderne tutte le province) oppure **entro N km dal tuo
+  locatore**, le **bande** (2 m e 70 cm di base) e se vuoi anche i ponti solo digitali (DMR, C4FM, D-STAR: qui non
+  si decodificano, restano come promemoria). L'anteprima dice quanti ponti e in quali gruppi.
+  Ogni ponte diventa una memoria FM sull'uscita, nel gruppo **Ponti <provincia>** (es. «Ponti BI»), con nome, nominativo
+  e località; sotto, in piccolo, shift, tono CTCSS, sistema, locatore e gestore (servono per trasmettere con la radio).
+  Reimportando il file aggiornato, i ponti dei gruppi scelti si aggiornano; le tue memorie non si toccano.
+  Elenco © Walter De Vercelli IK2ANE, gratuito per uso privato dei radioamatori citando l'autore.
+- **CSV di CHIRP**: i canali programmati nei portatili (FM, AM, SSB, CW), in un gruppo con il nome del file.
+- Il **🗑** accanto al nome di un gruppo cancella tutto il gruppo (secondo clic per confermare).
+
 ## Pannello radio (1.33)
 
 Sotto i modi c'è il pannello «da radio»:
@@ -207,7 +222,9 @@ notte (verde/azzurro), ambra, verde, blu, rosso. Resta memorizzato.
 
 In alto c'è lo S-meter del DX (in SSB anche quello di RX2): misura il segnale nella banda passante
 dell'RX, come una radio (S9 = −73 dBm, 6 dB per unità S, poi S9+10…+60). Barra che sale subito e
-scende piano, trattino bianco = picco degli ultimi 2 s.
+scende piano, trattino bianco = picco degli ultimi 2 s. Sopra i 30 MHz la scala è quella VHF (S9 = −93 dBm).
+Con la **chiavetta RTL-SDR** non tarata il riferimento è il rumore di fondo del canale (circa S3 in VHF):
+il livello dei suoi campioni cambia col guadagno, quindi un valore fisso darebbe sempre S9++.
 
 Finché non è tarato i dBm hanno il segno ≈ (valore indicativo). Per tararlo clic sullo S-meter:
 - **Imposta**: metti il DX su un segnale stabile e scegli quanto vale (es. S9);
