@@ -10,6 +10,25 @@ Uso:
        --no-browser                      non aprire il browser
 L'interfaccia si apre su http://localhost:8073 (anche da tablet/telefono nella rete di casa).
 """
+import os as _os
+import sys as _sys
+
+
+def _errore_avvio(tipo, val, tb):
+    """Errore prima che il programma parta (es. un file mancante nella compilazione): lo scrive in
+    fzrskimmer_errore.txt accanto all'exe ed esce, invece di restare appeso a una finestra di Windows."""
+    import traceback
+    txt = ''.join(traceback.format_exception(tipo, val, tb))
+    try:
+        base = _os.path.dirname(_sys.executable) if getattr(_sys, 'frozen', False) else _os.path.dirname(_os.path.abspath(__file__))
+        with open(_os.path.join(base, 'fzrskimmer_errore.txt'), 'a', encoding='utf-8') as f:
+            f.write(txt + '\n')
+    except Exception:
+        pass
+    _os._exit(3)
+
+
+_sys.excepthook = _errore_avvio
 import argparse
 import asyncio
 import collections
