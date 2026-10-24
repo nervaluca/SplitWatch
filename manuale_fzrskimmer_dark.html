@@ -486,7 +486,7 @@
     <h2>💾 Installazione</h2>
     <h3>Con l'installazione (consigliato)</h3>
     <ul>
-      <li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.43.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
+      <li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.44.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
       <li>Il setup copia da solo <code>perseususb.dll</code> e i file <code>.sbs</code> del Perseus da CW Skimmer, dal software Perseus o da HDSDR, e l'elenco nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il software del Perseus lo installi dopo: menu Start → FZR Skimmer → <strong>Copia i file del Perseus</strong>.</li>
       <li>Mette l'icona sul desktop e nel menu Start; si disinstalla da Impostazioni → App.</li>
       <li><strong>Dov'è la cartella</strong>: è nascosta in AppData. Premi Win+R, scrivi <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> e Invio: lì ci sono <code>fzrskimmer.json</code>, <code>fzrskimmer.log</code>, la cartella <code>rtl</code> e le registrazioni. Oppure menu Start → tasto destro su FZR Skimmer → <em>Apri percorso file</em>. Se hai installato «per tutti gli utenti», il programma è in <code>C:\Program Files\FZR Skimmer</code> e impostazioni, log e registrazioni in <code>%APPDATA%\FZRSkimmer</code>.</li>
@@ -745,7 +745,7 @@
       <li><strong>＋ Salva qui</strong>: salva la frequenza di RX1 con il modo e le impostazioni attuali; scrivi il nome e il gruppo (quelli che hai già si scelgono dall'elenco).</li>
       <li><strong>✎</strong> modifica nome, gruppo, frequenza e modo; <strong>🗑</strong> cancella (secondo clic per confermare).</li>
       <li><strong>Cerca</strong> per nome o frequenza, e filtra per <strong>gruppo</strong>.</li>
-      <li>Al primo uso il banco ha già: chiamate FM e SSB in VHF/UHF, APRS, ISS, FT8 2 m e 6 m, ripetitori R0–R7 (uscita), PMR446 canali 1–16, aeronautica (121,5 emergenza, 123,45 aria-aria), nautica (canali 16 e 6). <strong>Preset</strong> rimette quelli che hai cancellato.</li>
+      <li>Al primo uso il banco ha già 170 memorie, divise per gruppo: <strong>radioamatori</strong> 10 m, 6 m, 2 m, 70 cm e 23 cm (chiamate CW, SSB, FM e FT8, APRS, ISS voce, APRS e ripetitore), <strong>ripetitori 2 m</strong> R0–R7 e R0x–R7x (uscita), <strong>CB</strong> 40 canali, <strong>PMR446</strong> 1–16, <strong>LPD</strong> 1–69, <strong>aeronautica</strong> (121,5 emergenza, 123,45 aria-aria, 243,0 emergenza militare), <strong>nautica</strong> (canali 16, 6, 9, 13, 70 DSC e AIS). <strong>Preset</strong> rimette quelli che hai cancellato; aggiornando il programma arrivano da soli quelli nuovi, le tue memorie non si toccano.</li>
       <li>Se una memoria è fuori dalla portata del ricevitore in uso (per esempio 145,5 MHz con il Perseus) il programma lo dice e resta dov'è.</li>
       <li>Le memorie stanno in <code>fzrskimmer.json</code> insieme alle altre impostazioni.</li>
     </ul>
@@ -927,7 +927,7 @@
     <h2>💾 Installation</h2>
     <h3>With the installer (recommended)</h3>
     <ul>
-      <li>Download <strong>FZRSkimmer_Setup</strong> and run <code>FZRSkimmer_Setup_1.43.exe</code>. No administrator rights needed: the program goes into <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (if you choose «all users» it goes into Program Files, and settings, log and licence are then kept in <code>%APPDATA%\FZRSkimmer</code>).</li>
+      <li>Download <strong>FZRSkimmer_Setup</strong> and run <code>FZRSkimmer_Setup_1.44.exe</code>. No administrator rights needed: the program goes into <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (if you choose «all users» it goes into Program Files, and settings, log and licence are then kept in <code>%APPDATA%\FZRSkimmer</code>).</li>
       <li>The setup copies <code>perseususb.dll</code> and the Perseus <code>.sbs</code> files from CW Skimmer, the Perseus software or HDSDR by itself, plus the callsign list (N1MM MASTER.SCP or CW Skimmer MASTER.DTA). If you install the Perseus software later: Start menu → FZR Skimmer → <strong>Copy the Perseus files</strong>.</li>
       <li>It adds desktop and Start menu icons; uninstall from Settings → Apps.</li>
       <li><strong>Where the folder is</strong>: it is hidden in AppData. Press Win+R, type <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> and Enter: <code>fzrskimmer.json</code>, <code>fzrskimmer.log</code>, the <code>rtl</code> folder and the recordings are there. Or Start menu → right click on FZR Skimmer → <em>Open file location</em>. If you installed «for all users», the program is in <code>C:\Program Files\FZR Skimmer</code> and settings, log and recordings in <code>%APPDATA%\FZRSkimmer</code>.</li>
@@ -1186,7 +1186,7 @@
       <li><strong>＋ Save here</strong>: saves the RX1 frequency with the current mode and settings; type the name and group (existing groups are offered in the list).</li>
       <li><strong>✎</strong> edits name, group, frequency and mode; <strong>🗑</strong> deletes (second click to confirm).</li>
       <li><strong>Search</strong> by name or frequency, and filter by <strong>group</strong>.</li>
-      <li>On first use the bank already holds: FM and SSB calling frequencies on VHF/UHF, APRS, ISS, FT8 2 m and 6 m, repeaters R0–R7 (output), PMR446 channels 1–16, airband (121.5 emergency, 123.45 air-to-air), marine (channels 16 and 6). <strong>Preset</strong> restores the ones you deleted.</li>
+      <li>On first use the bank already holds 170 memories, by group: <strong>amateur</strong> 10 m, 6 m, 2 m, 70 cm and 23 cm (CW, SSB, FM and FT8 calling, APRS, ISS voice, APRS and repeater), <strong>2 m repeaters</strong> R0–R7 and R0x–R7x (output), <strong>CB</strong> 40 channels, <strong>PMR446</strong> 1–16, <strong>LPD</strong> 1–69, <strong>airband</strong> (121.5 emergency, 123.45 air-to-air, 243.0 military emergency), <strong>marine</strong> (channels 16, 6, 9, 13, 70 DSC and AIS). <strong>Preset</strong> restores the ones you deleted; updating the program adds new ones by itself, your memories are left alone.</li>
       <li>If a memory is out of reach of the receiver in use (e.g. 145.5 MHz with the Perseus) the program says so and stays put.</li>
       <li>Memories are kept in <code>fzrskimmer.json</code> with the other settings.</li>
     </ul>

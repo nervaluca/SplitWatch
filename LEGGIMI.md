@@ -1,4 +1,4 @@
-# FZR Skimmer 1.43
+# FZR Skimmer 1.44
 
 IW1FZR
 
@@ -31,7 +31,7 @@ Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.43.exe`.
+scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.44.exe`.
 - Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
   vanno in `%APPDATA%\FZRSkimmer`).
@@ -151,8 +151,10 @@ e tutti i modi (anche HF).
 - **Clic** = vai lì, nel modo e con il filtro/squelch della memoria; il pannello resta aperto.
 - **＋ Salva qui**: salva la frequenza di RX1 con modo e impostazioni attuali (nome e gruppo).
 - **✎** modifica (nome, gruppo, frequenza, modo), **🗑** cancella (secondo clic per confermare); **Cerca** e filtro per gruppo.
-- Già pronte: chiamate FM/SSB VHF/UHF, APRS, ISS, FT8 2 m e 6 m, ripetitori R0–R7, PMR446 1–16,
-  aeronautica (121,5 / 123,45), nautica (16, 6). **Preset** rimette quelle cancellate.
+- Già pronte (170, divise per gruppo): radioamatori 10 m, 6 m, 2 m, 70 cm, 23 cm (chiamate CW, SSB, FM, FT8,
+  APRS, ISS voce/APRS/ripetitore), ripetitori 2 m R0–R7 e R0x–R7x, CB 40 canali, PMR446 1–16, LPD 1–69,
+  aeronautica (121,5 · 123,45 · 243,0), nautica (canali 16, 6, 9, 13, 70 e AIS). **Preset** rimette quelle cancellate.
+  Dalla 1.40 il banco si aggiorna da solo: arrivano le nuove, le tue non si toccano.
 - Una memoria fuori portata del ricevitore in uso (es. 145,5 MHz col Perseus) non viene richiamata: lo dice la riga di stato.
 
 ## Pannello radio (1.33)

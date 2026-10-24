@@ -157,7 +157,7 @@ def test_banco():
     m = banco.aggiungi(cfg, 'Prova', 145600000, 'fm', 'Mie')
     banco.modifica(cfg, m['id'], {'nome': 'R0', 'hz': 145600000})
     banco.cancella(cfg, m['id'])
-    ok = n > 20 and len(banco.lista(cfg)) == n and banco.preset(cfg) == 0
+    ok = n > 100 and len(banco.lista(cfg)) == n and banco.preset(cfg) == 0
     print(f'banco: {n} memorie predefinite', 'ok' if ok else 'NO')
     return ok
 

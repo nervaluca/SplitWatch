@@ -1,4 +1,4 @@
-# FZR Skimmer 1.43
+# FZR Skimmer 1.44
 
 by IW1FZR
 
@@ -30,7 +30,7 @@ All from the official sites; only needed for the receiver or feature shown.
 ## Installation
 
 **With the installer (recommended, from 1.34)**: from GitHub → Actions → latest build → Artifacts download
-`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.43.exe`.
+`FZRSkimmer_Setup`, unpack it and run `FZRSkimmer_Setup_1.44.exe`.
 - No administrator rights needed: it installs in `%LOCALAPPDATA%\Programs\FZR Skimmer`
   (you can choose «all users», in Program Files: settings, log and licence then go to `%APPDATA%\FZRSkimmer`).
 - It copies `perseususb.dll` and the `.sbs` files from CW Skimmer, the Perseus software or HDSDR by itself,
@@ -129,8 +129,10 @@ every mode (HF too).
 - **Click** = go there, in the memory mode with its filter/squelch; the panel stays open.
 - **＋ Save here**: saves the RX1 frequency with the current mode and settings (name and group).
 - **✎** edit (name, group, frequency, mode), **🗑** delete (second click to confirm); **Search** and group filter.
-- Ready-made: FM/SSB VHF/UHF calling, APRS, ISS, FT8 2 m and 6 m, repeaters R0–R7, PMR446 1–16,
-  airband (121.5 / 123.45), marine (16, 6). **Preset** restores deleted ones.
+- Ready-made (170, by group): amateur 10 m, 6 m, 2 m, 70 cm, 23 cm (CW, SSB, FM, FT8 calling, APRS,
+  ISS voice/APRS/repeater), 2 m repeaters R0–R7 and R0x–R7x, CB 40 channels, PMR446 1–16, LPD 1–69,
+  airband (121.5 · 123.45 · 243.0), marine (channels 16, 6, 9, 13, 70 and AIS). **Preset** restores deleted ones.
+  Coming from 1.40 the bank updates itself: new ones are added, yours are left alone.
 - A memory out of reach of the receiver in use (e.g. 145.5 MHz with the Perseus) is not recalled: the status line says so.
 
 ## Radio panel (1.33)
