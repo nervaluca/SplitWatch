@@ -36,8 +36,12 @@ jobs:
       - name: Prova del motore (CW sintetico)
         run: python selftest.py
 
+      # tutti i file del programma ci sono e si caricano (un .py dimenticato fa fallire qui, con il nome)
+      - name: Controllo dei moduli
+        run: python -c "import splitwatch, dsp, sources, banco, ponti, rig, calib, i18n, licenza, rbn, recorder, rtty; print('moduli OK', splitwatch.VERSION)"
+
       - name: Crea l'eseguibile
-        run: pyinstaller --onefile --noconsole --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
+        run: pyinstaller --onefile --noconsole --disable-windowed-traceback --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
 
       - name: Prova l'eseguibile (avvio e uscita)
         run: |
@@ -52,7 +56,7 @@ jobs:
           Write-Host "attesa: $i s · processo ancora acceso: $(-not $p.HasExited)"
           Get-Process FZRSkimmer -ErrorAction SilentlyContinue | Format-Table Id, CPU, WorkingSet -AutoSize | Out-String | Write-Host
           $found = $false
-          foreach ($f in 'fzrskimmer.log', 'dist\fzrskimmer.log', "$env:APPDATA\FZRSkimmer\fzrskimmer.log") { if (Test-Path $f) { $found = $true; Write-Host "--- $f"; Get-Content $f } }
+          foreach ($f in 'dist\fzrskimmer_errore.txt', 'fzrskimmer.log', 'dist\fzrskimmer.log', "$env:APPDATA\FZRSkimmer\fzrskimmer.log") { if (Test-Path $f) { $found = $true; Write-Host "--- $f"; Get-Content $f } }
           if (-not $found) { Write-Host 'nessun fzrskimmer.log: il programma non è arrivato a scrivere (exe ancora in avvio?)' }
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
           if ($ok) { Write-Host 'interfaccia OK' } else { Write-Host 'interfaccia non raggiungibile'; exit 1 }
