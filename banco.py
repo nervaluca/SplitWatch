@@ -8,7 +8,7 @@ Al primo uso il banco parte con un gruppo di frequenze utili (si possono cancell
 MODI = {'dx': 'CW DXpedition', 'contest': 'CW Contest', 'normale': 'CW Skimmer', 'rxcw': 'CW', 'ssb': 'SSB',
         'rtty': 'RTTY', 'ft8': 'DIGI', 'fm': 'FM', 'am': 'AM'}
 
-MAX = 1000
+MAX = 3000
 
 
 def _ch(nome, mhz, modo, gruppo, **x):
@@ -57,19 +57,55 @@ PRESET = (
        _ch('AIS 1 (dati delle navi)', 161.975, 'fm', 'Nautica (FM)'),
        _ch('AIS 2 (dati delle navi)', 162.025, 'fm', 'Nautica (FM)')]
 )
+
+
+def _mhz(f):
+    t = f'{f:.4f}'.rstrip('0')
+    return (t + '0' * (3 - len(t.split('.')[1]))).replace('.', ',')
+
+
+# arrivati con la versione 3 del banco (FZR Skimmer 1.50): canali dei ripetitori UHF e aeroporti del Nord-Ovest
+_AER = 'Aeroporti Nord-Ovest (AM)'
+_V3 = (
+    # ponti 70 cm: le tre griglie usate in Italia (uscita; l'ingresso è l'uscita + lo shift)
+    [_ch(f'{_mhz(f)} (+1,6)', f, 'fm', 'Ripetitori 70 cm (shift +1,6 MHz)', fm_bw=10000)
+     for f in [430.0125 + 0.0125 * i for i in range(32)] + [431.2125 + 0.0125 * i for i in range(32)]]
+    + [_ch(f'{_mhz(f)} (+5)', f, 'fm', 'Ripetitori 70 cm (shift +5 MHz)', fm_bw=10000)
+       for f in [430.500 + 0.0125 * i for i in range(49)]]
+    + [_ch(f'{_mhz(f)} (−7,6)', f, 'fm', 'Ripetitori 70 cm (shift −7,6 MHz, IARU)')
+       for f in [438.650 + 0.025 * i for i in range(32)]]
+    # aeroporti vicini (AIP Italia / ENAV): le frequenze ogni tanto cambiano
+    + [_ch(n, f, 'am', _AER, am_bw=8000) for n, f in (
+        ('Malpensa ATIS arrivi', 120.025), ('Malpensa ATIS partenze', 121.625), ('Malpensa TWR', 119.000),
+        ('Malpensa TWR 2', 128.350), ('Malpensa GND', 121.900), ('Linate ATIS', 136.375), ('Linate TWR', 118.100),
+        ('Linate GND', 121.800), ('Milano Radar APP', 126.750), ('Milano Radar APP 2', 132.700),
+        ('Milano Radar APP 3', 134.175), ('Milano Informazioni (FIS)', 124.925), ('Caselle ATIS', 120.475),
+        ('Caselle TWR', 118.500), ('Caselle GND', 121.700), ('Torino APP', 129.275), ('Torino APP 2', 125.275),
+        ('Aosta AFIS', 119.950), ('Ricerca e soccorso (SAR)', 123.100))]
+)
+PRESET = PRESET + _V3
+_V3_KEYS = {(p['hz'], p['modo']) for p in _V3}
 # preset della prima versione (1.40): servono per l'aggiornamento del banco
 _OLD = {(145500000, 'fm'), (433500000, 'fm'), (144800000, 'fm'), (145800000, 'fm'), (144300000, 'ssb'),
         (432200000, 'ssb'), (144174000, 'ft8'), (50313000, 'ft8'), (51510000, 'fm'), (29600000, 'fm'),
         (121500000, 'am'), (123450000, 'am'), (156800000, 'fm'), (156300000, 'fm')} | \
        {(round((145.600 + 0.025 * i) * 1e6), 'fm') for i in range(8)} | \
        {(round((446.00625 + 0.0125 * i) * 1e6), 'fm') for i in range(16)}
-VERSIONE = 2
+VERSIONE = 3
 
 
 def _aggiorna(cfg):
-    """Banco della 1.40: i preset vecchi passano nei gruppi nuovi per banda e arrivano i preset nuovi.
+    """Banco di una versione precedente: arrivano i preset nuovi.
     Le memorie tue (o quelle che hai rinominato) non si toccano; i preset che avevi cancellato non tornano."""
     b = cfg['banco']
+    if int(cfg.get('banco_ver', 1)) >= 2:          # dalla versione 2: solo i preset della 3
+        have = {(m['hz'], m['modo']) for m in b}
+        for p in _V3:
+            if (p['hz'], p['modo']) not in have:
+                b.append({'id': _new_id(cfg), **p, 'x': dict(p['x'])})
+        cfg['banco_ver'] = VERSIONE
+        return
+    # banco della 1.40: i preset vecchi passano nei gruppi nuovi per banda
     per = {(p['hz'], p['modo']): p for p in PRESET}
     vecchi = {'Chiamata FM 2 m', 'Chiamata FM 70 cm', 'APRS', 'ISS (voce, APRS)', 'Chiamata SSB 2 m',
               'Chiamata SSB 70 cm', 'FT8 2 m', 'FT8 6 m', 'Chiamata FM 6 m', 'Chiamata FM 10 m'}
@@ -162,6 +198,25 @@ def modifica(cfg, mid, v):
     if v.get('modo') in MODI:
         m['modo'] = v['modo']
     return m
+
+
+def importa(cfg, nuove, fonte, gruppi_nuovi):
+    """Memorie da un elenco (ponti IK2ANE, CHIRP): quelle della stessa fonte nei gruppi importati vengono
+    sostituite (elenco aggiornato), le tue non si toccano."""
+    b = _all(cfg)
+    gset = set(gruppi_nuovi)
+    b[:] = [m for m in b if not (m.get('fonte') == fonte and m.get('gruppo') in gset)]
+    for m in nuove:
+        b.append({'id': _new_id(cfg), **m})
+    del b[:-MAX]
+    return len(nuove)
+
+
+def cancella_gruppo(cfg, gruppo):
+    b = _all(cfg)
+    n = len(b)
+    b[:] = [m for m in b if m.get('gruppo') != gruppo]
+    return n - len(b)
 
 
 def cancella(cfg, mid):

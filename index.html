@@ -620,7 +620,7 @@ const WORKLET=`class R extends AudioWorkletProcessor{
       let l=0,r=0;
       if(this.run&&this.n>0){l=this.b[2*this.r];r=this.b[2*this.r+1];this.r=(this.r+1)&65535;this.n--;
         // troppo pieno (orologi diversi): salta un campione ogni tanto
-        if(this.n>T*3&&(i&63)===0){this.r=(this.r+1)&65535;this.n--}
+        if(this.n>T*2&&(i&63)===0){this.r=(this.r+1)&65535;this.n--}
         this.g=Math.min(1,this.g+0.004)}
       else{this.run=false;this.g=Math.max(0,this.g-0.004)}
       oL[i]=l*this.g;if(oR)oR[i]=r*this.g}
@@ -640,8 +640,8 @@ async function startAudio(){
   }
   await ac.resume();nextT=0;if(node)node.port.postMessage('flush');LAT=0;setLat();
 }
-// riserva dell'audio: la chiavetta RTL-SDR manda i dati a raffiche (~140 ms), serve più margine
-let LAT=0;function setLat(){const v=CFG&&CFG.src==='rtl'?0.35:0.12;if(node&&v!==LAT){LAT=v;node.port.postMessage({lat:v})}}
+// riserva dell'audio: la chiavetta RTL-SDR manda i dati a raffiche (~70 ms), serve un po' più di margine
+let LAT=0;function setLat(){const v=CFG&&CFG.src==='rtl'?0.2:0.12;if(node&&v!==LAT){LAT=v;node.port.postMessage({lat:v})}}
 $('#bAudio').onclick=async()=>{
   audioOn=!audioOn;
   if(audioOn){await startAudio()}else if(ac){await ac.suspend()}
