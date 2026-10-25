@@ -1050,9 +1050,17 @@ class AudioCard:
 
 
 # ---------------------------------------------------------------------------------------------- RTL-SDR
-RTL_RATE = 960000                 # 960 kS/s ÷ 5 = 192 kHz di banda al programma
+# 1,92 MS/s ÷ 10 = 192 kHz di banda al programma. rtl_tcp manda i dati a pacchetti fissi da 256 kB:
+# a 1,92 MS/s ne arriva uno ogni 68 ms (a 960 kS/s erano 136 ms, waterfall e audio andavano a scatti)
+RTL_RATE = 1920000
 RTL_GAINS = [0, 9, 14, 27, 37, 77, 87, 125, 144, 157, 166, 197, 207, 229, 254, 280, 297, 328, 338, 364, 372,
              386, 402, 421, 434, 439, 445, 480, 496]          # R820T/R828D, decimi di dB
+# guadagni veri di ogni tuner (librtlsdr), decimi di dB
+RTL_GAINS_TUNER = {'E4000': [-10, 15, 40, 65, 90, 115, 140, 165, 190, 215, 240, 290, 340, 420],
+                   'FC0012': [-99, -40, 71, 179, 192],
+                   'FC0013': [-99, -73, -65, -63, -60, -58, -54, 58, 61, 63, 65, 67, 68, 70, 71, 179, 181, 182,
+                              184, 186, 188, 191, 197],
+                   'R820T': RTL_GAINS, 'R828D': RTL_GAINS}
 RTL_TUNERS = {1: 'E4000', 2: 'FC0012', 3: 'FC0013', 4: 'FC2580', 5: 'R820T', 6: 'R828D'}
 RTL_IDS = ('VID_0BDA&PID_2838', 'VID_0BDA&PID_2832')
 
@@ -1128,7 +1136,7 @@ class RtlTcpSource:
     Se il server è su questo PC e non è già acceso, FZR Skimmer avvia rtl_tcp.exe da solo (serve il driver
     WinUSB della chiavetta, quello che si installa con Zadig per SDR#). Si può usare anche una chiavetta
     su un altro computer (Raspberry, ecc.) con rtl_tcp acceso là: basta l'indirizzo.
-    I campioni (8 bit) arrivano a 960 kS/s e si riducono a 192 kHz."""
+    I campioni (8 bit) arrivano a 1,92 MS/s e si riducono a 192 kHz."""
 
     def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, direct=0, bias=False,
                  rtl_agc=False, dev=0, exe=None, ppm_hw=0):
@@ -1146,6 +1154,12 @@ class RtlTcpSource:
         self.alive = False
         self.lock = threading.Lock()
         self.name = 'RTL-SDR'
+        self.nsamp = 0                       # campioni consegnati (il controllo dei dati ogni 3 s)
+        self.out_lines = []
+
+    def gains(self):
+        """Guadagni possibili per il tuner di questa chiavetta."""
+        return RTL_GAINS_TUNER.get(self.tuner or '', RTL_GAINS)
 
     def _local(self):
         return self.host in ('127.0.0.1', 'localhost', '::1', '')
@@ -1171,7 +1185,11 @@ class RtlTcpSource:
 
         def pump():
             for raw in iter(self.proc.stdout.readline, b''):
-                self.out_lines.append(raw.decode('utf-8', 'replace').strip())
+                t = raw.decode('utf-8', 'replace').strip()
+                if t.startswith('ll+'):             # «ll+, now N»: rtl_tcp accumula, il programma non tiene il passo
+                    self.ll_max = max(getattr(self, 'll_max', 0), int(re.sub(r'\D', '', t) or 0))
+                    continue
+                self.out_lines.append(t)
                 del self.out_lines[:-30]
         threading.Thread(target=pump, daemon=True).start()
         for _ in range(40):                                     # fino a 8 s: la chiavetta si apre e rtl_tcp ascolta
@@ -1213,6 +1231,10 @@ class RtlTcpSource:
         import socket
         self.sock = socket.create_connection((self.host, self.port), timeout=5)
         self.sock.settimeout(5)
+        try:                                    # riserva grande: se il programma si ferma un attimo, i dati aspettano qui
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8 << 20)
+        except OSError:
+            pass
         hdr = b''
         while len(hdr) < 12:
             d = self.sock.recv(12 - len(hdr))
@@ -1266,12 +1288,12 @@ class RtlTcpSource:
                        + (' · direct sampling' if self.direct else '') + (f' · {self.host}:{self.port}' if not self._local() else ''))
 
     def _reader(self):
-        blk = 2 * 32768                                         # ~34 ms a 960 kS/s
+        blk = 2 * 32768                                         # ~17 ms a 1,92 MS/s
         buf = bytearray()
         s = self.sock
         while self.alive:
             try:
-                d = s.recv(262144)
+                d = s.recv(524288)
             except OSError:
                 d = b''
             if not d:
@@ -1287,6 +1309,7 @@ class RtlTcpSource:
                 iq = u.view(np.complex64)
                 y = self.dec(iq)
                 if len(y):
+                    self.nsamp += len(y)
                     self.on_iq(y)
         self.alive = False
 
@@ -1321,7 +1344,7 @@ class RtlTcpSource:
             self._cmd(0x03, 0)
         else:
             self._cmd(0x03, 1)
-            self._cmd(0x04, min(RTL_GAINS, key=lambda g: abs(g - int(tenths))))
+            self._cmd(0x04, min(self.gains(), key=lambda g: abs(g - int(tenths))))
 
     def set_bias(self, on):
         self.bias = bool(on)

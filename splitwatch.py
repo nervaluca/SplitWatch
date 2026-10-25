@@ -20,6 +20,12 @@ def _errore_avvio(tipo, val, tb):
     import traceback
     txt = ''.join(traceback.format_exception(tipo, val, tb))
     try:
+        if _sys.__stderr__ is not None:                 # con la console (prove, GitHub) si vede subito
+            _sys.__stderr__.write(txt)
+            _sys.__stderr__.flush()
+    except Exception:
+        pass
+    try:
         base = _os.path.dirname(_sys.executable) if getattr(_sys, 'frozen', False) else _os.path.dirname(_os.path.abspath(__file__))
         with open(_os.path.join(base, 'fzrskimmer_errore.txt'), 'a', encoding='utf-8') as f:
             f.write(txt + '\n')
@@ -32,6 +38,7 @@ _sys.excepthook = _errore_avvio
 import argparse
 import asyncio
 import collections
+import atexit
 import json
 import math
 import os
@@ -59,7 +66,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.46'
+VERSION = '1.47'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -252,19 +259,59 @@ def load_cfg():
 
 
 _save_err = [False]
+_save_pend = [None]
+_save_ev = threading.Event()
+_save_lock = threading.Lock()
 
 
-def save_cfg(cfg):
+def _write_cfg(cfg):
+    for _ in range(4):                           # un altro thread può cambiare le impostazioni mentre le scrivo
+        try:
+            txt = json.dumps(cfg, indent=1)
+            break
+        except RuntimeError:
+            time.sleep(0.01)
+    else:
+        return
     try:
         tmp = CFG_PATH + '.tmp'
         with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(cfg, f, indent=1)
+            f.write(txt)
         os.replace(tmp, CFG_PATH)                 # scrittura sicura: niente file a metà
         _save_err[0] = False
     except Exception as e:
         if not _save_err[0]:
             _save_err[0] = True
             log(f'Impossibile salvare le impostazioni in {CFG_PATH}: {e}')
+
+
+def _saver():
+    while True:
+        _save_ev.wait()
+        time.sleep(0.8)                          # raccolgo i cambi ravvicinati (rotella, trascinamento)
+        _save_ev.clear()
+        flush_cfg()
+
+
+def save_cfg(cfg):
+    """Le impostazioni si scrivono su disco poco dopo, in un thread a parte: con il banco di memorie pieno
+    il file è grande, e scriverlo a ogni scatto della rotella fermava il calcolo (audio a scatti)."""
+    _save_pend[0] = cfg
+    if not getattr(save_cfg, 'th', None):
+        save_cfg.th = threading.Thread(target=_saver, daemon=True)
+        save_cfg.th.start()
+    _save_ev.set()
+
+
+def flush_cfg():
+    """Scrive subito quello che è in attesa (all'uscita)."""
+    with _save_lock:
+        cfg, _save_pend[0] = _save_pend[0], None
+        if cfg is not None:
+            _write_cfg(cfg)
+
+
+atexit.register(flush_cfg)
 
 
 class Hub:
@@ -276,6 +323,8 @@ class Hub:
         self.loop = None
         self.clients = set()
         self.iq_q = queue.Queue(maxsize=400)
+        self.busy = 0.0                              # secondi passati nel calcolo (carico, nel log ogni 3 s)
+        self.late = 0                                # blocchi buttati perché il calcolo era in ritardo
         self.cmd_q = queue.Queue()
         self.engine = None
         self.fs = None
@@ -872,7 +921,15 @@ class Hub:
             rate = (n - last) / 3
             last = n
             q = self.iq_q.qsize()
-            msg = f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · motore {"sì" if self.engine else "no"}'
+            busy, self.busy = self.busy, 0.0
+            msg = (f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · calcolo {busy / 3 * 100:.0f}%'
+                   f' · motore {"sì" if self.engine else "no"}')
+            if self.src_kind == 'rtl':
+                msg += f' · in ritardo {self.late}'
+                ll = getattr(self.src, 'll_max', 0)
+                if ll:
+                    msg += f' · rtl_tcp in coda {ll}'
+                    self.src.ll_max = 0
             nodata = 'Nessun dato dal Perseus' if self.src_kind == 'perseus' else 'Nessun dato dal ricevitore'
             if rate == 0:
                 msg = nodata + ' · ' + msg
@@ -922,6 +979,16 @@ class Hub:
                         chunks.append(self.iq_q.get_nowait())
                 except queue.Empty:
                     pass
+                if self.src_kind == 'rtl' and self.fs:
+                    # in ritardo di più di 1,5 s (PC occupato): butto il vecchio, così l'ascolto resta in tempo reale
+                    back = sum(len(c) for c in chunks) + self.iq_q.qsize() * len(iq)
+                    if back > 1.5 * self.fs:
+                        with self.iq_q.mutex:
+                            nq = len(self.iq_q.queue)
+                            self.iq_q.queue.clear()
+                        self.late += nq + len(chunks) - 1
+                        chunks = chunks[-1:]
+                t0 = time.perf_counter()
                 blk = np.concatenate(chunks)
                 if self.src_kind != 'file':
                     self.rec.push(blk)
@@ -929,6 +996,7 @@ class Hub:
                 if m is not None:
                     m.feed(blk)
                 self.engine.feed(blk)
+                self.busy += time.perf_counter() - t0
                 r, au, w, l = self.engine.take()
                 pend_rows += r
                 pend_audio += au
@@ -1375,7 +1443,7 @@ class Hub:
         src = self.src if isinstance(self.src, RtlTcpSource) else None
         return {'present': getattr(self, 'rtl_found', []), 'exe': r.get('exe') or getattr(self, 'rtl_exe', None),
                 'host': r.get('host', '127.0.0.1'), 'port': int(r.get('port', 1234)), 'gain': r.get('gain'),
-                'gains': RTL_GAINS, 'bias': bool(r.get('bias', False)), 'direct': int(r.get('direct', 0)),
+                'gains': src.gains() if src and src.tuner else RTL_GAINS, 'bias': bool(r.get('bias', False)), 'direct': int(r.get('direct', 0)),
                 'agc': bool(r.get('agc', False)), 'tuner': src.tuner if src else None}
 
     def rtl_set(self, v):
@@ -2146,6 +2214,10 @@ def hard_exit(code=0):
     Su Windows os._exit passa dalla chiusura delle DLL caricate: perseususb.dll in quel momento
     aspetta il suo thread USB e il processo resta appeso (si vede in Gestione attività).
     TerminateProcess invece chiude e basta, come «Termina attività»."""
+    try:
+        flush_cfg()                              # impostazioni ancora da scrivere
+    except Exception:
+        pass
     if os.name == 'nt':
         try:
             import ctypes

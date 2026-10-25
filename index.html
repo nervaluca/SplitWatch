@@ -545,6 +545,14 @@ let LASTSTATUS=null;
 /* ---------------- waterfall ad anello ---------------- */
 const RING=3000;                     // 30 s a 100 righe/s
 let ring=null,rctx=null,rowImg=null,nrows=0,tNewest=0;
+/* righe mostrate (con la virgola): con la chiavetta RTL i dati arrivano a pacchetti, il waterfall
+   resta un attimo indietro e scorre a velocità costante invece di andare a scatti */
+let nShow=0,tShow=0;
+function showRows(){const now=performance.now()/1000,dt=Math.min(0.2,now-(tShow||now));tShow=now;
+  if(!CFG||!CFG.rowdt||CFG.src!=='rtl'){nShow=nrows;return nShow}
+  const lag=nrows-nShow,want=0.18/CFG.rowdt;
+  if(lag<0||lag>4*want+20){nShow=Math.max(0,nrows-want);return nShow}
+  nShow=Math.min(nrows,nShow+dt/CFG.rowdt*Math.max(0.5,Math.min(2,1+(lag-want)/want)));return nShow}
 const PALETTES={
   skimmer:[[0,[6,10,16]],[.15,[11,34,52]],[.38,[20,86,110]],[.62,[63,185,196]],[.85,[168,240,234]],[1,[255,255,255]]],
   classica:[[0,[0,0,8]],[.2,[0,0,120]],[.42,[0,150,220]],[.62,[240,230,40]],[.82,[240,60,20]],[1,[255,255,255]]],
@@ -578,6 +586,7 @@ function saveUI(){clearTimeout(uiTimer);uiTimer=setTimeout(flushUI,600)}
 function wfChanged(){buildLUT();try{localStorage.setItem('fzr_wf',JSON.stringify(WFS))}catch(e){}saveUI();
   clearTimeout(wfTimer);wfTimer=setTimeout(repaintRing,120)}
 function resetRing(){
+  nShow=0;
   ring=document.createElement('canvas');ring.width=RING;ring.height=CFG.nbins;
   rctx=ring.getContext('2d');rctx.fillStyle='#06090d';rctx.fillRect(0,0,RING,CFG.nbins);
   rowImg=rctx.createImageData(1,CFG.nbins);nrows=0;raw=new Uint8Array(RING*CFG.nbins);
@@ -1072,14 +1081,14 @@ function drawWF(){
   if(!CFG)return;
   const bw=CFG.bw/1000,f0=CFG.f0/1000,nb=CFG.nbins;
   if(ring&&nrows){
-    const nWin=Math.round(WIN/CFG.rowdt), n1=nrows, n0=Math.max(n1-nWin,n1-RING,0);
+    const nWin=Math.round(WIN/CFG.rowdt), n1f=showRows(), n1=Math.floor(n1f), n0=Math.max(n1-nWin,n1-RING,0);
     // righe sorgente: y=0 è il bin più alto (indice nb-1)
     const fTop=f0+(nb-0.5)*bw, fBot=f0-0.5*bw;
     const vHi=Math.min(view.low+view.span,fTop), vLo=Math.max(view.low,fBot);
     if(vHi>vLo){
       const sy=(fTop-vHi)/bw, sh=(vHi-vLo)/bw, dy=yOf(vHi), dh=yOf(vLo)-dy;
       c.imageSmoothingEnabled=true;
-      const xOf=n=>plotW-(n1-n)/nWin*plotW;
+      const xOf=n=>plotW-(n1f-n)/nWin*plotW;
       let a=n0;
       while(a<n1){
         const col=a%RING, len=Math.min(n1-a,RING-col);
