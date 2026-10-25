@@ -38,7 +38,10 @@ jobs:
 
       # tutti i file del programma ci sono e si caricano (un .py dimenticato fa fallire qui, con il nome)
       - name: Controllo dei moduli
-        run: python -c "import splitwatch, dsp, sources, banco, ponti, rig, calib, i18n, licenza, rbn, recorder, rtty; print('moduli OK', splitwatch.VERSION)"
+        run: |
+          python -c "import splitwatch, dsp, sources, banco, ponti, rig, calib, i18n, licenza, rbn, recorder, rtty; print('moduli OK', splitwatch.VERSION)"
+          if ($LASTEXITCODE -ne 0) { if (Test-Path fzrskimmer_errore.txt) { Get-Content fzrskimmer_errore.txt }; Get-ChildItem *.py | Format-Table Name, Length, LastWriteTime -AutoSize | Out-String | Write-Host; exit 1 }
+        shell: pwsh
 
       - name: Crea l'eseguibile
         run: pyinstaller --onefile --noconsole --disable-windowed-traceback --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
