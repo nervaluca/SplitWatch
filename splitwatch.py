@@ -43,6 +43,7 @@ import json
 import math
 import os
 import queue
+import re
 import socket
 import struct
 import sys
@@ -66,7 +67,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.51'
+VERSION = '1.52'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -2106,6 +2107,8 @@ class Hub:
             return (200, [('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store')], body)
         if path == '/ws':
             return None
+        if path == '/versione':                       # un FZR Skimmer appena avviato chiede chi è già acceso
+            return (200, [('Content-Type', 'text/plain'), ('Cache-Control', 'no-store')], VERSION.encode())
         if path in ('/logo.png', '/favicon.ico'):
             try:
                 with open(res_path('logo.png'), 'rb') as f:
@@ -2282,6 +2285,54 @@ def port_in_use(port):
         s.close()
 
 
+def running_version(port):
+    """Versione del FZR Skimmer già acceso sulla porta (None se è uno vecchio, che non lo dice)."""
+    import urllib.request
+    try:
+        op = urllib.request.build_opener(urllib.request.ProxyHandler({}))      # niente proxy per questo PC
+        with op.open(f'http://127.0.0.1:{port}/versione', timeout=3) as r:
+            v = r.read(32).decode('ascii', 'replace').strip()
+            return v if re.fullmatch(r'[\d.]+', v) else None
+    except Exception:
+        return None
+
+
+def close_old_instance(port):
+    """Chiude il FZR Skimmer di un'altra versione rimasto acceso (aggiornando, il vecchio teneva la porta
+    e la finestra nuova si collegava a lui). Solo un processo FZRSkimmer.exe, mai altri programmi."""
+    if os.name != 'nt':
+        return False
+    import subprocess
+    try:
+        out = subprocess.run(['netstat', '-ano', '-p', 'TCP'], capture_output=True, text=True, timeout=10,
+                             creationflags=0x08000000).stdout
+    except Exception:
+        return False
+    pids = {int(m.group(1)) for m in re.finditer(rf'[:.]{port}\s+\S+\s+LISTENING\s+(\d+)', out)}
+    pids.discard(os.getpid())
+    done = False
+    for pid in pids:
+        try:
+            info = subprocess.run(['tasklist', '/FI', f'PID eq {pid}', '/FO', 'CSV', '/NH'], capture_output=True,
+                                  text=True, timeout=10, creationflags=0x08000000).stdout.lower()
+        except Exception:
+            continue
+        if 'fzrskimmer' not in info:
+            continue
+        subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True, timeout=10,
+                       creationflags=0x08000000)
+        done = True
+    if done:
+        subprocess.run(['taskkill', '/F', '/IM', 'rtl_tcp.exe'], capture_output=True, timeout=10,
+                       creationflags=0x08000000)
+        for _ in range(40):                              # la porta si libera
+            if not port_in_use(port):
+                break
+            time.sleep(0.25)
+        time.sleep(1.0)                                  # e la USB del ricevitore
+    return done
+
+
 def local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2308,8 +2359,10 @@ def main():
                    help='si comporta da non registrato (ignora la licenza) per provare la versione di prova; '
                         'con un numero la prova dura quei secondi (al massimo 5 minuti)')
     args = p.parse_args()
+    if port_in_use(args.porta) and running_version(args.porta) != VERSION and close_old_instance(args.porta):
+        log(f'Chiuso il FZR Skimmer di un\'altra versione rimasto acceso: parte la {VERSION}')
     if port_in_use(args.porta):
-        # già acceso: riapro solo la finestra
+        # già acceso (la stessa versione): riapro solo la finestra
         if not args.no_browser:
             url = f'http://localhost:{args.porta}/'
             (webbrowser.open(url) if args.browser else open_app_window(url))
