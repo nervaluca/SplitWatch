@@ -66,7 +66,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.50'
+VERSION = '1.51'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1700,7 +1700,7 @@ class Hub:
                 'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR,
                 'rbn_on': bool(self.cfg.get('rbn', True)), 'rbn_state': self.rbn_state(), 'rbn_call': self.rbn_call(),
                 'rbn_need_call': not (self.lic or {}).get('call'),
-                'modo': self.cfg.get('modo', 'dx'),
+                'modo': self.cfg.get('modo', 'dx'), 'modo_mem': bool(self.cfg.get('modo_mem', False)),
                 'mem_min': self.rec.minutes, 'live_src': self.cfg.get('sorgente', 'perseus'), 'rec_dir': self.rec_dir, 'file': self.file_state(), **lic}
 
     # -------------------------------------------------------------- web
@@ -1933,8 +1933,9 @@ class Hub:
                 elif k == 'mode' and c.get('v') in ('dx', 'contest', 'normale') + RX_MODES:
                     was_key, was_mode = self.mem_key(), self.modo()
                     self.cfg['modo'] = c['v']
-                    if was_key != self.mem_key():
+                    if was_key != self.mem_key() and self.cfg.get('modo_mem', False):
                         # cambia la serie di memorie (CW, fonia, RTTY, FT8): stessa banda, memoria dell'altra serie
+                        # (solo se l'hai scelto: di base cambiando modo si resta sulla frequenza)
                         b = band_of(self.dx_abs or 0) or band_of(self.center or 0)
                         if self.src_kind == 'file':
                             pass                                  # in riproduzione il centro non si sposta
@@ -1952,6 +1953,10 @@ class Hub:
                         if was_key != self.mem_key():
                             r.split_off()                         # lo split di un altro modo non vale qui
                         r.set_mode(self.rig_mode_for())
+                elif k == 'modo_mem':
+                    self.cfg['modo_mem'] = bool(c.get('v'))
+                    save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
                 elif k == 'memory':
                     m = max(0.0, min(10.0, float(c.get('min', 5))))
                     self.cfg['memoria_min'] = m
@@ -2250,7 +2255,8 @@ def open_app_window(url):
     profile = os.path.join(app_dir(), 'finestra')      # profilo separato: il processo resta legato alla finestra
     os.makedirs(profile, exist_ok=True)
     return subprocess.Popen([exe, f'--app={url}', f'--user-data-dir={profile}', '--window-size=1400,920',
-                             '--no-first-run', '--no-default-browser-check', '--disable-features=Translate'])
+                             '--no-first-run', '--no-default-browser-check', '--disable-features=Translate',
+                             '--autoplay-policy=no-user-gesture-required'])     # audio acceso già all'avvio
 
 
 def close_app_windows():

@@ -140,6 +140,46 @@ def _kmeans2(v):
     return lo, hi
 
 
+def _reread(seq, live, dot, dash):
+    """Rilegge una parola finita con i tempi presi da tutta la parola.
+
+    In diretta il decoder decide segno per segno con la velocità che conosce in quel momento: all'inizio
+    di una chiamata (dopo il silenzio) non la conosce ancora e due lettere vicine si fondono
+    (EA → U, EI → S). A parola finita punti, linee e spazi della parola stessa dicono la velocità vera.
+    Con l'inviluppo i segni escono un po' più lunghi (+d) e gli spazi più corti (-d): da punto = u+d
+    e linea = 3u+d si ricavano u e d, e il confine fra spazio tra segni e spazio tra lettere è 2u-d."""
+    mk = [x for x in seq if x > 0]
+    gp = [-x for x in seq if x < 0]
+    if len(mk) < 3 or len(gp) != len(mk) - 1:
+        return live
+    km = _kmeans2(mk)
+    if km:
+        d1, d3 = km
+    elif max(mk) < 1.7 * min(mk):                # tutti uguali: punti o linee? decide la stima corrente
+        m = sum(mk) / len(mk)
+        d1, d3 = (m, m * dash / dot) if m < math.sqrt(dot * dash) else (m * dot / dash, m)
+    else:
+        return live
+    u = (d3 - d1) / 2
+    if u <= 0.008:
+        return live
+    dd = max(-0.5 * u, min(0.8 * u, d1 - u))
+    tg = 2 * u - dd
+    tm = math.sqrt(d1 * d3)
+    out, sym = '', ''
+    for i, m in enumerate(mk):
+        sym += '.' if m < tm else '-'
+        if i == len(gp) or gp[i] > tg:
+            out += MORSE.get(sym, '·') if len(sym) <= 7 else '·'
+            sym = ''
+    if out == live or '·' in out:
+        return live
+    good = lambda w: bool(CALL_RE.match(w)) or w in KEEP or is_known(w)
+    if good(live) and not good(out):
+        return live
+    return out
+
+
 NOISE_WORDS = {'EE', 'ES', 'HI', 'IS', 'ST', 'II', 'SS', 'IE', 'EI', 'TE', 'ET'}
 _EXCH = re.compile(r'^(?:\d{1,4}|[A-Z]\d{1,3}|\d{1,3}[A-Z])$')       # numeri e scambi da contest (001, E14, 15A)
 
@@ -198,7 +238,7 @@ def _nextpow2(v):
 class Channel:
     """Decoder CW di un singolo segnale, a una frequenza precisa (non legata ai bin FFT)."""
     __slots__ = ('gh', 'id', 'f', 'on', 't_on', 't_off', 'pend', 'pend_start', 'dot', 'dash', 'ge', 'sym', 'word',
-                 't0', 'last', 'is_dx', 'last_good', 'n', 's', 'seen', 'k', 'calls', 'mks', 'tail')
+                 't0', 'last', 'is_dx', 'last_good', 'n', 's', 'seen', 'k', 'calls', 'mks', 'tail', 'seq')
 
     def __init__(self, cid, f, t, is_dx=False):
         self.id = cid
@@ -225,6 +265,7 @@ class Channel:
         self.tail = None        # ultimi frame (media mobile)
         self.calls = []         # ultimi nominativi decodificati (per il consenso)
         self.gh = 0.0           # quanto i suoi segni coincidono con quelli di un vicino più forte (fantasma)
+        self.seq = []           # segni e spazi della parola in corso (durate): si rilegge a parola finita
 
     def unit(self):
         return 0.5 * (self.dot + self.ge)
@@ -1042,6 +1083,15 @@ class Engine:
         kq = len(E) // 4
         p25 = np.partition(E, kq, axis=0)[kq]
         mx = E.max(0)
+        if not init and len(chs) >= 4:
+            # scoppio su tutta la banda (la propria trasmissione che rientra, una scarica): quasi tutti i canali
+            # salgono insieme di 20 dB. Non è un segnale: i livelli non si toccano e il blocco non si decodifica,
+            # così finito lo scoppio si riparte subito con le soglie di prima (come CW Skimmer)
+            jump = sum(1 for j, c in enumerate(chs) if c.n is not None and p25[j] > 10.0 * c.n)
+            if jump >= 0.6 * len(chs):
+                on[:] = off[:] = np.inf
+                self.burst_t = self.t
+                return on, off
         for j, c in enumerate(chs):
             if c.n is None or init:
                 # rumore: quello già misurato su quel bin (il blocco può essere tutto segnale)
@@ -1256,6 +1306,8 @@ class Engine:
             ch.pend = None
         if ch.sym and gap < 2.0 * ch.unit():
             ch.ge = min(2.0 * ch.dot, max(0.5 * ch.dot, 0.85 * ch.ge + 0.15 * gap))
+        if ch.seq and len(ch.seq) % 2 == 1:
+            ch.seq.append(-gap)                           # spazio (negativo) dopo un segno
         self._gap(ch, gap)
         ch.on = True
         ch.t_on = t
@@ -1285,6 +1337,7 @@ class Engine:
         self._gap(ch, gap)
 
     def _commit(self, ch, mk):
+        ch.seq.append(mk)
         ch.mks.append(mk)
         if len(ch.mks) > 24:
             del ch.mks[0]
@@ -1313,9 +1366,13 @@ class Engine:
             ch.word += MORSE.get(ch.sym, '·')
             ch.sym = ''
         if ch.word and gap > WORD_G * u:
-            self._emit_word(ch, ch.word)
+            seq = ch.seq[:-1] if ch.seq and ch.seq[-1] < 0 else ch.seq
+            self._emit_word(ch, _reread(seq, ch.word, ch.dot, ch.dash))
             ch.word = ''
             ch.t0 = None
+            ch.seq = []
+        elif not ch.word and not ch.sym:
+            ch.seq = []
 
     def _emit_word(self, ch, w, split=True):
         t = ch.t0 if ch.t0 is not None else self.t
