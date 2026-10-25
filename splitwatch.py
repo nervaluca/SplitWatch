@@ -66,7 +66,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.47'
+VERSION = '1.48'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -554,7 +554,8 @@ class Hub:
             k = 1 + self.ppm() * 1e-6
             try:
                 if tunable:
-                    target = int(round(true_hz / k - calib.OFFSET))
+                    # chiavetta: la portante può cadere ±20 kHz più in là, lontano dal picco al centro
+                    target = int(round(true_hz / k - (40000 if self.src_kind == 'rtl' else calib.OFFSET)))
                     self.src.set_lo(target)
                     t0 = time.time()
                     while abs((self.hw_center or 0) - target) > 2 and time.time() - t0 < 6:
@@ -566,7 +567,8 @@ class Hub:
                 self.cmd_q.put(('dx', true_hz, 'cal'))     # la portante finisce nell'audio: si sente il test (la radio no)
                 time.sleep(0.8)                            # lascia assestare il ricevitore
                 self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
-                m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm())
+                m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm(),
+                                  span_ppm=150.0 if self.src_kind == 'rtl' else 10.0)
                 self.cal = m
                 t0 = time.time()
                 while not m.done and time.time() - t0 < calib.SECS + 6:

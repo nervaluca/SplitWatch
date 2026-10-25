@@ -21,7 +21,7 @@ MIN_SNR = 15.0          # dB sopra il rumore
 class Measure:
     """Raccoglie IQ per SECS secondi e trova la portante vicino a dove dovrebbe essere."""
 
-    def __init__(self, fs, hw_center, true_hz, ppm_now=0.0, secs=SECS):
+    def __init__(self, fs, hw_center, true_hz, ppm_now=0.0, secs=SECS, span_ppm=10.0):
         self.fs, self.hw_center, self.true_hz = float(fs), float(hw_center), float(true_hz)
         self.ppm_now = float(ppm_now)
         self.n = int(secs * self.fs)
@@ -29,7 +29,9 @@ class Measure:
         self.got = 0
         # dove deve cadere la portante, rispetto al centro del ricevitore, con la correzione attuale
         self.expect = self.true_hz / (1 + self.ppm_now * 1e-6) - self.hw_center
-        self.win = max(60.0, 10e-6 * self.true_hz)         # cerca entro ±10 ppm (100 Hz a 10 MHz)
+        # cerca entro ±10 ppm (100 Hz a 10 MHz); le chiavette RTL possono sbagliare di 100 ppm e più
+        self.span_ppm = float(span_ppm)
+        self.win = max(60.0, self.span_ppm * 1e-6 * self.true_hz)
 
     @property
     def done(self):
@@ -63,7 +65,7 @@ class Measure:
             nfft = 1 << int(np.ceil(np.log2(len(seg) * 4)))
             sp = np.abs(np.fft.fft(seg * np.hanning(len(seg)), nfft)) ** 2
             f = np.fft.fftfreq(nfft, 1 / fs2)
-            sel = np.abs(f) <= self.win
+            sel = (np.abs(f) <= self.win) & (np.abs(f + self.expect) > 1500)    # niente picco DC al centro
             idx = np.nonzero(sel)[0]
             k = idx[np.argmax(sp[idx])]
             a, b, c = np.log(sp[(k - 1) % nfft] + 1e-30), np.log(sp[k] + 1e-30), np.log(sp[(k + 1) % nfft] + 1e-30)
@@ -85,7 +87,8 @@ class Measure:
         spread = float(freqs.max() - freqs.min())
         ppm = (self.true_hz / (self.hw_center + rel) - 1) * 1e6
         err_hz = (self.hw_center + rel) * (1 + self.ppm_now * 1e-6) - self.true_hz   # di quanto sbaglia ora
-        ok = snr >= MIN_SNR and spread < max(1.0, 0.5e-6 * self.true_hz) and steady >= 0.85
+        tol = 0.5e-6 if self.span_ppm <= 10 else 1.5e-6        # in VHF la portante (ponte, beacon) è meno ferma
+        ok = snr >= MIN_SNR and spread < max(1.0, tol * self.true_hz) and steady >= 0.85
         why = ('' if ok else 'segnale troppo debole' if snr < MIN_SNR else
                'portante non continua' if steady < 0.85 else 'misura instabile')
         return {'ok': ok, 'why': why, 'ppm': round(ppm, 3), 'err_hz': round(err_hz, 2), 'snr': round(snr, 1),
