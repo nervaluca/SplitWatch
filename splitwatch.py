@@ -67,7 +67,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.52'
+VERSION = '1.53'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -2104,6 +2104,7 @@ class Hub:
                 body = f.read()
             # il logo con la versione nell'indirizzo: a ogni versione nuova il browser lo ricarica
             body = body.replace(b'"/logo.png"', ('"/logo.png?v=' + VERSION + '"').encode())
+            body = body.replace(b'__VERSIONE__', VERSION.encode())          # versione in alto, accanto al nome
             return (200, [('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store')], body)
         if path == '/ws':
             return None

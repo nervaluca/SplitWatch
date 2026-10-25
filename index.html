@@ -237,7 +237,7 @@ button.rec[aria-pressed="true"]::first-letter{color:var(--bad)}
 <div class="app">
   <header class="top">
     <div class="brandbox"><img src="/logo.png" alt="FZR Skimmer">
-      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">1.46</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
+      <div class="brand"><span class="name"><b>FZR</b> Skimmer <span style="color:var(--dim);font-weight:500;font-size:.8em">__VERSIONE__</span></span><span class="tag" id="tag">pile-up in split</span></div></div>
     <dl class="stats">
       <div><dt>Vista</dt><dd id="sView">—</dd></div>
       <div class="hot dxonly"><dt>Ultimo ascolto rilevato</dt><dd id="sLast">—</dd></div>
@@ -639,7 +639,8 @@ async function startAudio(){
       catch(e){node=null}
     }
   }
-  await ac.resume();nextT=0;if(node)node.port.postMessage('flush');LAT=0;setLat();
+  nextT=0;if(node)node.port.postMessage('flush');LAT=0;setLat();
+  await ac.resume();                 // se il browser aspetta un clic, resta qui finché non arriva
 }
 // riserva dell'audio: la chiavetta RTL-SDR manda i dati a raffiche (~70 ms), serve un po' più di margine
 let LAT=0;function setLat(){const v=CFG&&CFG.src==='rtl'?0.2:0.12;if(node&&v!==LAT){LAT=v;node.port.postMessage({lat:v})}}
@@ -652,17 +653,19 @@ $('#bAudio').onclick=async()=>{
 };
 /* all'avvio l'audio riparte com'era (acceso, se non l'hai spento tu). La finestra del programma lo permette
    subito; un browser normale solo dopo il primo clic o tasto: allora parte lì, su qualunque punto della pagina */
-let autoTried=false;
+let autoTried=false;window.fzrAudioState=()=>ac?ac.state:'nessuno';
 async function autoAudio(){
   if(autoTried)return;autoTried=true;
   let want='1';try{want=localStorage.getItem('fzr_audio')??'1'}catch(e){}
   if(want!=='1'||audioOn)return;
   audioOn=true;audioBtn();
-  try{await startAudio()}catch(e){}
-  if(ac&&ac.state==='running')return;
-  const go=async ev=>{removeEventListener('pointerdown',go,true);removeEventListener('keydown',go,true);
-    if(audioOn&&(!ac||ac.state!=='running'))try{await startAudio()}catch(e){}};
+  // prima il «paracadute»: se il browser blocca l'audio, resume() resta in attesa e non torna mai
+  const go=async ev=>{if(ac&&ac.state==='running'){off();return}
+    if(audioOn)try{if(ac)await ac.resume();else await startAudio()}catch(e){}
+    if(ac&&ac.state==='running')off()};
+  const off=()=>{removeEventListener('pointerdown',go,true);removeEventListener('keydown',go,true)};
   addEventListener('pointerdown',go,true);addEventListener('keydown',go,true);
+  startAudio().then(()=>{if(ac&&ac.state==='running')off()}).catch(()=>{});
 }
 let VOL1=70,VOL2=70,PAN='dxl',MUTEDX=false,RX2ON=true,AF=70,SPLIT=true;
 const rx2Live=()=>SPLIT&&RX2ON;      // RX2 si sente e si vede solo con lo SPLIT acceso
