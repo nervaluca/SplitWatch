@@ -63,11 +63,12 @@ from dsp import Engine
 from rbn import RBN
 from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
-                     list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS)
+                     list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS,
+                     PlutoSource, PLUTO_RANGE)
 import banco
 import ponti
 
-VERSION = '1.53'
+VERSION = '1.56'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -457,6 +458,23 @@ class Hub:
             src.start()
             self.src = src
             return
+        if kind == 'pluto':
+            pc = self.cfg.get('pluto', {})
+            lo = float(self.cfg.get('pluto_lo', 433540000))
+            if not PLUTO_RANGE[0] <= lo <= PLUTO_RANGE[1]:
+                lo = 433540000.0
+            self.src = PlutoSource(pc.get('host', '192.168.2.1'), lo, self.on_iq, self.on_status, self.on_rate,
+                                   gain=pc.get('gain'))
+            try:
+                self.src.start()
+            except Exception:
+                try:
+                    self.src.stop()
+                except Exception:
+                    pass
+                self.src = None
+                raise
+            return
         if kind == 'rtl':
             r = self.cfg.get('rtl', {})
             lo = float(self.cfg.get('rtl_lo', 145540000))
@@ -518,7 +536,7 @@ class Hub:
         self.src = None
         raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
 
-    PPM_KINDS = ('perseus', 'extio', 'iq', 'rtl')
+    PPM_KINDS = ('perseus', 'extio', 'iq', 'rtl', 'pluto')
 
     def ppm(self):
         """Correzione di frequenza (ppm) del ricevitore attuale."""
@@ -556,7 +574,7 @@ class Hub:
             try:
                 if tunable:
                     # chiavetta: la portante può cadere ±20 kHz più in là, lontano dal picco al centro
-                    target = int(round(true_hz / k - (40000 if self.src_kind == 'rtl' else calib.OFFSET)))
+                    target = int(round(true_hz / k - (40000 if self.src_kind in ('rtl', 'pluto') else calib.OFFSET)))
                     self.src.set_lo(target)
                     t0 = time.time()
                     while abs((self.hw_center or 0) - target) > 2 and time.time() - t0 < 6:
@@ -569,7 +587,7 @@ class Hub:
                 time.sleep(0.8)                            # lascia assestare il ricevitore
                 self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
                 m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm(),
-                                  span_ppm=150.0 if self.src_kind == 'rtl' else 10.0)
+                                  span_ppm=150.0 if self.src_kind in ('rtl', 'pluto') else 10.0)
                 self.cal = m
                 t0 = time.time()
                 while not m.done and time.time() - t0 < calib.SECS + 6:
@@ -653,7 +671,7 @@ class Hub:
         log(f"Registrazione: {info['testo']}")
         if self.locked:
             self.locked = False
-            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl') else 'perseus')
+            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto') else 'perseus')
         self.post_json(self.cfg_msg())
         return True, info['testo']
 
@@ -927,7 +945,7 @@ class Hub:
             busy, self.busy = self.busy, 0.0
             msg = (f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · calcolo {busy / 3 * 100:.0f}%'
                    f' · motore {"sì" if self.engine else "no"}')
-            if self.src_kind == 'rtl':
+            if self.src_kind in ('rtl', 'pluto'):
                 msg += f' · in ritardo {self.late}'
                 ll = getattr(self.src, 'll_max', 0)
                 if ll:
@@ -948,7 +966,7 @@ class Hub:
             self.nodata_n = 0
             self.auto_rs = 0
             return
-        if (self.src_kind not in ('perseus', 'extio', 'rtl') or self.locked or self.cal_busy or self.starting
+        if (self.src_kind not in ('perseus', 'extio', 'rtl', 'pluto') or self.locked or self.cal_busy or self.starting
                 or time.time() - self.src_t0 < 8 or self.auto_rs >= 3):
             return
         self.nodata_n += 1
@@ -982,7 +1000,7 @@ class Hub:
                         chunks.append(self.iq_q.get_nowait())
                 except queue.Empty:
                     pass
-                if self.src_kind == 'rtl' and self.fs:
+                if self.src_kind in ('rtl', 'pluto') and self.fs:
                     # in ritardo di più di 1,5 s (PC occupato): butto il vecchio, così l'ascolto resta in tempo reale
                     back = sum(len(c) for c in chunks) + self.iq_q.qsize() * len(iq)
                     if back > 1.5 * self.fs:
@@ -1130,6 +1148,9 @@ class Hub:
             elif self.src_kind == 'rtl':
                 self.cfg['rtl_lo'] = int(round(hw))
                 save_cfg(self.cfg)
+            elif self.src_kind == 'pluto':
+                self.cfg['pluto_lo'] = int(round(hw))
+                save_cfg(self.cfg)
             elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
                 self.cfg['dial'] = self.src.dial
                 save_cfg(self.cfg)
@@ -1210,7 +1231,7 @@ class Hub:
             self.sm_hist.append(dx)
         cal = self.sm_cal()
         c = (SM_CAL_DEFAULT if cal is None else cal) + self.sm_att()
-        if cal is None and self.src_kind == 'rtl':
+        if cal is None and self.src_kind in ('rtl', 'pluto'):
             a = self.sm_auto(dx, rx2)                  # chiavetta non tarata: riferimento al rumore di fondo
             if a is not None:
                 c = a
@@ -1441,6 +1462,28 @@ class Hub:
             return {'centro': t[b] + (15000 if k == 'memorie_rtty' else 10000), 'dx': t[b], 'pred': True} if b in t else None
         return {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
 
+    def pluto_msg(self):
+        pc = self.cfg.get('pluto', {})
+        return {'host': pc.get('host', '192.168.2.1'), 'gain': pc.get('gain')}
+
+    def pluto_set(self, v):
+        """Impostazioni del Pluto: guadagno (None = AGC del chip) e indirizzo."""
+        pc = self.cfg.setdefault('pluto', {})
+        self.sm_floor = None
+        if 'gain' in v:
+            pc['gain'] = None if v['gain'] in (None, '', 'auto') else max(0, min(71, int(v['gain'])))
+            if isinstance(self.src, PlutoSource):
+                self.src.set_gain(pc['gain'])
+        restart = False
+        if v.get('host'):
+            pc['host'] = str(v['host']).strip()[:80]
+            restart = True
+        save_cfg(self.cfg)
+        if restart and self.src_kind == 'pluto':
+            self.switch_source('pluto')
+        else:
+            self.post_json(self.cfg_msg())
+
     def rtl_msg(self):
         r = self.cfg.get('rtl', {})
         src = self.src if isinstance(self.src, RtlTcpSource) else None
@@ -1602,6 +1645,8 @@ class Hub:
         k = self.src_kind
         if k == 'perseus':
             return hz < 40e6
+        if k == 'pluto':
+            return PLUTO_RANGE[0] <= hz <= PLUTO_RANGE[1]
         if k == 'rtl':
             return hz < 30e6 if int(self.cfg.get('rtl', {}).get('direct', 0)) else 24e6 <= hz <= 1766e6
         return True
@@ -1611,6 +1656,8 @@ class Hub:
         k = self.src_kind
         if k == 'perseus':
             return b in HF_BANDS                        # Perseus: fino a 40 MHz
+        if k == 'pluto':
+            return b in ('6', '2', '70', '23')           # Pluto sbloccato: da 46,9 MHz (6 m e 2 m), standard da 325 MHz
         if k == 'rtl':
             if int(self.cfg.get('rtl', {}).get('direct', 0)):
                 return b in HF_BANDS                    # direct sampling: solo onde corte
@@ -1620,7 +1667,7 @@ class Hub:
         return True
 
     def tunable(self):
-        return isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource, RtlTcpSource))
+        return isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource, RtlTcpSource, PlutoSource))
 
     def go_band(self, b):
         m = self.band_mem(b)
@@ -1693,7 +1740,7 @@ class Hub:
                 'bands': {b: self.band_mem(b) for b in BANDS if self.band_ok(b) and self.band_mem(b)},
                 'band_order': [b for b in HF_BANDS + VHF_BANDS if self.band_ok(b)],
                 'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
-                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'banco_v': banco.versione(self.cfg),
+                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
@@ -1789,7 +1836,7 @@ class Hub:
                     ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
-                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl') else 'perseus')
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl', 'pluto') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
                     for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list', 'lang'):
@@ -2024,7 +2071,9 @@ class Hub:
                     self.cfg['extio_rate'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
-                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl'):
+                elif k == 'pluto' and isinstance(c.get('v'), dict):
+                    self.pluto_set(c['v'])
+                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto'):
                     self.switch_source(c['kind'], c.get('dev'))
                 elif k == 'rtl' and isinstance(c.get('v'), dict):
                     self.rtl_set(c['v'])
@@ -2352,7 +2401,7 @@ def main():
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
-    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio', 'rtl'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
+    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')

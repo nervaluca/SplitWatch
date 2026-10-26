@@ -1357,3 +1357,202 @@ class RtlTcpSource:
     def set_rtl_agc(self, on):
         self.rtl_agc = bool(on)
         self._cmd(0x08, 1 if on else 0)
+
+
+# ---------------------------------------------------------------------------------------------- ADALM-Pluto
+PLUTO_RATE = 2304000              # 2,304 MS/s ÷ 12 = 192 kHz (sotto 2,08 MS/s il chip vuole i filtri FIR)
+PLUTO_RANGE = (46.875e6, 6000e6)  # sbloccato (AD9364): il PLL scende a 46,875 MHz; standard (AD9363) 325–3800 MHz
+
+
+class PlutoSource:
+    """ADALM-Pluto attraverso iiod, il server di libiio che gira dentro il Pluto (porta 30431).
+
+    Funziona uguale via USB e via rete: collegato con la USB il Pluto è anche una scheda di rete
+    (indirizzo 192.168.2.1, driver «PlutoSDR» di Analog Devices); in rete basta il suo indirizzo IP
+    o pluto.local. Si usa il protocollo testuale di iiod: niente libiio da installare sul PC.
+    Campioni a 12 bit (in 16), I e Q del canale RX, ridotti a 192 kHz."""
+
+    PORT = 30431
+    BUF = 32768                     # campioni per lettura (~14 ms)
+
+    def __init__(self, host, lo_hz, on_iq, on_status, on_rate, gain=None):
+        self.host = (host or '192.168.2.1').strip()
+        self.center = float(lo_hz)
+        self.on_iq, self.on_status, self.on_rate = on_iq, on_status, on_rate
+        self.gain = gain                     # None = AGC del chip (slow_attack), altrimenti dB
+        self.sock = None
+        self.f = None
+        self.lock = threading.Lock()
+        self.alive = False
+        self.dec = Decimator(PLUTO_RATE)
+        self.fs = self.dec.fs
+        self.nsamp = 0
+        self.phy = self.rx = None
+        self.nch = 0
+        self.name = 'ADALM-Pluto'
+        self.lo_err = None
+
+    # ---- protocollo
+    def _line(self):
+        b = self.f.readline()
+        if not b:
+            raise OSError('il Pluto ha chiuso la connessione')
+        return b.decode('ascii', 'replace').strip()
+
+    def _int(self):
+        while True:
+            t = self._line()
+            if t:
+                return int(t)
+
+    def _cmd(self, txt, data=None):
+        with self.lock:
+            self.sock.sendall(txt.encode('ascii') + b'\r\n')
+            if data is not None:
+                self.sock.sendall(data)
+            return self._int()
+
+    def _read_attr(self, dev, ch, attr, out=False):
+        with self.lock:
+            self.sock.sendall(f'READ {dev} {"OUTPUT" if out else "INPUT"} {ch} {attr}\r\n'.encode('ascii'))
+            n = self._int()
+            if n < 0:
+                return None
+            return self.f.read(n + 1)[:n].decode('ascii', 'replace').strip('\x00\n ')
+
+    def _write_attr(self, dev, ch, attr, value, out=False):
+        v = str(value).encode('ascii')
+        if self.sock is None:
+            return -1
+        try:
+            return self._cmd(f'WRITE {dev} {"OUTPUT" if out else "INPUT"} {ch} {attr} {len(v)}', v)
+        except OSError:
+            return -1
+
+    def _context(self):
+        """Dal descrittore XML del Pluto: id del chip (ad9361-phy) e del flusso RX (cf-ad9361-lpc)."""
+        import xml.etree.ElementTree as ET
+        with self.lock:
+            self.sock.sendall(b'PRINT\r\n')
+            n = self._int()
+            xml = self.f.read(n + 1)[:n]
+        root = ET.fromstring(xml.split(b'?>', 1)[-1] if xml.startswith(b'<?xml') else xml)
+        for d in root.iter('device'):
+            nm, did = d.get('name'), d.get('id')
+            if nm == 'ad9361-phy':
+                self.phy = did
+            elif nm == 'cf-ad9361-lpc':
+                self.rx = did
+                chans = [c for c in d.iter('channel') if c.get('type') == 'input']
+                idx = {}
+                for c in chans:
+                    se = c.find('scan-element')
+                    if se is not None:
+                        idx[c.get('id')] = int(se.get('index'))
+                self.nch = max(idx.values()) + 1 if idx else 2
+                self.mask_bits = (1 << idx.get('voltage0', 0)) | (1 << idx.get('voltage1', 1))
+        if not self.phy or not self.rx:
+            raise RuntimeError('Collegato, ma non sembra un ADALM-Pluto (manca il chip AD9361)')
+
+    # ---- avvio
+    def start(self):
+        import socket
+        try:
+            self.sock = socket.create_connection((self.host, self.PORT), timeout=6)
+        except OSError as e:
+            raise RuntimeError(f'Il Pluto non risponde su {self.host}: con la USB serve il driver «PlutoSDR» di Analog '
+                               f'Devices (indirizzo 192.168.2.1), in rete scrivi il suo indirizzo ({e})')
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8 << 20)
+        except OSError:
+            pass
+        self.sock.settimeout(8)
+        self.f = self.sock.makefile('rb', buffering=1 << 20)
+        self._context()
+        p = self.phy
+        self._write_attr(p, 'voltage0', 'sampling_frequency', PLUTO_RATE)
+        self._write_attr(p, 'voltage0', 'rf_bandwidth', 250000)        # il filtro analogico più stretto possibile
+        self._write_attr(p, 'voltage0', 'rf_port_select', 'A_BALANCED')
+        self.set_lo(self.center, notify=False)
+        self.set_gain(self.gain)
+        words = (self.nch + 31) // 32
+        mask = ''.join(f'{(self.mask_bits >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
+        self.mask_words = words
+        r = self._cmd(f'OPEN {self.rx} {self.BUF} {mask}')
+        if r < 0:
+            raise RuntimeError(f'Il Pluto non apre il flusso dei campioni (errore {r})')
+        self.alive = True
+        self.on_rate(self.fs, self.center)
+        threading.Thread(target=self._reader, daemon=True).start()
+        self.on_status(f'{self.name} · {self.host} · {PLUTO_RATE/1e6:.3f} MS/s → {self.fs/1000:.0f} kHz')
+
+    def _reader(self):
+        nb = self.BUF * 4                                  # I e Q a 16 bit
+        while self.alive:
+            try:
+                with self.lock:
+                    self.sock.sendall(f'READBUF {self.rx} {nb}\r\n'.encode('ascii'))
+                    left, mask_read, chunks = nb, False, []
+                    while left > 0:
+                        n = self._int()
+                        if n < 0:
+                            raise OSError(f'errore {n} leggendo i campioni')
+                        if n == 0:
+                            break
+                        if not mask_read:
+                            self.f.read(self.mask_words * 8 + 1)
+                            mask_read = True
+                        d = self.f.read(n)
+                        if len(d) < n:
+                            raise OSError('dati interrotti')
+                        chunks.append(d)
+                        left -= n
+                raw = b''.join(chunks)
+            except (OSError, ValueError) as e:
+                if self.alive:
+                    self.on_status(f'ADALM-Pluto: connessione persa ({e})')
+                break
+            if len(raw) < 4:
+                continue
+            v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
+            y = self.dec(v.view(np.complex64))
+            if len(y):
+                self.nsamp += len(y)
+                self.on_iq(y)
+        self.alive = False
+
+    def stop(self):
+        self.alive = False
+        s = self.sock
+        if s is not None:
+            try:
+                with self.lock:
+                    s.sendall(f'CLOSE {self.rx}\r\n'.encode('ascii'))
+            except OSError:
+                pass
+            try:
+                s.close()
+            except OSError:
+                pass
+        self.sock = None
+
+    def set_lo(self, hz, notify=True):
+        hz = float(min(PLUTO_RANGE[1], max(PLUTO_RANGE[0], hz)))
+        r = self._write_attr(self.phy, 'altvoltage0', 'frequency', int(round(hz)), out=True)
+        if r is not None and r < 0 and self.lo_err != int(hz):
+            self.lo_err = int(hz)
+            self.on_status(f'ADALM-Pluto: {hz/1e6:.3f} MHz non accettati (con il firmware standard 325–3800 MHz)')
+            return
+        self.center = hz
+        if notify:
+            self.on_rate(self.fs, self.center)
+
+    def set_gain(self, db):
+        """None = AGC del chip (slow_attack), altrimenti guadagno fisso 0–71 dB."""
+        self.gain = db
+        if db is None:
+            self._write_attr(self.phy, 'voltage0', 'gain_control_mode', 'slow_attack')
+        else:
+            self._write_attr(self.phy, 'voltage0', 'gain_control_mode', 'manual')
+            self._write_attr(self.phy, 'voltage0', 'hardwaregain', int(max(0, min(71, int(db)))))
