@@ -85,22 +85,33 @@ _V3 = (
 )
 PRESET = PRESET + _V3
 _V3_KEYS = {(p['hz'], p['modo']) for p in _V3}
+
+# versione 4 (FZR Skimmer 1.60): QO-100, si ricevono con il convertitore «QO-100 (LNB 9750 MHz)»
+_QO = 'QO-100 (con LNB)'
+_V4 = [_ch('Beacon basso (CW)', 10489.500, 'rxcw', _QO),
+       _ch('Fetta CW (skimmer)', 10489.525, 'normale', _QO),
+       _ch('FT8', 10489.540, 'ft8', _QO),
+       _ch('Fonia', 10489.700, 'ssb', _QO),
+       _ch('Beacon centrale (PSK 400)', 10489.750, 'ssb', _QO),
+       _ch('Beacon alto (CW)', 10490.000, 'rxcw', _QO)]
+PRESET = PRESET + _V4
 # preset della prima versione (1.40): servono per l'aggiornamento del banco
 _OLD = {(145500000, 'fm'), (433500000, 'fm'), (144800000, 'fm'), (145800000, 'fm'), (144300000, 'ssb'),
         (432200000, 'ssb'), (144174000, 'ft8'), (50313000, 'ft8'), (51510000, 'fm'), (29600000, 'fm'),
         (121500000, 'am'), (123450000, 'am'), (156800000, 'fm'), (156300000, 'fm')} | \
        {(round((145.600 + 0.025 * i) * 1e6), 'fm') for i in range(8)} | \
        {(round((446.00625 + 0.0125 * i) * 1e6), 'fm') for i in range(16)}
-VERSIONE = 3
+VERSIONE = 4
 
 
 def _aggiorna(cfg):
     """Banco di una versione precedente: arrivano i preset nuovi.
     Le memorie tue (o quelle che hai rinominato) non si toccano; i preset che avevi cancellato non tornano."""
     b = cfg['banco']
-    if int(cfg.get('banco_ver', 1)) >= 2:          # dalla versione 2: solo i preset della 3
+    ver = int(cfg.get('banco_ver', 1))
+    if ver >= 2:                                   # dalla versione 2: solo i preset arrivati dopo
         have = {(m['hz'], m['modo']) for m in b}
-        for p in _V3:
+        for p in (_V3 if ver < 3 else []) + _V4:
             if (p['hz'], p['modo']) not in have:
                 b.append({'id': _new_id(cfg), **p, 'x': dict(p['x'])})
         cfg['banco_ver'] = VERSIONE
@@ -191,7 +202,7 @@ def modifica(cfg, mid, v):
     if 'hz' in v:
         try:
             hz = float(v['hz'])
-            if 9e3 <= hz <= 2e9:
+            if 9e3 <= hz <= 20e9:
                 m['hz'] = round(hz)
         except (TypeError, ValueError):
             pass

@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.58'
+VERSION = '1.60'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -165,7 +165,10 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
     '2':   (144000000, 146000000, 144100000, 144050000),
     '70':  (430000000, 440000000, 432100000, 432050000),
     '23':  (1240000000, 1300000000, 1296100000, 1296050000),
+    # QO-100 (Es'hail-2), transponder a banda stretta: si riceve con un LNB (convertitore 9750 MHz)
+    'QO':  (10489500000, 10490000000, 10489550000, 10489525000),   # skimmer nella fetta CW (10489,505–540)
 }
+CONV_QO100 = 9750000000          # oscillatore dell'LNB standard: 10489,5 MHz → 739,5 MHz
 HF_BANDS = ('160', '80', '60', '40', '30', '20', '17', '15', '12', '10')
 VHF_BANDS = ('6', '2', '70', '23')
 
@@ -175,6 +178,7 @@ BANDS_SSB = {
     '160': (1860000, 1850000),
     '80':  (3780000, 3790000),
     '60':  (5360000, 5363500),
+    'QO':  (10489800000, 10489700000),                 # QO-100: fonia 10489,650–990 (a metà il beacon PSK)
     '40':  (7150000, 7140000),
     '20':  (14220000, 14195000),
     '17':  (18140000, 18130000),
@@ -195,7 +199,7 @@ RX_MODES = ('rxcw', 'ssb', 'rtty', 'ft8', 'fm', 'am')
 # RTTY: frequenza = mark (come gli Icom), shift 170 Hz. DIGI (modo interno 'ft8'): frequenze FT8 standard (USB-D).
 BANDS_RTTY = {'160': 1838000, '80': 3590000, '40': 7040000, '30': 10142000, '20': 14083000,
               '17': 18101000, '15': 21083000, '12': 24921000, '10': 28083000}
-BANDS_FT8 = {'160': 1840000, '80': 3573000, '60': 5357000, '40': 7074000, '30': 10136000, '20': 14074000,
+BANDS_FT8 = {'QO': 10489540000, '160': 1840000, '80': 3573000, '60': 5357000, '40': 7074000, '30': 10136000, '20': 14074000,
              '17': 18100000, '15': 21074000, '12': 24915000, '10': 28074000, '6': 50313000, '2': 144174000, '70': 432174000}
 
 SM_CAL_DEFAULT = -10.0      # taratura indicativa (dBm = dBFS - 10) finché non la allinei
@@ -544,10 +548,30 @@ class Hub:
             return 0.0
         return float(self.cfg.get('ppm', {}).get(self.src_kind, 0.0))
 
+    def conv(self):
+        """Convertitore davanti al ricevitore (LNB, transverter): frequenza vera = ricevitore + conv (Hz)."""
+        if self.src_kind == 'file':
+            return 0.0
+        return float(self.cfg.get('conv', {}).get(self.src_kind, 0.0))
+
+    def set_conv(self, hz):
+        """Cambia il convertitore: il ricevitore resta dov'è, cambiano le frequenze mostrate."""
+        old = self.conv()
+        hz = float(hz or 0)
+        if abs(hz) > 100e9:
+            return
+        self.cfg.setdefault('conv', {})[self.src_kind] = round(hz)
+        save_cfg(self.cfg)
+        if self.dx_abs is not None:
+            self.dx_abs += hz - old
+        if self.fs and self.hw_center is not None:
+            self.cmd_q.put(('rate', self.fs, self.hw_center, 'cal'))
+        self.on_status(f'Convertitore: {hz/1e6:.6f} MHz' if hz else 'Convertitore spento')
+
     def tune(self, center):
         """Porta il centro (frequenza vera) a center: il ricevitore riceve il valore corretto."""
         if self.src:
-            self.src.set_lo(int(round(float(center) / (1 + self.ppm() * 1e-6))))
+            self.src.set_lo(int(round((float(center) - self.conv()) / (1 + self.ppm() * 1e-6))))
 
     def set_ppm(self, v):
         v = max(-200.0, min(200.0, float(v)))
@@ -571,23 +595,28 @@ class Hub:
             prev_hw, prev_dx = self.hw_center, self.dx_abs
             tunable = self.tunable()
             k = 1 + self.ppm() * 1e-6
+            cv = self.conv()
+            true_rx = true_hz - cv                          # col convertitore: la frequenza al ricevitore
             try:
                 if tunable:
                     # chiavetta: la portante può cadere ±20 kHz più in là, lontano dal picco al centro
-                    target = int(round(true_hz / k - (40000 if self.src_kind in ('rtl', 'pluto') else calib.OFFSET)))
+                    off = 20000 if cv else 40000 if self.src_kind in ('rtl', 'pluto') else calib.OFFSET
+                    target = int(round(true_rx / k - off))
                     self.src.set_lo(target)
                     t0 = time.time()
                     while abs((self.hw_center or 0) - target) > 2 and time.time() - t0 < 6:
                         time.sleep(0.05)
                     if abs((self.hw_center or 0) - target) > 2:
                         raise RuntimeError('il ricevitore non si è sintonizzato')
-                elif abs(true_hz / k - self.hw_center) > self.fs * 0.45:
+                elif abs(true_rx / k - self.hw_center) > self.fs * 0.45:
                     raise RuntimeError(f'sintonizza il ricevitore in modo che {khz:g} kHz sia nella banda ricevuta')
                 self.cmd_q.put(('dx', true_hz, 'cal'))     # la portante finisce nell'audio: si sente il test (la radio no)
                 time.sleep(0.8)                            # lascia assestare il ricevitore
                 self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
-                m = calib.Measure(self.fs, self.hw_center, true_hz, self.ppm(),
-                                  span_ppm=150.0 if self.src_kind in ('rtl', 'pluto') else 10.0)
+                # LNB: l'errore va da pochi Hz (GPS) a decine di kHz; i beacon di QO-100 sono manipolati
+                m = calib.Measure(self.fs, self.hw_center, true_rx, self.ppm(),
+                                  span_ppm=150.0 if self.src_kind in ('rtl', 'pluto') else 10.0,
+                                  span_hz=60000.0 if cv else None, min_steady=0.3 if cv else 0.85)
                 self.cal = m
                 t0 = time.time()
                 while not m.done and time.time() - t0 < calib.SECS + 6:
@@ -597,6 +626,10 @@ class Hub:
                     raise RuntimeError('dati insufficienti dal ricevitore')
                 r = m.result()
                 r['type'] = 'cal'
+                if cv:
+                    # col convertitore l'errore è quasi tutto suo (quarzo dell'LNB): si corregge lì, non i ppm
+                    r['conv'] = cv
+                    r['khz'] = khz
                 log(f'Calibrazione {khz:g} kHz: {r}')
                 self.post_json(r)
             except Exception as e:
@@ -1020,6 +1053,9 @@ class Hub:
                 m = self.cal
                 if m is not None:
                     m.feed(blk)
+                # il riconoscimento del proprio TX (tutta la banda sale di colpo) vale per i ricevitori HF;
+                # con chiavetta e Pluto un cambio di guadagno lo farebbe scattare e zittirebbe l'audio
+                self.engine.tx_guard_on = self.src_kind not in ('rtl', 'pluto')
                 self.engine.feed(blk)
                 self.busy += time.perf_counter() - t0
                 r, au, w, l = self.engine.take()
@@ -1102,7 +1138,7 @@ class Hub:
         if c[0] == 'rate':
             fs, hw = c[1], c[2]
             self.hw_center = hw
-            center = hw * (1 + self.ppm() * 1e-6)          # correzione del quarzo del ricevitore
+            center = hw * (1 + self.ppm() * 1e-6) + self.conv()    # quarzo del ricevitore e convertitore (LNB)
             log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz' + (f' (ricevitore {hw:.0f}, {self.ppm():+.3f} ppm)' if self.ppm() else ''))
             if fs <= 0:
                 self.on_status('Campionamento sconosciuto: attendo i dati…')
@@ -1646,6 +1682,7 @@ class Hub:
         self.post_json(self.cfg_msg())
 
     def band_reach(self, hz):
+        hz = hz - self.conv()                       # frequenza che arriva al ricevitore
         k = self.src_kind
         if k == 'perseus':
             return hz < 40e6
@@ -1657,6 +1694,10 @@ class Hub:
 
     def band_ok(self, b):
         """Bande che il ricevitore in uso può ricevere."""
+        if self.conv():                              # con il convertitore: le bande che ci cadono dentro
+            return self.src_kind != 'file' and self.band_reach(BANDS[b][2])
+        if b == 'QO':
+            return False
         k = self.src_kind
         if k == 'perseus':
             return b in HF_BANDS                        # Perseus: fino a 40 MHz
@@ -1744,7 +1785,8 @@ class Hub:
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
                 'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: self.band_mem(b) for b in BANDS if self.band_ok(b) and self.band_mem(b)},
-                'band_order': [b for b in HF_BANDS + VHF_BANDS if self.band_ok(b)],
+                'band_order': [b for b in HF_BANDS + VHF_BANDS + ('QO',) if self.band_ok(b)],
+                'conv': self.conv(),
                 'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
                 'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
@@ -2077,6 +2119,11 @@ class Hub:
                     self.cfg['extio_rate'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
+                elif k == 'conv':
+                    try:
+                        self.set_conv(float(c.get('hz') or 0))
+                    except (TypeError, ValueError):
+                        pass
                 elif k == 'pluto' and isinstance(c.get('v'), dict):
                     self.pluto_set(c['v'])
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto'):

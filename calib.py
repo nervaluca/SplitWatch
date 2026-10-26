@@ -21,7 +21,7 @@ MIN_SNR = 15.0          # dB sopra il rumore
 class Measure:
     """Raccoglie IQ per SECS secondi e trova la portante vicino a dove dovrebbe essere."""
 
-    def __init__(self, fs, hw_center, true_hz, ppm_now=0.0, secs=SECS, span_ppm=10.0):
+    def __init__(self, fs, hw_center, true_hz, ppm_now=0.0, secs=SECS, span_ppm=10.0, span_hz=None, min_steady=0.85):
         self.fs, self.hw_center, self.true_hz = float(fs), float(hw_center), float(true_hz)
         self.ppm_now = float(ppm_now)
         self.n = int(secs * self.fs)
@@ -31,7 +31,8 @@ class Measure:
         self.expect = self.true_hz / (1 + self.ppm_now * 1e-6) - self.hw_center
         # cerca entro ±10 ppm (100 Hz a 10 MHz); le chiavette RTL possono sbagliare di 100 ppm e più
         self.span_ppm = float(span_ppm)
-        self.win = max(60.0, self.span_ppm * 1e-6 * self.true_hz)
+        self.win = span_hz or max(60.0, self.span_ppm * 1e-6 * self.true_hz)
+        self.min_steady = float(min_steady)
 
     @property
     def done(self):
@@ -88,9 +89,9 @@ class Measure:
         ppm = (self.true_hz / (self.hw_center + rel) - 1) * 1e6
         err_hz = (self.hw_center + rel) * (1 + self.ppm_now * 1e-6) - self.true_hz   # di quanto sbaglia ora
         tol = 0.5e-6 if self.span_ppm <= 10 else 1.5e-6        # in VHF la portante (ponte, beacon) è meno ferma
-        ok = snr >= MIN_SNR and spread < max(1.0, tol * self.true_hz) and steady >= 0.85
+        ok = snr >= MIN_SNR and spread < max(1.0, tol * self.true_hz) and steady >= self.min_steady
         why = ('' if ok else 'segnale troppo debole' if snr < MIN_SNR else
-               'portante non continua' if steady < 0.85 else 'misura instabile')
+               'portante non continua' if steady < self.min_steady else 'misura instabile')
         return {'ok': ok, 'why': why, 'ppm': round(ppm, 3), 'err_hz': round(err_hz, 2), 'snr': round(snr, 1),
                 'spread': round(spread, 2), 'steady': round(steady, 2), 'khz': self.true_hz / 1000, 'old': round(self.ppm_now, 3),
                 'hz14': round(ppm * 14.0, 1)}
