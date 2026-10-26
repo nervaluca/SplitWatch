@@ -1458,7 +1458,7 @@ class PlutoSource:
     def start(self):
         import socket
         try:
-            self.sock = socket.create_connection((self.host, self.PORT), timeout=6)
+            self.sock = socket.create_connection((self.host, self.PORT), timeout=3)
         except OSError as e:
             raise RuntimeError(f'Il Pluto non risponde su {self.host}: con la USB serve il driver «PlutoSDR» di Analog '
                                f'Devices (indirizzo 192.168.2.1), in rete scrivi il suo indirizzo ({e})')

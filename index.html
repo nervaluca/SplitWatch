@@ -787,7 +787,9 @@ setInterval(()=>{if(trialEnd==null||(LIC&&LIC.lic))return;const s=Math.max(0,Mat
 function onCfg(m,again){
   onLic(m);
   if(m.status&&!again)setStatus({it:m.status,en:m.status_en});
-  if(!m.ready)return;
+  if(!m.ready){                       // ricevitore non partito: si possono comunque cambiare ricevitore e indirizzo
+    if(m.src&&document.activeElement!==$('#selSrc'))$('#selSrc').value=m.src;
+    if(m.src){plutoUI(m);rtlUI(m)}return}
   const reset=!CFG||CFG.nbins!==m.nbins||CFG.center!==m.center||CFG.fs!==m.fs;
   const dxMoved=!!CFG&&CFG.dx!==m.dx&&m.dx!==localDx;
   if(m.dx===localDx)localDx=null;

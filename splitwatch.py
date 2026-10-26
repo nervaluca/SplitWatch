@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.56'
+VERSION = '1.57'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1721,7 +1721,9 @@ class Hub:
         lic = {'lic': (self.lic or {}).get('testo'), 'donor': bool((self.lic or {}).get('donor')),
                'trial': self.trial_left(), 'locked': self.locked, 'url_key': URL_RICHIESTA_CHIAVE}
         if e is None:
-            return {'type': 'cfg', 'ready': False, 'status': self.status, 'status_en': i18n.en(self.status), **lic}
+            # ricevitore non partito: la pagina mostra lo stesso le sue impostazioni (indirizzo del Pluto, di rtl_tcp)
+            return {'type': 'cfg', 'ready': False, 'status': self.status, 'status_en': i18n.en(self.status),
+                    'src': self.src_kind, 'pluto': self.pluto_msg(), 'rtl': self.rtl_msg(), **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
                 'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
                 'rowdt': dsp.ROW_EVERY / dsp.FRAMES_PER_S, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
