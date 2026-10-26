@@ -1332,10 +1332,11 @@ class RtlTcpSource:
                     pass
         self.proc = None
 
-    def set_lo(self, hz):
+    def set_lo(self, hz, notify=True):
         self.center = float(hz)
-        self._cmd(0x01, int(hz))
-        self.on_rate(self.fs, self.center)
+        self._cmd(0x01, int(round(hz)))
+        if notify:
+            self.on_rate(self.fs, self.center)
 
     def set_gain(self, tenths):
         """None = automatico (AGC del tuner), altrimenti decimi di dB (il più vicino fra quelli possibili)."""

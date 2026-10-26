@@ -132,7 +132,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.60.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
+<li>Scarica <strong>FZRSkimmer_Setup</strong> e avvia <code>FZRSkimmer_Setup_1.61.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR Skimmer</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSkimmer</code>).</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Il setup copia da solo <code>perseususb.dll</code> e i file <code>.sbs</code> del Perseus da CW Skimmer, dal software Perseus o da HDSDR, e l'elenco nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il software del Perseus lo installi dopo: menu Start → FZR Skimmer → <strong>Copia i file del Perseus</strong>.</li>
@@ -761,6 +761,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>L'LNB sbaglia</strong> (da pochi Hz con il riferimento GPS a decine di kHz senza): <strong>Calibra…</strong>, scrivi <code>10489.5</code> (beacon basso) e <strong>Misura</strong>. Con il convertitore la correzione va sull'oscillatore (<strong>LO MHz</strong>, al Hz), non sui ppm del ricevitore. Si può anche scrivere a mano in <strong>LO MHz</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Aggancio beacon</strong> (compare con il convertitore acceso): l'LNB scivola con la temperatura. Con la casella spuntata il programma ogni mezzo secondo cerca il beacon nella banda ricevuta (il CW basso 10489,500 negli skimmer, il PSK centrale 10489,750 in SSB) e corregge da solo l'oscillatore: le frequenze restano quelle vere e il VFO resta sulla stazione. Accanto si vede il beacon agganciato e di quanto si stava spostando; con ⚠ il beacon non c'è nella banda ricevuta o è troppo debole. All'inizio cerca entro ±4 kHz: se l'LNB sbaglia di più, prima <strong>Calibra…</strong> sul beacon.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>altro…</strong>: qualunque convertitore o transverter; scrivi l'oscillatore in MHz (negativo per un upconverter, es. <code>-125</code> per un upconverter da 125 MHz davanti alla chiavetta).</li>

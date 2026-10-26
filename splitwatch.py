@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.60'
+VERSION = '1.62'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -169,6 +169,7 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
     'QO':  (10489500000, 10490000000, 10489550000, 10489525000),   # skimmer nella fetta CW (10489,505–540)
 }
 CONV_QO100 = 9750000000          # oscillatore dell'LNB standard: 10489,5 MHz → 739,5 MHz
+QO100_BEACONS = (10489500000, 10489750000, 10490000000)   # CW basso, PSK 400 al centro, CW alto
 HF_BANDS = ('160', '80', '60', '40', '30', '20', '17', '15', '12', '10')
 VHF_BANDS = ('6', '2', '70', '23')
 
@@ -337,6 +338,7 @@ class Hub:
         self.center = None
         self.hw_center = None                  # centro come lo dice il ricevitore (senza correzione)
         self.cal = None                        # misura di calibrazione in corso
+        self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
         self.cal_busy = False
         self.sm_last = 0.0
         self.sm_hist = collections.deque(maxlen=12)      # ultimi livelli del DX (dBFS) per la taratura
@@ -567,6 +569,75 @@ class Hub:
         if self.fs and self.hw_center is not None:
             self.cmd_q.put(('rate', self.fs, self.hw_center, 'cal'))
         self.on_status(f'Convertitore: {hz/1e6:.6f} MHz' if hz else 'Convertitore spento')
+
+    def lock_step(self, blk):
+        """Aggancio al beacon (QO-100): l'oscillatore dell'LNB scivola con la temperatura; ogni mezzo secondo
+        misuro dove cade il beacon e correggo il convertitore, così le frequenze restano quelle vere.
+        Il segnale si eleva al quadrato: la riga a 2×Δf c'è sia col beacon CW sia col PSK (che non ha portante)."""
+        cv = self.conv()
+        if not cv or not self.fs or self.center is None:
+            return
+        if time.time() < getattr(self, 'lk_hold', 0):          # dopo una correzione: i dati vecchi in coda non contano
+            return
+        self.lk_buf.append(blk)
+        self.lk_n += len(blk)
+        if self.lk_n < 0.5 * self.fs:
+            return
+        x = np.concatenate(self.lk_buf)[-int(0.5 * self.fs):]
+        self.lk_buf, self.lk_n = [], 0
+        near = [b for b in QO100_BEACONS if abs(b - self.center) < 0.36 * self.fs]
+        if not near:
+            self._lock_msg(False, None, 'nessun beacon nella banda ricevuta')
+            return
+        b = min(near, key=lambda v: abs(v - self.center))
+        off = b - self.center
+        win = 1000.0 if self.lk_ok else 4000.0                   # agganciato: cerco vicino; all'inizio ±4 kHz
+        n = len(x) // 2 * 2
+        t = np.arange(n) / self.fs
+        y = (x[:n] * np.exp(-2j * np.pi * off * t).astype(np.complex64)).reshape(-1, 2).mean(1)
+        fs2 = self.fs / 2
+        z = y * y
+        nf = 1 << int(np.ceil(np.log2(len(z) * 2)))
+        sp = np.abs(np.fft.fft(z * np.hanning(len(z)), nf)) ** 2
+        f = np.fft.fftfreq(nf, 1 / fs2)
+        idx = np.nonzero(np.abs(f) <= 2 * win)[0]
+        k = idx[np.argmax(sp[idx])]
+        snr = 10 * math.log10(sp[k] / (float(np.median(sp[idx])) + 1e-30))
+        if snr < 18:                                            # il rumore da solo arriva a ~10 dB
+            self.lk_ok = False
+            self._lock_msg(False, None, 'beacon non trovato')
+            return
+        a, bb, c = (math.log(sp[(k - 1) % nf] + 1e-30), math.log(sp[k] + 1e-30), math.log(sp[(k + 1) % nf] + 1e-30))
+        den = a - 2 * bb + c
+        d = 0.5 * (a - c) / den if den != 0 else 0.0
+        delta = (f[k] + d * fs2 / nf) / 2                       # il beacon appare spostato di delta
+        self.lk_ok = True
+        corr = delta
+        if abs(corr) > 2.0 and self.hw_center is not None and self.tunable():
+            # si risintonizza il ricevitore per compensare l'LNB (e si aggiorna la sua stima): il centro mostrato,
+            # il DX, i filtri e la decodifica non si toccano, quindi niente buchi nell'audio
+            k = 1 + self.ppm() * 1e-6
+            hw = self.hw_center + corr / k
+            self.cfg.setdefault('conv', {})[self.src_kind] = round(cv - corr)
+            save_cfg(self.cfg)
+            self.hw_center = hw
+            try:
+                self.src.set_lo(hw, notify=False)
+            except TypeError:
+                pass
+            # il ricevitore ha in coda fino a ~0,5 s di campioni presi prima della correzione: aspetto
+            self.lk_hold = time.time() + 1.2
+            self.lk_buf, self.lk_n = [], 0
+        self._lock_msg(True, delta, b)
+
+    def _lock_msg(self, ok, delta, b):
+        m = {'type': 'lock', 'ok': ok, 'hz': None if delta is None else round(delta, 1),
+             'beacon': b if isinstance(b, int) else None, 'why': b if isinstance(b, str) else '',
+             'conv': self.conv()}
+        now = time.time()
+        if m != self.lk_last or now - getattr(self, 'lk_sent', 0) > 3:   # ogni 3 s anche se uguale (pagine nuove)
+            self.lk_last, self.lk_sent = m, now
+            self.post_json(m)
 
     def tune(self, center):
         """Porta il centro (frequenza vera) a center: il ricevitore riceve il valore corretto."""
@@ -1053,6 +1124,8 @@ class Hub:
                 m = self.cal
                 if m is not None:
                     m.feed(blk)
+                elif self.cfg.get('beacon_lock') and self.src_kind != 'file':
+                    self.lock_step(blk)
                 # il riconoscimento del proprio TX (tutta la banda sale di colpo) vale per i ricevitori HF;
                 # con chiavetta e Pluto un cambio di guadagno lo farebbe scattare e zittirebbe l'audio
                 self.engine.tx_guard_on = self.src_kind not in ('rtl', 'pluto')
@@ -1139,7 +1212,8 @@ class Hub:
             fs, hw = c[1], c[2]
             self.hw_center = hw
             center = hw * (1 + self.ppm() * 1e-6) + self.conv()    # quarzo del ricevitore e convertitore (LNB)
-            log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz' + (f' (ricevitore {hw:.0f}, {self.ppm():+.3f} ppm)' if self.ppm() else ''))
+            if not (len(c) > 3 and c[3] == 'lock'):          # le correzioni del beacon non riempiono il registro
+                log(f'campionamento {fs:.0f} Hz, centro {center:.0f} Hz' + (f' (ricevitore {hw:.0f}, {self.ppm():+.3f} ppm)' if self.ppm() else ''))
             if fs <= 0:
                 self.on_status('Campionamento sconosciuto: attendo i dati…')
                 return
@@ -1786,7 +1860,7 @@ class Hub:
                 'pre': bool(self.cfg.get('preamp', True)), 'attpre': isinstance(self.src, PerseusDirect), 'swap': bool(self.cfg.get('inverti_iq', False)),
                 'bands': {b: self.band_mem(b) for b in BANDS if self.band_ok(b) and self.band_mem(b)},
                 'band_order': [b for b in HF_BANDS + VHF_BANDS + ('QO',) if self.band_ok(b)],
-                'conv': self.conv(),
+                'conv': self.conv(), 'beacon_lock': bool(self.cfg.get('beacon_lock')),
                 'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
                 'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
@@ -2119,6 +2193,11 @@ class Hub:
                     self.cfg['extio_rate'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
+                elif k == 'beacon_lock':
+                    self.cfg['beacon_lock'] = bool(c.get('v'))
+                    self.lk_ok, self.lk_buf, self.lk_n, self.lk_last = False, [], 0, None
+                    save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
                 elif k == 'conv':
                     try:
                         self.set_conv(float(c.get('hz') or 0))
