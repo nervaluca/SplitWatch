@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.57'
+VERSION = '1.58'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -947,6 +947,10 @@ class Hub:
                    f' · motore {"sì" if self.engine else "no"}')
             if self.src_kind in ('rtl', 'pluto'):
                 msg += f' · in ritardo {self.late}'
+                if getattr(self.src, 'lost', 0):
+                    msg += f' · blocchi persi dal Pluto {self.src.lost}'
+                if self.engine is not None and getattr(self.engine, 'tx_on', False):
+                    msg += ' · TX rilevato (audio muto)'
                 ll = getattr(self.src, 'll_max', 0)
                 if ll:
                     msg += f' · rtl_tcp in coda {ll}'

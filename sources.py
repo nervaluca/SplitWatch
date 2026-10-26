@@ -1373,7 +1373,8 @@ class PlutoSource:
     Campioni a 12 bit (in 16), I e Q del canale RX, ridotti a 192 kHz."""
 
     PORT = 30431
-    BUF = 32768                     # campioni per lettura (~14 ms)
+    BUF = 65536                     # campioni per lettura (~28 ms)
+    NBUF = 16                       # buffer nel Pluto: ~0,45 s di riserva se il PC o la rete rallentano
 
     def __init__(self, host, lo_hz, on_iq, on_status, on_rate, gain=None):
         self.host = (host or '192.168.2.1').strip()
@@ -1479,12 +1480,18 @@ class PlutoSource:
         words = (self.nch + 31) // 32
         mask = ''.join(f'{(self.mask_bits >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
         self.mask_words = words
+        try:
+            self._cmd(f'SET {self.rx} BUFFERS_COUNT {self.NBUF}')
+        except OSError:
+            pass
         r = self._cmd(f'OPEN {self.rx} {self.BUF} {mask}')
         if r < 0:
             raise RuntimeError(f'Il Pluto non apre il flusso dei campioni (errore {r})')
         self.alive = True
         self.on_rate(self.fs, self.center)
+        self.rawq = queue.Queue(maxsize=64)
         threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._worker, daemon=True).start()
         self.on_status(f'{self.name} · {self.host} · {PLUTO_RATE/1e6:.3f} MS/s → {self.fs/1000:.0f} kHz')
 
     def _reader(self):
@@ -1515,12 +1522,23 @@ class PlutoSource:
                 break
             if len(raw) < 4:
                 continue
+            try:
+                self.rawq.put_nowait(raw)                  # il calcolo in un altro thread: subito la richiesta dopo
+            except queue.Full:
+                self.lost = getattr(self, 'lost', 0) + 1
+        self.alive = False
+        self.rawq.put(None)
+
+    def _worker(self):
+        while True:
+            raw = self.rawq.get()
+            if raw is None:
+                return
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
             y = self.dec(v.view(np.complex64))
             if len(y):
                 self.nsamp += len(y)
                 self.on_iq(y)
-        self.alive = False
 
     def stop(self):
         self.alive = False
