@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.63'
+VERSION = '1.65'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -1742,9 +1742,11 @@ class Hub:
             if 'filtro' in m.get('x', {}):
                 self.cmd_q.put(('bw', float(m['x']['filtro'])))
         self.cmd_q.put(('dx', hz, 'band'))
-        if self.tunable() and (not self.fs or not self.center or abs(hz - self.center) > self.fs * 0.42
-                               or abs(hz - self.center) < 8000):
-            self.tune(hz + (self.fs or 192000) * 0.2)
+        # memoria richiamata: il centro si sposta sempre, con la memoria nello stesso punto della banda ricevuta
+        # (un quinto sotto il centro: lontano dal picco al centro e con spazio sopra per lo split)
+        target = hz + (self.fs or 192000) * 0.2
+        if self.tunable() and (not self.center or abs(target - self.center) > 500):
+            self.tune(target)
         elif isinstance(self.src, AudioCard):
             self.src.set_lo(hz)
         self.cmd_q.put(('ssbcfg',))
@@ -1920,8 +1922,12 @@ class Hub:
                             self.on_status(f'{hz/1e6:.4f} MHz non si riceve con questo ricevitore')
                             continue
                         self.cmd_q.put(('dx', hz, 'band'))
-                        if self.tunable() and self.fs and self.center and abs(hz - self.center) > self.fs * 0.42:
-                            self.tune(hz + self.fs * 0.2)
+                        # frequenza scritta: centro sempre spostato (come le memorie); cifra per cifra solo se esce
+                        target = hz + (self.fs or 192000) * 0.2
+                        if self.tunable() and self.fs and self.center and (
+                                abs(hz - self.center) > self.fs * 0.42
+                                or c.get('centro') and abs(target - self.center) > 500):
+                            self.tune(target)
                         elif isinstance(self.src, AudioCard) and self.src_kind == 'audio':
                             self.src.set_lo(hz)
                     else:
