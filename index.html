@@ -1549,7 +1549,15 @@ function vfoEdit(el,cur,apply){if(el.querySelector('input'))return;const i=docum
   i.onblur=()=>done(false)}
 $('#v1F').onclick=()=>{if(CFG)vfoEdit($('#v1F'),CFG.dx,hz=>{keepRx2(hz);CFG.dx=hz;send({cmd:'dx',hz,jump:true});wantDx=true})};
 $('#v2F').onclick=()=>{if(CFG)vfoEdit($('#v2F'),CFG.dx+CFG.rx2_off,hz=>{if(!RX2ON)setRx2On(true);setRx2Abs(hz)})};
-function frame(){if(W&&H){drawWF();drawTX()}updateUI();renderList();drawSM();drawVfo();requestAnimationFrame(frame)}
+/* disegno con il freno: il waterfall costa (soprattutto senza accelerazione grafica) e se la pagina occupa
+   tutto il processore l'audio resta senza dati e va a scatti. Al massimo 30 fotogrammi al secondo, e il disegno
+   non si prende più di ~1/6 del tempo (un fotogramma da 10 ms: uno ogni 60 ms) */
+let fLast=0,fCost=4;
+function frame(t){requestAnimationFrame(frame);
+  if(t-fLast<Math.max(31,6*fCost))return;fLast=t;
+  const t0=performance.now();
+  if(W&&H){drawWF();drawTX()}updateUI();renderList();drawSM();drawVfo();
+  fCost=0.9*fCost+0.1*(performance.now()-t0)}
 window.addEventListener('pagehide',flushUI);
 applyLang();resize();connect();requestAnimationFrame(frame);
 })();
