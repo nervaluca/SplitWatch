@@ -68,7 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.65'
+VERSION = '1.66'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
@@ -591,11 +591,13 @@ class Hub:
             return
         b = min(near, key=lambda v: abs(v - self.center))
         off = b - self.center
-        win = 1000.0 if self.lk_ok else 4000.0                   # agganciato: cerco vicino; all'inizio ±4 kHz
+        # agganciato: cerco vicino; all'inizio fino a ±40 kHz (un LNB comune sbaglia anche di 30 kHz)
+        win = 1000.0 if self.lk_ok else 40000.0
+        dec = 2 if win <= 20000 else 1                          # al quadrato la riga va a 2×: serve banda
         n = len(x) // 2 * 2
         t = np.arange(n) / self.fs
-        y = (x[:n] * np.exp(-2j * np.pi * off * t).astype(np.complex64)).reshape(-1, 2).mean(1)
-        fs2 = self.fs / 2
+        y = (x[:n] * np.exp(-2j * np.pi * off * t).astype(np.complex64)).reshape(-1, dec).mean(1)
+        fs2 = self.fs / dec
         z = y * y
         nf = 1 << int(np.ceil(np.log2(len(z) * 2)))
         sp = np.abs(np.fft.fft(z * np.hanning(len(z)), nf)) ** 2
@@ -603,7 +605,7 @@ class Hub:
         idx = np.nonzero(np.abs(f) <= 2 * win)[0]
         k = idx[np.argmax(sp[idx])]
         snr = 10 * math.log10(sp[k] / (float(np.median(sp[idx])) + 1e-30))
-        if snr < 18:                                            # il rumore da solo arriva a ~10 dB
+        if snr < (18 if self.lk_ok else 22):                    # il rumore da solo arriva a ~10 dB
             self.lk_ok = False
             self._lock_msg(False, None, 'beacon non trovato')
             return
