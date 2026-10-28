@@ -68,23 +68,16 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import ponti
 
-VERSION = '1.66'
+VERSION = '1.67'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
-URL_LICENZA = 'https://www.iw1fzr.it/adiffzr/licenza.php'
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
 
 
 def find_license():
-    """Licenza di FZR Skimmer; se manca, quella di ADIF FZR (stesse chiavi)."""
-    dirs = [DATA_DIR, app_dir()]
-    ad = os.environ.get('APPDATA')
-    if ad:
-        dirs.append(os.path.join(ad, 'ADIF_FZR'))
-    for pf in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LOCALAPPDATA')):
-        if pf:
-            dirs += [os.path.join(pf, 'ADIF FZR'), os.path.join(pf, 'ADIF_FZR'), os.path.join(pf, 'Programs', 'ADIF FZR')]
-    for d in dirs:
+    """Licenza di FZR Skimmer: solo quella registrata qui incollando la chiave (nessuna attivazione automatica,
+    nemmeno prendendo quella di ADIF FZR: la chiave è la stessa, ma va incollata anche qui)."""
+    for d in (DATA_DIR, app_dir()):
         info = licenza.carica(d)
         if info:
             info['origine'] = d
@@ -780,22 +773,6 @@ class Hub:
             self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto') else 'perseus')
         self.post_json(self.cfg_msg())
         return True, info['testo']
-
-    def register_online(self, call):
-        import urllib.request, urllib.parse
-        cn = licenza.normalizza_call(call)
-        if len(cn) < 3:
-            return False, 'Scrivi prima il nominativo'
-        try:
-            url = URL_LICENZA + '?' + urllib.parse.urlencode({'call': cn})
-            req = urllib.request.Request(url, headers={'User-Agent': 'FZR-Skimmer'})
-            with urllib.request.urlopen(req, timeout=8) as r:
-                data = json.loads(r.read().decode('utf-8', 'ignore'))
-        except Exception:
-            return False, 'Servizio non raggiungibile (nessuna connessione?)'
-        if not isinstance(data, dict) or not data.get('ok') or not data.get('chiave'):
-            return False, f'Nessuna registrazione trovata online per {cn}'
-        return self.register(cn, data['chiave'])
 
     def switch_source(self, kind, dev=None):
         """Cambia ricevitore senza riavviare il programma."""
@@ -1961,9 +1938,6 @@ class Hub:
                         self.on_status('Frequenza fuori dalle bande radioamatoriali: memoria non salvata')
                 elif k == 'register':
                     ok, msg = self.register(c.get('call', ''), c.get('key', ''))
-                    await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
-                elif k == 'register_online':
-                    ok, msg = await asyncio.get_running_loop().run_in_executor(None, self.register_online, c.get('call', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
                     self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl', 'pluto') else 'perseus')
