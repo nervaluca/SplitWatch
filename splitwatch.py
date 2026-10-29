@@ -64,11 +64,11 @@ from rbn import RBN
 from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS,
-                     PlutoSource, PLUTO_RANGE)
+                     PlutoSource, PLUTO_RANGE, SpyServerSource)
 import banco
 import ponti
 
-VERSION = '1.71'
+VERSION = '1.73'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -457,6 +457,21 @@ class Hub:
             src.start()
             self.src = src
             return
+        if kind == 'spyserver':
+            sc = self.cfg.get('spy', {})
+            lo = float(self.cfg.get('spy_lo', self.cfg.get('lo', 14100000)))
+            self.src = SpyServerSource(sc.get('host', ''), int(sc.get('port', 5555)), lo, self.on_iq, self.on_status,
+                                       self.on_rate, gain=sc.get('gain'))
+            try:
+                self.src.start()
+            except Exception:
+                try:
+                    self.src.stop()
+                except Exception:
+                    pass
+                self.src = None
+                raise
+            return
         if kind == 'pluto':
             pc = self.cfg.get('pluto', {})
             lo = float(self.cfg.get('pluto_lo', 433540000))
@@ -535,7 +550,7 @@ class Hub:
         self.src = None
         raise RuntimeError(f'{last_err} — premi «Riavvia ricevitore» per riprovare')
 
-    PPM_KINDS = ('perseus', 'extio', 'iq', 'rtl', 'pluto')
+    PPM_KINDS = ('perseus', 'extio', 'iq', 'rtl', 'pluto', 'spyserver')
 
     def ppm(self):
         """Correzione di frequenza (ppm) del ricevitore attuale."""
@@ -666,7 +681,7 @@ class Hub:
             try:
                 if tunable:
                     # chiavetta: la portante può cadere ±20 kHz più in là, lontano dal picco al centro
-                    off = 20000 if cv else 40000 if self.src_kind in ('rtl', 'pluto') else calib.OFFSET
+                    off = 20000 if cv else 40000 if self.src_kind in ('rtl', 'pluto', 'spyserver') else calib.OFFSET
                     target = int(round(true_rx / k - off))
                     self.src.set_lo(target)
                     t0 = time.time()
@@ -681,7 +696,7 @@ class Hub:
                 self.post_json({'type': 'cal', 'busy': True, 'khz': khz})
                 # LNB: l'errore va da pochi Hz (GPS) a decine di kHz; i beacon di QO-100 sono manipolati
                 m = calib.Measure(self.fs, self.hw_center, true_rx, self.ppm(),
-                                  span_ppm=150.0 if self.src_kind in ('rtl', 'pluto') else 10.0,
+                                  span_ppm=150.0 if self.src_kind in ('rtl', 'pluto', 'spyserver') else 10.0,
                                   span_hz=60000.0 if cv else None, min_steady=0.3 if cv else 0.85)
                 self.cal = m
                 t0 = time.time()
@@ -770,7 +785,7 @@ class Hub:
         log(f"Registrazione: {info['testo']}")
         if self.locked:
             self.locked = False
-            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto') else 'perseus')
+            self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto', 'spyserver') else 'perseus')
         self.post_json(self.cfg_msg())
         return True, info['testo']
 
@@ -1028,7 +1043,7 @@ class Hub:
             busy, self.busy = self.busy, 0.0
             msg = (f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · calcolo {busy / 3 * 100:.0f}%'
                    f' · motore {"sì" if self.engine else "no"}')
-            if self.src_kind in ('rtl', 'pluto'):
+            if self.src_kind in ('rtl', 'pluto', 'spyserver'):
                 msg += f' · in ritardo {self.late}'
                 if getattr(self.src, 'lost', 0):
                     msg += f' · blocchi persi dal Pluto {self.src.lost}'
@@ -1053,7 +1068,7 @@ class Hub:
             self.nodata_n = 0
             self.auto_rs = 0
             return
-        if (self.src_kind not in ('perseus', 'extio', 'rtl', 'pluto') or self.locked or self.cal_busy or self.starting
+        if (self.src_kind not in ('perseus', 'extio', 'rtl', 'pluto', 'spyserver') or self.locked or self.cal_busy or self.starting
                 or time.time() - self.src_t0 < 8 or self.auto_rs >= 3):
             return
         self.nodata_n += 1
@@ -1087,7 +1102,7 @@ class Hub:
                         chunks.append(self.iq_q.get_nowait())
                 except queue.Empty:
                     pass
-                if self.src_kind in ('rtl', 'pluto') and self.fs:
+                if self.src_kind in ('rtl', 'pluto', 'spyserver') and self.fs:
                     # in ritardo di più di 1,5 s (PC occupato): butto il vecchio, così l'ascolto resta in tempo reale
                     back = sum(len(c) for c in chunks) + self.iq_q.qsize() * len(iq)
                     if back > 1.5 * self.fs:
@@ -1107,7 +1122,7 @@ class Hub:
                     self.lock_step(blk)
                 # il riconoscimento del proprio TX (tutta la banda sale di colpo) vale per i ricevitori HF;
                 # con chiavetta e Pluto un cambio di guadagno lo farebbe scattare e zittirebbe l'audio
-                self.engine.tx_guard_on = self.src_kind not in ('rtl', 'pluto')
+                self.engine.tx_guard_on = self.src_kind not in ('rtl', 'pluto', 'spyserver')
                 self.engine.feed(blk)
                 self.busy += time.perf_counter() - t0
                 r, au, w, l = self.engine.take()
@@ -1244,6 +1259,9 @@ class Hub:
             elif self.src_kind == 'pluto':
                 self.cfg['pluto_lo'] = int(round(hw))
                 save_cfg(self.cfg)
+            elif self.src_kind == 'spyserver':
+                self.cfg['spy_lo'] = int(round(hw))
+                save_cfg(self.cfg)
             elif self.src_kind in ('audio', 'iq') and isinstance(self.src, AudioCard):
                 self.cfg['dial'] = self.src.dial
                 save_cfg(self.cfg)
@@ -1324,7 +1342,7 @@ class Hub:
             self.sm_hist.append(dx)
         cal = self.sm_cal()
         c = (SM_CAL_DEFAULT if cal is None else cal) + self.sm_att()
-        if cal is None and self.src_kind in ('rtl', 'pluto'):
+        if cal is None and self.src_kind in ('rtl', 'pluto', 'spyserver'):
             a = self.sm_auto(dx, rx2)                  # chiavetta non tarata: riferimento al rumore di fondo
             if a is not None:
                 c = a
@@ -1555,6 +1573,42 @@ class Hub:
             return {'centro': t[b] + (15000 if k == 'memorie_rtty' else 10000), 'dx': t[b], 'pred': True} if b in t else None
         return {'centro': BANDS[b][2], 'dx': BANDS[b][3], 'pred': True}
 
+    def spy_msg(self):
+        sc = self.cfg.get('spy', {})
+        src = self.src if isinstance(self.src, SpyServerSource) else None
+        inf = (src.info if src else None) or {}
+        return {'host': sc.get('host', ''), 'port': int(sc.get('port', 5555)), 'gain': sc.get('gain'),
+                'recenti': sc.get('recenti', []),
+                'max_gain': inf.get('max_gain', 0), 'dev': src.name if src else None,
+                'can': src.can_control() if src and src.sync else None}
+
+    def spy_set(self, v):
+        sc = self.cfg.setdefault('spy', {})
+        self.sm_floor = None
+        if 'gain' in v:
+            sc['gain'] = None if v['gain'] in (None, '', 'auto') else max(0, int(v['gain']))
+            if isinstance(self.src, SpyServerSource):
+                self.src.set_gain(sc['gain'])
+        restart = False
+        if v.get('host'):
+            h = str(v['host']).strip()
+            h = re.sub(r'^(sdr|tcp|https?)://', '', h, flags=re.I).strip('/ ')     # anche il link copiato dall'elenco
+            if ':' in h:
+                h, _, p = h.rpartition(':')
+                try:
+                    sc['port'] = int(p)
+                except ValueError:
+                    pass
+            sc['host'] = h[:120]
+            ind = f"{sc['host']}:{sc.get('port', 5555)}"
+            sc['recenti'] = ([ind] + [x for x in sc.get('recenti', []) if x != ind])[:12]   # ultimi server usati
+            restart = True
+        save_cfg(self.cfg)
+        if restart and self.src_kind == 'spyserver':
+            self.switch_source('spyserver')
+        else:
+            self.post_json(self.cfg_msg())
+
     def pluto_msg(self):
         pc = self.cfg.get('pluto', {})
         return {'host': pc.get('host', '192.168.2.1'), 'gain': pc.get('gain')}
@@ -1743,6 +1797,11 @@ class Hub:
             return hz < 40e6
         if k == 'pluto':
             return PLUTO_RANGE[0] <= hz <= PLUTO_RANGE[1]
+        if k == 'spyserver':
+            if isinstance(self.src, SpyServerSource) and self.src.info:
+                lo, hi = self.src.freq_range()
+                return lo - 100000 <= hz <= hi + 100000
+            return True
         if k == 'rtl':
             return hz < 30e6 if int(self.cfg.get('rtl', {}).get('direct', 0)) else 24e6 <= hz <= 1766e6
         return True
@@ -1756,6 +1815,8 @@ class Hub:
         k = self.src_kind
         if k == 'perseus':
             return b in HF_BANDS                        # Perseus: fino a 40 MHz
+        if k == 'spyserver':                          # le bande che il ricevitore remoto raggiunge
+            return b != 'QO' and self.band_reach(BANDS[b][2])
         if k == 'pluto':
             return b in ('6', '2', '70', '23')           # Pluto sbloccato: da 46,9 MHz (6 m e 2 m), standard da 325 MHz
         if k == 'rtl':
@@ -1767,7 +1828,7 @@ class Hub:
         return True
 
     def tunable(self):
-        return isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource, RtlTcpSource, PlutoSource))
+        return isinstance(self.src, (PerseusDirect, PerseusExtIO, ExtIOSource, RtlTcpSource, PlutoSource, SpyServerSource))
 
     def go_band(self, b):
         m = self.band_mem(b)
@@ -1823,7 +1884,7 @@ class Hub:
         if e is None:
             # ricevitore non partito: la pagina mostra lo stesso le sue impostazioni (indirizzo del Pluto, di rtl_tcp)
             return {'type': 'cfg', 'ready': False, 'status': self.status, 'status_en': i18n.en(self.status),
-                    'src': self.src_kind, 'pluto': self.pluto_msg(), 'rtl': self.rtl_msg(), **lic}
+                    'src': self.src_kind, 'pluto': self.pluto_msg(), 'spy': self.spy_msg(), 'rtl': self.rtl_msg(), **lic}
         return {'type': 'cfg', 'ready': True, 'fs': e.fs, 'center': self.center, 'dx': self.dx_abs,
                 'nbins': e.nbins_out, 'bw': e.wf_bw, 'f0': e.wf_f0,
                 'rowdt': dsp.ROW_EVERY / dsp.FRAMES_PER_S, 'arate': e.arate, 'up': [e.up_lo / 1000, e.up_hi / 1000],
@@ -1843,7 +1904,7 @@ class Hub:
                 'band_order': [b for b in HF_BANDS + VHF_BANDS + ('QO',) if self.band_ok(b)],
                 'conv': self.conv(), 'beacon_lock': bool(self.cfg.get('beacon_lock')),
                 'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
-                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'banco_v': banco.versione(self.cfg),
+                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'spy': self.spy_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
@@ -1940,7 +2001,7 @@ class Hub:
                     ok, msg = self.register(c.get('call', ''), c.get('key', ''))
                     await ws.send(json.dumps({'type': 'reg', 'ok': ok, 'msg': msg}))
                 elif k == 'restart':
-                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl', 'pluto') else 'perseus')
+                    self.switch_source(self.src_kind if self.src_kind in ('perseus', 'audio', 'iq', 'file', 'extio', 'rtl', 'pluto', 'spyserver') else 'perseus')
                 elif k == 'ui' and isinstance(c.get('v'), dict):
                     ui = self.cfg.setdefault('ui', {})
                     for key in ('span', 'win', 'pal', 'lum', 'con', 'low_rel', 'list', 'lang'):
@@ -2185,9 +2246,11 @@ class Hub:
                         self.set_conv(float(c.get('hz') or 0))
                     except (TypeError, ValueError):
                         pass
+                elif k == 'spy' and isinstance(c.get('v'), dict):
+                    self.spy_set(c['v'])
                 elif k == 'pluto' and isinstance(c.get('v'), dict):
                     self.pluto_set(c['v'])
-                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto'):
+                elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto', 'spyserver'):
                     self.switch_source(c['kind'], c.get('dev'))
                 elif k == 'rtl' and isinstance(c.get('v'), dict):
                     self.rtl_set(c['v'])
@@ -2515,7 +2578,7 @@ def main():
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
     p.add_argument('--porta', type=int, default=8073)
     p.add_argument('--cartella', help='cartella con perseususb.dll e i file .sbs (es. quella di CW Skimmer)')
-    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
+    p.add_argument('--sorgente', choices=['perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto', 'spyserver'], help='ricevitore: perseus, audio (uscita audio della radio), iq (IQ dalla scheda audio)')
     p.add_argument('--extio', action='store_true', help='usa ExtIO_perseus.dll invece del driver diretto')
     p.add_argument('--no-browser', action='store_true', help='non aprire nessuna finestra')
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')

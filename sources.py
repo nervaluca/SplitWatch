@@ -1575,3 +1575,176 @@ class PlutoSource:
         else:
             self._write_attr(self.phy, 'voltage0', 'gain_control_mode', 'manual')
             self._write_attr(self.phy, 'voltage0', 'hardwaregain', int(max(0, min(71, int(db)))))
+
+
+# ---------------------------------------------------------------------------------------------- SpyServer
+SPY_VERSION = (2 << 24) | (0 << 16) | 1700
+SPY_DEVICES = {1: 'Airspy R2/Mini', 2: 'Airspy HF+', 3: 'RTL-SDR'}
+
+
+class SpyServerSource:
+    """Ricevitore remoto con SpyServer (Airspy): Airspy HF+, Airspy R2/Mini o chiavetta RTL-SDR condivisi in rete.
+
+    Protocollo SpyServer v2 (TCP, porta di base 5555): il server manda le caratteristiche del ricevitore, noi
+    chiediamo l'IQ a 16 bit sul centro voluto, con la decimazione che dà circa 150–200 kHz; poi si riduce a
+    ≤ 200 kHz come gli altri ricevitori. Se un altro client comanda il ricevitore (server condiviso) si può
+    spostare il centro solo dentro la banda che il ricevitore sta già ricevendo."""
+
+    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None):
+        self.host, self.port = (host or '').strip(), int(port or 5555)
+        self.center = float(lo_hz)
+        self.on_iq, self.on_status, self.on_rate = on_iq, on_status, on_rate
+        self.gain = gain
+        self.sock = None
+        self.lock = threading.Lock()
+        self.alive = False
+        self.nsamp = 0
+        self.info = None
+        self.sync = None
+        self.got = threading.Event()
+        self.fs = None
+        self.dec = None
+        self.name = 'SpyServer'
+
+    def _send(self, cmd, body):
+        s = self.sock
+        if s is None:
+            return
+        try:
+            with self.lock:
+                s.sendall(struct.pack('<II', cmd, len(body)) + body)
+        except OSError:
+            pass
+
+    def _set(self, setting, value):
+        self._send(2, struct.pack('<II', setting, int(value) & 0xFFFFFFFF))
+
+    def _recv(self, n):
+        b = bytearray()
+        while len(b) < n:
+            d = self.sock.recv(n - len(b))
+            if not d:
+                raise OSError('il server ha chiuso la connessione')
+            b += d
+        return bytes(b)
+
+    def start(self):
+        import socket
+        if not self.host:
+            raise RuntimeError('SpyServer: scrivi l\'indirizzo del server (es. sdr.esempio.it:5555)')
+        try:
+            self.sock = socket.create_connection((self.host, self.port), timeout=6)
+        except OSError as e:
+            raise RuntimeError(f'SpyServer non risponde su {self.host}:{self.port} ({e})')
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 << 20)
+        except OSError:
+            pass
+        self.sock.settimeout(10)
+        self._send(0, struct.pack('<I', SPY_VERSION) + b'FZR Skimmer')
+        self.alive = True
+        threading.Thread(target=self._reader, daemon=True).start()
+        if not self.got.wait(8) or self.info is None:
+            self.stop()
+            raise RuntimeError('SpyServer: il server non ha mandato le caratteristiche del ricevitore '
+                               '(pieno, oppure non è uno SpyServer)')
+        inf = self.info
+        self.name = f'SpyServer {SPY_DEVICES.get(inf["type"], "ricevitore")}'
+        # decimazione: la più forte che lascia almeno 150 kHz
+        decs = list(range(inf['min_dec'], inf['stages'] + 1)) or [0]
+        good = [d for d in decs if inf['max_rate'] / (1 << d) >= 150000]
+        d = max(good) if good else min(decs)
+        self.decim = d
+        rate = inf['max_rate'] / (1 << d)
+        self.dec = Decimator(rate)
+        self.fs = self.dec.fs
+        self._set(100, 2)                                       # IQ a 16 bit
+        self._set(102, d)
+        self._set(0, 1)                                         # solo IQ
+        if self.gain is not None and self.can_control():
+            self._set(2, max(0, min(inf['max_gain'], int(self.gain))))
+        g = self.gain if self.gain is not None else (self.sync or {}).get('gain', 0)
+        dg = (inf['max_gain'] - g if inf['type'] == 1 else 0) + d * 3.01
+        self._set(103, int(dg))
+        self.set_lo(self.center, notify=False)
+        self._set(1, 1)                                         # via
+        self.on_rate(self.fs, self.center)
+        ctl = '' if self.can_control() else ' · ricevitore comandato da un altro: centro solo dentro la sua banda'
+        self.on_status(f'{self.name} · {self.host}:{self.port} · {rate/1000:.0f} kHz → {self.fs/1000:.0f} kHz{ctl}')
+
+    def can_control(self):
+        return bool((self.sync or {}).get('can', 0))
+
+    def _reader(self):
+        try:
+            while self.alive:
+                h = self._recv(20)
+                _proto, mtype, _stream, _seq, size = struct.unpack('<IIIII', h)
+                if size > (1 << 22):
+                    raise OSError('messaggio troppo grande')
+                body = self._recv(size) if size else b''
+                t, flags = mtype & 0xFFFF, (mtype >> 16) & 0xFFFF
+                if t == 0 and len(body) >= 48:
+                    v = struct.unpack('<12I', body[:48])
+                    self.info = {'type': v[0], 'serial': v[1], 'max_rate': v[2], 'bw': v[3], 'stages': v[4],
+                                 'max_gain': v[6], 'fmin': v[7], 'fmax': v[8], 'min_dec': v[10]}
+                elif t == 1 and len(body) >= 36:
+                    v = struct.unpack('<9I', body[:36])
+                    self.sync = {'can': v[0], 'gain': v[1], 'dev_center': v[2], 'iq_center': v[3],
+                                 'iq_min': v[5], 'iq_max': v[6]}
+                    if self.info is not None:
+                        self.got.set()
+                elif t == 101 and self.dec is not None:
+                    g = 10 ** (flags / 20.0)
+                    x = np.frombuffer(body[:len(body) // 4 * 4], '<i2').astype(np.float32) * (1.0 / (32768.0 * g))
+                    y = self.dec(x.view(np.complex64))
+                    if len(y):
+                        self.nsamp += len(y)
+                        self.on_iq(y)
+                elif t == 100 and self.dec is not None:
+                    g = 10 ** (flags / 20.0)
+                    x = (np.frombuffer(body[:len(body) // 2 * 2], np.uint8).astype(np.float32) - 128.0) * (1.0 / (128.0 * g))
+                    y = self.dec(x.view(np.complex64))
+                    if len(y):
+                        self.nsamp += len(y)
+                        self.on_iq(y)
+                if self.info is not None and self.sync is not None:
+                    self.got.set()
+        except (OSError, struct.error) as e:
+            if self.alive:
+                self.on_status(f'SpyServer: connessione persa ({e})')
+        self.alive = False
+
+    def stop(self):
+        if self.sock is not None:
+            self._set(1, 0)
+        self.alive = False
+        try:
+            if self.sock:
+                self.sock.close()
+        except OSError:
+            pass
+        self.sock = None
+
+    def freq_range(self):
+        """(minimo, massimo) del centro IQ: tutto il ricevitore, o la sua banda se lo comanda un altro."""
+        s, i = self.sync or {}, self.info or {}
+        if s.get('iq_max'):
+            return float(s['iq_min']), float(s['iq_max'])
+        if i.get('fmax'):
+            return float(i['fmin']), float(i['fmax'])
+        return 0.0, 2e9
+
+    def set_lo(self, hz, notify=True):
+        lo, hi = self.freq_range()
+        hz = float(min(hi, max(lo, hz)))
+        self.center = hz
+        self._set(101, int(round(hz)))
+        if notify:
+            self.on_rate(self.fs, self.center)
+
+    def set_gain(self, g):
+        self.gain = g
+        if g is not None and self.info and self.can_control():
+            self._set(2, max(0, min(self.info['max_gain'], int(g))))
