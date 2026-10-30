@@ -689,7 +689,7 @@ class Engine:
     def __init__(self, fs, dx_off_hz=0.0, bfo=650.0):
         self.fs = float(fs)
         self.nfft = _nextpow2(self.fs / 47.0)             # ~47 Hz per bin (decoder: 21 ms a 96 kHz)
-        self.nfft = max(1024, self.nfft)
+        self.nfft = max(256, self.nfft)                    # 256 = KiwiSDR (12 kHz): stessa risoluzione nel tempo
         self.hop = int(round(self.fs / FRAMES_PER_S))
         self.binhz = self.fs / self.nfft
         self.win = np.hanning(self.nfft).astype(np.float32)
@@ -738,7 +738,8 @@ class Engine:
         self.pending_listen = []
         self.ring = []                                     # ultimi ~2 s di frame 'strong' (tempo, matrice)
         # audio
-        self.adec = max(1, int(round(self.fs / 8000.0)))
+        # audio a ~8 kHz; sotto i 16 kHz (KiwiSDR a 12 kHz) niente decimazione, se no la SSB non ci starebbe
+        self.adec = 1 if self.fs < 16000 else max(1, int(round(self.fs / 8000.0)))
         self.arate = self.fs / self.adec
         self.nco_ph = 0.0
         self.box_tail = np.zeros(0, np.complex64)
@@ -752,6 +753,7 @@ class Engine:
         self.agc_mode, self.rf_gain = 'slow', 60.0
         self.agc_fixed, self.agc_slow = None, 1.0
         self.tx_ref = None
+        self.tx_t0 = 0.0
         # SSB: due ricevitori (DX e RX2) in stereo; la decodifica CW si spegne
         self.ssb = False
         self.sb = 1                                        # +1 USB, -1 LSB
@@ -868,13 +870,20 @@ class Engine:
     def _tx_guard(self, iq):
         """Riconosce la propria trasmissione: tutta la banda sale di colpo (il TX rientra nel Perseus).
         Durante il TX l'audio tace; appena finisce l'AGC riparte da zero, così il segnale torna subito."""
-        if not len(iq):
-            return self.tx_on
+        if not len(iq) or not getattr(self, 'tx_guard_on', True):
+            self.tx_on = False                                # chiavetta, Pluto: niente TX che rientra
+            return False
         db = 10 * math.log10(float(np.mean(np.abs(iq) ** 2)) + 1e-20)
+        if db < -150:
+            return self.tx_on                                 # blocco vuoto (avvio del ricevitore): non è un livello
         if self.tx_ref is None:
             self.tx_ref = db
+        if self.tx_on and not getattr(self, 'ptt', False) and self.t - self.tx_t0 > 20:
+            self.tx_on = False                                # 20 s «in TX» senza PTT: è cambiato il guadagno,
+            self.tx_ref = db                                  # non è una trasmissione. Nuovo riferimento
         if not self.tx_on and db > self.tx_ref + 25:
             self.tx_on = True
+            self.tx_t0 = self.t
         elif self.tx_on and db < self.tx_ref + 15:
             self.tx_on = False
             self.ptt = False                                  # il TX è finito adesso: non aspetto il PTT della radio

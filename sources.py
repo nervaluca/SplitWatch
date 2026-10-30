@@ -1748,3 +1748,197 @@ class SpyServerSource:
         self.gain = g
         if g is not None and self.info and self.can_control():
             self._set(2, max(0, min(self.info['max_gain'], int(g))))
+
+
+# ---------------------------------------------------------------------------------------------- KiwiSDR
+KIWI_HALF = 0.46                     # banda IQ chiesta: ±46% della frequenza di campionamento
+
+
+class KiwiSource:
+    """Ricevitore remoto KiwiSDR (0–30 MHz) in rete.
+
+    Si apre un canale audio del Kiwi in modo IQ (WebSocket /<ora>/SND, come kiwirecorder): il Kiwi manda l'IQ
+    a 16 bit a circa 12 kHz (20,25 kHz sui Kiwi a 3 canali larghi), cioè una fetta di circa ±5 kHz attorno
+    alla frequenza chiesta. Il waterfall quindi è stretto: si sposta il centro con le memorie, le bande o
+    scrivendo la frequenza. Ogni client occupa un canale del Kiwi."""
+
+    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, password=''):
+        self.host, self.port = (host or '').strip(), int(port or 8073)
+        self.secure = False
+        self.password = password or ''
+        self.center = float(lo_hz)
+        self.on_iq, self.on_status, self.on_rate = on_iq, on_status, on_rate
+        self.gain = gain
+        self.ws = None
+        self.lock = threading.Lock()
+        self.alive = False
+        self.nsamp = 0
+        self.fs = None
+        self.foff = 0.0                  # Kiwi con convertitore: frequenza aggiunta dal Kiwi (Hz)
+        self.bw = 30e6
+        self.rssi = None                 # S-meter del Kiwi (dBm)
+        self.got = threading.Event()
+        self.err = None
+        self.info = {}
+        self.ka = 0.0
+        self.name = 'KiwiSDR'
+
+    def _send(self, txt):
+        ws = self.ws
+        if ws is None:
+            return
+        try:
+            with self.lock:
+                ws.send(txt)
+        except Exception:
+            pass
+
+    def start(self):
+        if not self.host:
+            raise RuntimeError('KiwiSDR: scrivi l\'indirizzo del ricevitore (es. kiwi.esempio.it:8073)')
+        try:
+            from websockets.sync.client import connect
+        except ImportError:
+            raise RuntimeError('KiwiSDR: manca il modulo websockets')
+        url = f'{"wss" if self.secure else "ws"}://{self.host}:{self.port}/{int(time.time()) & 0xFFFFFFFF}/SND'
+        try:
+            self.ws = connect(url, open_timeout=8, close_timeout=1, max_size=None, compression=None,
+                              user_agent_header='FZR Skimmer')
+        except Exception as e:
+            raise RuntimeError(f'KiwiSDR non risponde su {self.host}:{self.port} ({e})')
+        self.alive = True
+        self._send(f'SET auth t=kiwi p={self.password}')
+        threading.Thread(target=self._reader, daemon=True).start()
+        if not self.got.wait(10) or self.fs is None:
+            err = self.err
+            self.stop()
+            raise RuntimeError(f'KiwiSDR: {err}' if err else 'KiwiSDR: il ricevitore non ha mandato i dati '
+                               '(pieno o non è un KiwiSDR)')
+        self.on_rate(self.fs, self.center)
+        nome = self.info.get('nome')
+        self.name = 'KiwiSDR' + (f' {nome}' if nome else '')
+        self.on_status(f'KiwiSDR · {self.host}:{self.port} · IQ {self.fs/1000:.2f} kHz (±{self.fs*KIWI_HALF/1000:.1f} kHz)'
+                       + (f' · {nome}' if nome else ''))
+
+    def _setup(self):
+        """Dopo sample_rate: canale IQ, guadagno, nome; come kiwirecorder."""
+        self._send('SET squelch=0 max=0')
+        self._send('SET genattn=0')
+        self._send('SET gen=0 mix=-1')
+        self._tune()
+        self._agc()
+        self._send('SET compression=0')
+        self._send('SET ident_user=FZR_Skimmer')
+        self._send('SET keepalive')
+
+    def _tune(self):
+        if not self.fs:
+            return
+        h = int(self.fs * KIWI_HALF)
+        f = (self.center - self.foff) / 1000.0
+        self._send(f'SET mod=iq low_cut={-h} high_cut={h} freq={f:.3f}')
+
+    def _agc(self):
+        if self.gain is None:
+            self._send('SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50')
+        else:
+            self._send(f'SET agc=0 hang=0 thresh=-100 slope=6 decay=1000 manGain={int(self.gain)}')
+
+    def _msg(self, txt):
+        from urllib.parse import unquote
+        for pair in txt.split(' '):
+            name, _, value = pair.partition('=')
+            if name == 'too_busy':
+                self.err = f'tutti i {value} canali sono occupati, riprova più tardi o scegli un altro Kiwi'
+            elif name == 'badp':
+                self.err = {'1': 'serve la password (oppure i canali liberi sono tutti occupati)',
+                            '5': 'il Kiwi non accetta più collegamenti dallo stesso indirizzo',
+                            '6': 'il Kiwi si sta aggiornando, riprova fra un minuto'}.get(value) if value != '0' else None
+            elif name == 'down':
+                self.err = 'il Kiwi è fermo in questo momento'
+            elif name == 'redirect':
+                self.err = f'il Kiwi rimanda a {unquote(value)}: usa quell\'indirizzo'
+            elif name == 'inactivity_timeout':
+                self.info['inatt'] = value
+            elif name == 'freq_offset':
+                try:
+                    self.foff = float(value) * 1000.0
+                except ValueError:
+                    pass
+            elif name == 'bandwidth':
+                try:
+                    self.bw = float(value)
+                except ValueError:
+                    pass
+            elif name == 'audio_rate':
+                self._send(f'SET AR OK in={int(float(value))} out=44100')
+            elif name == 'sample_rate':
+                self.fs = float(value)
+                self._setup()
+            elif name == 'load_cfg':
+                try:
+                    d = json.loads(unquote(value))
+                    self.info['nome'] = re.sub(r'<[^>]*>', '', unquote(str(d.get('rx_name', ''))))[:40].strip()
+                    self.info['qth'] = unquote(str(d.get('rx_location', '')))[:60]
+                except Exception:
+                    pass
+        if self.err:
+            self.got.set()
+
+    def _reader(self):
+        try:
+            while self.alive:
+                m = self.ws.recv(timeout=10)
+                if isinstance(m, str):
+                    m = m.encode('latin-1', 'replace')
+                tag, body = m[:3], m[3:]
+                if tag == b'MSG':
+                    self._msg(body[1:].decode('utf-8', 'replace'))
+                elif tag == b'SND' and len(body) > 17 and self.fs:
+                    flags = body[0]
+                    sm = struct.unpack('>H', body[5:7])[0]
+                    self.rssi = 0.1 * sm - 127
+                    data = body[7:]
+                    if not flags & 0x08:                 # non è IQ (stereo): canale non ancora in modo IQ
+                        continue
+                    data = data[10:]                      # intestazione GPS
+                    x = np.frombuffer(data[:len(data) // 4 * 4], '>i2').astype(np.float32) * (1.0 / 32768.0)
+                    y = x.view(np.complex64)
+                    if len(y):
+                        self.nsamp += len(y)
+                        self.on_iq(y)
+                    if not self.got.is_set():
+                        self.got.set()
+                t = time.time()
+                if t - self.ka >= 1.0:                    # il Kiwi chiude i client che non si fanno vivi
+                    self.ka = t
+                    self._send('SET keepalive')
+        except Exception as e:
+            if self.alive:
+                why = self.err or str(e) or 'chiusa dal Kiwi'
+                self.on_status(f'KiwiSDR: connessione persa ({why})')
+        self.alive = False
+        self.got.set()
+
+    def stop(self):
+        self.alive = False
+        ws, self.ws = self.ws, None
+        try:
+            if ws is not None:
+                ws.close()
+        except Exception:
+            pass
+
+    def freq_range(self):
+        return self.foff, self.foff + self.bw
+
+    def set_lo(self, hz, notify=True):
+        lo, hi = self.freq_range()
+        self.center = float(min(hi, max(lo, hz)))
+        self._tune()
+        if notify and self.fs:
+            self.on_rate(self.fs, self.center)
+
+    def set_gain(self, g):
+        self.gain = g
+        self._agc()
