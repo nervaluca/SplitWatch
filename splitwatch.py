@@ -69,7 +69,7 @@ import banco
 import ponti
 
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.76'
+VERSION = '1.77'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -462,7 +462,8 @@ class Hub:
             sc = self.cfg.get('spy', {})
             lo = float(self.cfg.get('spy_lo', self.cfg.get('lo', 14100000)))
             self.src = SpyServerSource(sc.get('host', ''), int(sc.get('port', 5555)), lo, self.on_iq, self.on_status,
-                                       self.on_rate, gain=sc.get('gain'))
+                                       self.on_rate, gain=sc.get('gain'), bw=int(sc.get('bw', 96)) * 1000,
+                                       bits=int(sc.get('bits', 8)))
             try:
                 self.src.start()
             except Exception:
@@ -1601,7 +1602,7 @@ class Hub:
         src = self.src if isinstance(self.src, SpyServerSource) else None
         inf = (src.info if src else None) or {}
         return {'host': sc.get('host', ''), 'port': int(sc.get('port', 5555)), 'gain': sc.get('gain'),
-                'recenti': sc.get('recenti', []),
+                'recenti': sc.get('recenti', []), 'bw': int(sc.get('bw', 96)), 'bits': int(sc.get('bits', 8)),
                 'max_gain': inf.get('max_gain', 0), 'dev': src.name if src else None,
                 'can': src.can_control() if src and src.sync else None}
 
@@ -1613,6 +1614,12 @@ class Hub:
             if isinstance(self.src, SpyServerSource):
                 self.src.set_gain(sc['gain'])
         restart = False
+        if v.get('bw') in (48, 96, 192):
+            sc['bw'] = int(v['bw'])
+            restart = True
+        if v.get('bits') in (8, 16):
+            sc['bits'] = int(v['bits'])
+            restart = True
         if v.get('host'):
             h = str(v['host']).strip()
             h = re.sub(r'^(sdr|tcp|https?)://', '', h, flags=re.I).strip('/ ')     # anche il link copiato dall'elenco

@@ -1590,8 +1590,10 @@ class SpyServerSource:
     ≤ 200 kHz come gli altri ricevitori. Se un altro client comanda il ricevitore (server condiviso) si può
     spostare il centro solo dentro la banda che il ricevitore sta già ricevendo."""
 
-    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None):
+    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, bw=96000, bits=8):
         self.host, self.port = (host or '').strip(), int(port or 5555)
+        self.bw_req = float(bw or 96000)           # banda chiesta: meno banda = meno dati da Internet
+        self.bits = 16 if int(bits or 8) >= 16 else 8
         self.center = float(lo_hz)
         self.on_iq, self.on_status, self.on_rate = on_iq, on_status, on_rate
         self.gain = gain
@@ -1651,15 +1653,15 @@ class SpyServerSource:
                                '(pieno, oppure non è uno SpyServer)')
         inf = self.info
         self.name = f'SpyServer {SPY_DEVICES.get(inf["type"], "ricevitore")}'
-        # decimazione: la più forte che lascia almeno 150 kHz
+        # decimazione: la più forte che lascia almeno la banda chiesta (3/4: 192 → 150 kHz con l'Airspy R2)
         decs = list(range(inf['min_dec'], inf['stages'] + 1)) or [0]
-        good = [d for d in decs if inf['max_rate'] / (1 << d) >= 150000]
+        good = [d for d in decs if inf['max_rate'] / (1 << d) >= 0.75 * self.bw_req]
         d = max(good) if good else min(decs)
         self.decim = d
         rate = inf['max_rate'] / (1 << d)
         self.dec = Decimator(rate)
         self.fs = self.dec.fs
-        self._set(100, 2)                                       # IQ a 16 bit
+        self._set(100, 2 if self.bits == 16 else 1)             # IQ a 16 bit o a 8 bit (metà dei dati)
         self._set(102, d)
         self._set(0, 1)                                         # solo IQ
         if self.gain is not None and self.can_control():
@@ -1671,7 +1673,9 @@ class SpyServerSource:
         self._set(1, 1)                                         # via
         self.on_rate(self.fs, self.center)
         ctl = '' if self.can_control() else ' · ricevitore comandato da un altro: centro solo dentro la sua banda'
-        self.on_status(f'{self.name} · {self.host}:{self.port} · {rate/1000:.0f} kHz → {self.fs/1000:.0f} kHz{ctl}')
+        mbit = rate * 2 * (2 if self.bits == 16 else 1) * 8 / 1e6
+        self.on_status(f'{self.name} · {self.host}:{self.port} · {rate/1000:.0f} kHz {self.bits} bit '
+                       f'({mbit:.1f} Mbit/s){ctl}')
 
     def can_control(self):
         return bool((self.sync or {}).get('can', 0))
