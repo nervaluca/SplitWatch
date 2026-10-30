@@ -479,7 +479,8 @@ class Hub:
             if lo > 32e6:
                 lo = 14025000.0
             self.src = KiwiSource(kc.get('host', ''), int(kc.get('port', 8073)), lo, self.on_iq, self.on_status,
-                                  self.on_rate, gain=kc.get('gain'), password=kc.get('pw', ''))
+                                  self.on_rate, gain=kc.get('gain'), password=kc.get('pw', ''),
+                                  on_wf=self.on_kwf, wf_zoom=int(kc.get('wfz', 9)))
             self.src.secure = bool(kc.get('ssl'))
             try:
                 self.src.start()
@@ -1631,11 +1632,20 @@ class Hub:
         else:
             self.post_json(self.cfg_msg())
 
+    def on_kwf(self, data, f0, span):
+        """Riga del waterfall largo del Kiwi: al massimo ~12 al secondo verso la pagina."""
+        t = time.time()
+        if t - getattr(self, '_kwf_t', 0.0) < 0.08:
+            return
+        self._kwf_t = t
+        self.post_bin(b'\x04' + struct.pack('<dd', float(f0), float(span)) + data.tobytes())
+
     def kiwi_msg(self):
         kc = self.cfg.get('kiwi', {})
         src = self.src if isinstance(self.src, KiwiSource) else None
         return {'host': kc.get('host', ''), 'port': int(kc.get('port', 8073)), 'gain': kc.get('gain'),
                 'ssl': bool(kc.get('ssl')), 'pw': bool(kc.get('pw')), 'recenti': kc.get('recenti', []),
+                'wfz': int(kc.get('wfz', 9)), 'wf': bool(src and src.wf_ok),
                 'dev': src.name if src else None, 'qth': (src.info.get('qth') if src else None) or ''}
 
     def kiwi_set(self, v):
@@ -1645,6 +1655,10 @@ class Hub:
             kc['gain'] = None if v['gain'] in (None, '', 'auto') else max(0, min(120, int(v['gain'])))
             if isinstance(self.src, KiwiSource):
                 self.src.set_gain(kc['gain'])
+        if 'wfz' in v:
+            kc['wfz'] = max(4, min(14, int(v['wfz'])))
+            if isinstance(self.src, KiwiSource):
+                self.src.set_wf_zoom(kc['wfz'])
         restart = False
         if 'pw' in v:
             kc['pw'] = str(v['pw'] or '')[:60]

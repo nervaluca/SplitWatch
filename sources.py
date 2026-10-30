@@ -1762,8 +1762,14 @@ class KiwiSource:
     alla frequenza chiesta. Il waterfall quindi è stretto: si sposta il centro con le memorie, le bande o
     scrivendo la frequenza. Ogni client occupa un canale del Kiwi."""
 
-    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, password=''):
+    def __init__(self, host, port, lo_hz, on_iq, on_status, on_rate, gain=None, password='', on_wf=None, wf_zoom=9):
         self.host, self.port = (host or '').strip(), int(port or 8073)
+        self.on_wf = on_wf               # waterfall largo del Kiwi: on_wf(bins uint8, f0_hz, span_hz)
+        self.wf_zoom = int(wf_zoom)
+        self.wf_cf = None
+        self.wfs = None
+        self.wf_ok = False
+        self.ts = int(time.time()) & 0xFFFFFFFF
         self.secure = False
         self.password = password or ''
         self.center = float(lo_hz)
@@ -1800,7 +1806,7 @@ class KiwiSource:
             from websockets.sync.client import connect
         except ImportError:
             raise RuntimeError('KiwiSDR: manca il modulo websockets')
-        url = f'{"wss" if self.secure else "ws"}://{self.host}:{self.port}/{int(time.time()) & 0xFFFFFFFF}/SND'
+        url = self._url('SND')
         try:
             self.ws = connect(url, open_timeout=8, close_timeout=1, max_size=None, compression=None,
                               user_agent_header='FZR Skimmer')
@@ -1815,10 +1821,104 @@ class KiwiSource:
             raise RuntimeError(f'KiwiSDR: {err}' if err else 'KiwiSDR: il ricevitore non ha mandato i dati '
                                '(pieno o non è un KiwiSDR)')
         self.on_rate(self.fs, self.center)
+        if self.on_wf is not None:
+            threading.Thread(target=self._wf_thread, daemon=True).start()
         nome = self.info.get('nome')
         self.name = 'KiwiSDR' + (f' {nome}' if nome else '')
         self.on_status(f'KiwiSDR · {self.host}:{self.port} · IQ {self.fs/1000:.2f} kHz (±{self.fs*KIWI_HALF/1000:.1f} kHz)'
                        + (f' · {nome}' if nome else ''))
+
+    def _url(self, which):
+        # stessa «ora» per audio e waterfall: per il Kiwi sono un solo utente, come la sua pagina web
+        return f'{"wss" if self.secure else "ws"}://{self.host}:{self.port}/{self.ts}/{which}'
+
+    # ------------------------------------------------------------------ waterfall largo (flusso W/F del Kiwi)
+    def _wf_send(self, txt):
+        ws = self.wfs
+        if ws is None:
+            return
+        try:
+            ws.send(txt)
+        except Exception:
+            pass
+
+    def _wf_tune(self):
+        """Centro del waterfall largo = centro della fetta IQ (dentro i limiti del Kiwi)."""
+        if self.wfs is None or not self.wf_ok:
+            return
+        z = max(0, min(14, self.wf_zoom))
+        span = self.bw / (1 << z)
+        cf = self.center - self.foff
+        cf = min(self.bw - span / 2, max(span / 2, cf))
+        self.wf_cf = cf
+        self._wf_send(f'SET zoom={z} cf={cf / 1000.0:.3f}')
+
+    def set_wf_zoom(self, z):
+        self.wf_zoom = max(4, min(14, int(z)))
+        self._wf_tune()
+
+    def _wf_thread(self):
+        try:
+            from websockets.sync.client import connect
+            self.wfs = connect(self._url('W/F'), open_timeout=8, close_timeout=1, max_size=None, compression=None,
+                               user_agent_header='FZR Skimmer')
+        except Exception as e:
+            self.on_status(f'KiwiSDR: waterfall largo non disponibile ({e})')
+            self.wfs = None
+            return
+        self._wf_send(f'SET auth t=kiwi p={self.password}')
+        last_ka = 0.0
+        try:
+            while self.alive and self.wfs is not None:
+                m = self.wfs.recv(timeout=10)
+                if isinstance(m, str):
+                    m = m.encode('latin-1', 'replace')
+                tag, body = m[:3], m[3:]
+                if tag == b'MSG':
+                    txt = body[1:].decode('utf-8', 'replace')
+                    for pair in txt.split(' '):
+                        name, _, value = pair.partition('=')
+                        if name == 'wf_setup':
+                            self.wf_ok = True
+                            self._wf_send('SET maxdb=-10 mindb=-110')
+                            self._wf_send('SET wf_speed=4')
+                            self._wf_send('SET wf_comp=0')
+                            self._wf_send('SET interp=13')
+                            self._wf_send('SET ident_user=FZR_Skimmer')
+                            self._wf_tune()
+                        elif name in ('too_busy', 'down') or (name == 'badp' and value not in ('0', '')):
+                            self.on_status('KiwiSDR: waterfall largo non disponibile su questo Kiwi '
+                                           '(canali waterfall occupati)')
+                            return
+                elif tag == b'W/F' and len(body) > 13:
+                    x_bin, zf, _seq = struct.unpack('<III', body[1:13])
+                    data = np.frombuffer(body[13:], np.uint8)
+                    z = zf & 0xFFFF
+                    if z > 14 or len(data) < 64:
+                        continue
+                    nb = len(data)
+                    span = self.bw / (1 << z)
+                    f0 = x_bin * self.bw / (1024 * (1 << 14)) + self.foff     # bordo basso (Hz)
+                    if self.wf_cf is not None and z == self.wf_zoom and abs(f0 - (self.wf_cf + self.foff - span / 2)) > span:
+                        f0 = self.wf_cf + self.foff - span / 2                  # Kiwi vecchio: uso il centro chiesto
+                    try:
+                        self.on_wf(data, f0, span)
+                    except Exception:
+                        pass
+                t = time.time()
+                if t - last_ka >= 1.0:
+                    last_ka = t
+                    self._wf_send('SET keepalive')
+        except Exception:
+            pass
+        finally:
+            ws, self.wfs = self.wfs, None
+            self.wf_ok = False
+            try:
+                if ws is not None:
+                    ws.close()
+            except Exception:
+                pass
 
     def _setup(self):
         """Dopo sample_rate: canale IQ, guadagno, nome; come kiwirecorder."""
@@ -1922,6 +2022,12 @@ class KiwiSource:
 
     def stop(self):
         self.alive = False
+        wfs, self.wfs = self.wfs, None
+        try:
+            if wfs is not None:
+                wfs.close()
+        except Exception:
+            pass
         ws, self.ws = self.ws, None
         try:
             if ws is not None:
@@ -1936,6 +2042,7 @@ class KiwiSource:
         lo, hi = self.freq_range()
         self.center = float(min(hi, max(lo, hz)))
         self._tune()
+        self._wf_tune()
         if notify and self.fs:
             self.on_rate(self.fs, self.center)
 
