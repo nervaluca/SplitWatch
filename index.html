@@ -790,7 +790,7 @@ async function autoAudio(){
   addEventListener('pointerdown',go,true);addEventListener('keydown',go,true);
   startAudio().then(()=>{if(ac&&ac.state==='running')off()}).catch(()=>{});
 }
-let VOL1=70,VOL2=70,PAN='dxl',MUTEDX=false,RX2ON=true,AF=70,SPLIT=true;
+let LIMG=1,VOL1=70,VOL2=70,PAN='dxl',MUTEDX=false,RX2ON=true,AF=70,SPLIT=true;
 const rx2Live=()=>SPLIT&&RX2ON;      // VFO B si sente e si vede solo con lo SPLIT acceso
 try{const v=localStorage.getItem('fzr_af');if(v!=null)AF=+v}catch(e){}
 const afGain=()=>AF<=0?0:Math.pow(AF/70,2);        // 70 = normale, 100 = il doppio
@@ -805,7 +805,10 @@ function playAudio(i16,stereo){
     for(let i=0;i<n;i++){const d=i16[2*i]*q*gD,r=i16[2*i+1]*q*gR;
       if(solo){const v=d+r;f[2*i]=v;f[2*i+1]=v}     // un solo ricevitore acceso: lo senti in tutte e due le orecchie
       else if(PAN==='dxl'){f[2*i]=d;f[2*i+1]=r}else if(PAN==='rxl'){f[2*i]=r;f[2*i+1]=d}else{const v=(d+r)*0.7;f[2*i]=v;f[2*i+1]=v}}}
-  for(let i=0;i<f.length;i++){const v=f[i],a=v<0?-v:v;if(a>0.8)f[i]=(v<0?-1:1)*(0.8+0.2*Math.tanh((a-0.8)/0.2))}   // volume alto: niente distorsione dura
+  // limitatore: se VOL × AF porta la nota oltre il massimo abbassa il guadagno (subito) e lo rialza piano (~0,5 s),
+  // invece di tagliare le creste dell'onda (onda squadrata = nota stridula)
+  {const rel=1/(0.5*CFG.arate);let g=LIMG;for(let i=0;i<f.length;i+=2){const a=Math.max(Math.abs(f[i]),Math.abs(f[i+1]));
+    if(a*g>0.89)g=0.89/a;else g+=(1-g)*rel;f[i]*=g;f[i+1]*=g}LIMG=g}
   if(node){node.port.postMessage(f,[f.buffer]);return}
   const buf=ac.createBuffer(2,n,CFG.arate),d=buf.getChannelData(0),d2=buf.getChannelData(1);for(let i=0;i<n;i++){d[i]=f[2*i];d2[i]=f[2*i+1]}
   const now=ac.currentTime;
