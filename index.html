@@ -724,20 +724,21 @@ function addRows(t0,n,nb,bytes){
 let ac=null,audioOn=false,nextT=0,node=null,acRate=0;
 const WORKLET=`class R extends AudioWorkletProcessor{
   // anello di coppie sinistra/destra (stereo: DX e VFO B in SSB; in CW i due canali sono uguali)
-  // riserva adattiva: se il buffer si svuota (dati da Internet irregolari) la riserva cresce, poi torna giù piano;
-  // gli orologi diversi si compensano allungando o accorciando di un campione ogni tanto, senza buchi
-  constructor(){super();this.b=new Float32Array(1<<17);this.w=0;this.r=0;this.n=0;this.g=0;this.run=false;this.lat=0.12;this.cur=0.12;this.ok=0;
-    this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.run=false;return}if(d&&d.lat){this.lat=this.cur=d.lat;return}
+  // riserva adattiva: se il buffer si svuota (dati da Internet irregolari) la riserva cresce, poi torna giù piano.
+  // Orologi diversi: la lettura va un filo più veloce o più lenta (al massimo ±0,5%, interpolando fra i campioni),
+  // così la nota CW resta pulita: niente campioni saltati o ripetuti
+  constructor(){super();this.b=new Float32Array(1<<17);this.w=0;this.r=0;this.fr=0;this.k=1;this.n=0;this.g=0;this.run=false;this.lat=0.12;this.cur=0.12;this.ok=0;
+    this.port.onmessage=e=>{const d=e.data;if(d==='flush'){this.w=this.r=this.n=0;this.fr=0;this.k=1;this.run=false;return}if(d&&d.lat){this.lat=this.cur=d.lat;return}
       const k=d.length>>1;for(let i=0;i<k;i++){this.b[2*this.w]=d[2*i];this.b[2*this.w+1]=d[2*i+1];this.w=(this.w+1)&65535}this.n=Math.min(65535,this.n+k)}}
-  process(_,out){const oL=out[0][0],oR=out[0][1]||null,T=sampleRate*this.cur;
+  process(_,out){const oL=out[0][0],oR=out[0][1]||null,T=sampleRate*this.cur,b=this.b;
     if(!this.run&&this.n>=T)this.run=true;
+    if(this.run&&this.n>T*4){const d=Math.floor(this.n-T);this.r=(this.r+d)&65535;this.n-=d}   // molto in ritardo: si riparte da T
+    const kt=1+Math.max(-0.005,Math.min(0.005,(this.n-T)/T*0.01));this.k+=(kt-this.k)*0.02;
     for(let i=0;i<oL.length;i++){
       let l=0,r=0;
-      if(this.run&&this.n>0){l=this.b[2*this.r];r=this.b[2*this.r+1];
-        // troppo pieno: salta un campione ogni tanto; quasi vuoto: ripete un campione ogni tanto
-        const sk=this.n>T*2&&(i&63)===0,st=this.n<T*0.5&&(i&63)===0;
-        if(!st){this.r=(this.r+1)&65535;this.n--}
-        if(sk&&this.n>0){this.r=(this.r+1)&65535;this.n--}
+      if(this.run&&this.n>1){const a=2*this.r,c=2*((this.r+1)&65535),f=this.fr;
+        l=b[a]+(b[c]-b[a])*f;r=b[a+1]+(b[c+1]-b[a+1])*f;
+        this.fr+=this.k;while(this.fr>=1){this.fr-=1;this.r=(this.r+1)&65535;this.n--}
         this.g=Math.min(1,this.g+0.004)}
       else{if(this.run){this.cur=Math.min(this.lat*4,this.cur*1.5);this.ok=0}this.run=false;this.g=Math.max(0,this.g-0.004)}
       oL[i]=l*this.g;if(oR)oR[i]=r*this.g}
@@ -804,6 +805,7 @@ function playAudio(i16,stereo){
     for(let i=0;i<n;i++){const d=i16[2*i]*q*gD,r=i16[2*i+1]*q*gR;
       if(solo){const v=d+r;f[2*i]=v;f[2*i+1]=v}     // un solo ricevitore acceso: lo senti in tutte e due le orecchie
       else if(PAN==='dxl'){f[2*i]=d;f[2*i+1]=r}else if(PAN==='rxl'){f[2*i]=r;f[2*i+1]=d}else{const v=(d+r)*0.7;f[2*i]=v;f[2*i+1]=v}}}
+  for(let i=0;i<f.length;i++){const v=f[i],a=v<0?-v:v;if(a>0.8)f[i]=(v<0?-1:1)*(0.8+0.2*Math.tanh((a-0.8)/0.2))}   // volume alto: niente distorsione dura
   if(node){node.port.postMessage(f,[f.buffer]);return}
   const buf=ac.createBuffer(2,n,CFG.arate),d=buf.getChannelData(0),d2=buf.getChannelData(1);for(let i=0;i<n;i++){d[i]=f[2*i];d2[i]=f[2*i+1]}
   const now=ac.currentTime;

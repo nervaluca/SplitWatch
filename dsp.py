@@ -302,6 +302,19 @@ def _hyst(E, on, off, prev):
     return np.where(idx >= 0, st[np.maximum(idx, 0), cols], prev[None, :]).astype(np.int8)
 
 
+def soft_limit(x, knee=0.75):
+    """Limitatore finale: lineare fino a knee (la nota resta pulita, niente armoniche), sopra comprime
+    dolcemente verso 1. Prima era tanh su tutto il segnale: la nota CW aveva la 3ª armonica a -28 dB."""
+    x = np.asarray(x, np.float64)
+    a = np.abs(x)
+    over = a > knee
+    if over.any():
+        r = 1.0 - knee
+        x = x.copy()
+        x[over] = np.sign(x[over]) * (knee + r * np.tanh((a[over] - knee) / r))
+    return x
+
+
 def agc_run(env, st, arate, slow_s):
     """AGC campione per campione: attacco 2 ms, discesa lenta (slow_s); se il segnale resta più di 20 dB
     sotto il livello dell'AGC per 0,35 s (fine della trasmissione, un segnale fortissimo sparito)
@@ -984,7 +997,7 @@ class Engine:
                 st = np.empty(2 * m, np.float64)
                 st[0::2] = a1[:m]                         # canale 0 = DX, canale 1 = RX2 (il mix lo fa la pagina)
                 st[1::2] = a2[:m]
-                self.out_audio.append((np.tanh(st * 1.2) / 1.2 * 30000).astype('<i2'))
+                self.out_audio.append((soft_limit(st) * 30000).astype('<i2'))
             return
         n = len(iq)
         ph = self.nco_ph + (-2 * np.pi * self.dx_off / self.fs) * np.arange(n)
@@ -1015,7 +1028,7 @@ class Engine:
         if getattr(self, 'ptt', False):
             a[env > 6 * self.agc_st[0]] = 0.0
         a = self.anr[0].process(a, self.nr_lvl, False)
-        self.out_audio.append((np.tanh(a * 1.2) / 1.2 * 30000).astype('<i2'))
+        self.out_audio.append((soft_limit(a) * 30000).astype('<i2'))
 
     # ------------------------------------------------------------------ frame STFT
     def _ftime(self, j):
