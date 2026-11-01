@@ -14,7 +14,7 @@ import numpy as np
 
 FRAMES_PER_S = 200          # STFT del decoder: un frame ogni 5 ms
 ROW_EVERY = 2               # 1 riga di waterfall ogni 2 frame = 100 righe/s
-MAX_BINS = 4096             # righe di waterfall inviate al browser al massimo
+MAX_BINS = 8192             # punti per riga di waterfall al browser (a 192 kHz: tutti, 23 Hz l'uno)
 THR_ON, THR_OFF = 0.6, 0.5   # soglie del canale: frazione (logaritmica) tra rumore e segnale
 S_DECAY = 0.9              # discesa del livello del segnale ogni 0,1 s
 CHAR_G, WORD_G = 2.0, 4.0   # spazi tra lettere e tra parole, in unità
@@ -997,7 +997,7 @@ class Engine:
                 st = np.empty(2 * m, np.float64)
                 st[0::2] = a1[:m]                         # canale 0 = DX, canale 1 = RX2 (il mix lo fa la pagina)
                 st[1::2] = a2[:m]
-                self.out_audio.append((soft_limit(st) * 30000).astype('<i2'))
+                self.out_audio.append((soft_limit(st) * 25500).astype('<i2'))
             return
         n = len(iq)
         ph = self.nco_ph + (-2 * np.pi * self.dx_off / self.fs) * np.arange(n)
@@ -1028,7 +1028,7 @@ class Engine:
         if getattr(self, 'ptt', False):
             a[env > 6 * self.agc_st[0]] = 0.0
         a = self.anr[0].process(a, self.nr_lvl, False)
-        self.out_audio.append((soft_limit(a) * 30000).astype('<i2'))
+        self.out_audio.append((soft_limit(a) * 25500).astype('<i2'))
 
     # ------------------------------------------------------------------ frame STFT
     def _ftime(self, j):
@@ -1240,7 +1240,9 @@ class Engine:
             c = db[nb // 4: 3 * nb // 4]
             fl = float(np.partition(c, len(c) // 2)[len(c) // 2])   # rumore dalla metà centrale
             self.row_floor = fl if self.row_floor is None else self.row_floor * 0.8 + fl * 0.2
-        q = np.clip((db - self.row_floor - 2.0) / 32.0, 0, 1) ** 0.8
+        # 45 dB sopra il fondo (prima 32: i segnali forti diventavano tutti bianchi e larghi);
+        # curva che scurisce i bassi: le «spalle» dei segnali restano scure, le tracce sottili
+        q = np.clip((db - self.row_floor - 3.0) / 45.0, 0, 1) ** 1.3
         self.out_rows.append((t, (q * 255).astype(np.uint8)))
 
     def _sfreq(self, k):
