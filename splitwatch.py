@@ -1844,20 +1844,22 @@ class Hub:
         def run():
             try:
                 expect_rx = self.dx_abs - self.conv()               # dove deve arrivare, al ricevitore
-                self.keyer.tune(4.5)
+                k = 1 + self.ppm() * 1e-6
+                pr = txmod.TxProbe(self.fs, expect_rx / k - self.hw_center)
+                self.cal = pr
+                pr.phase = 'off'                                    # prima il fondo, chiave alzata
+                time.sleep(1.2)
+                pr.phase = None
+                self.keyer.tune(4.0)
                 time.sleep(1.0)                                     # salita, satellite (~0,27 s) e AGC
-                m = calib.Measure(self.fs, self.hw_center, expect_rx, self.ppm(), secs=2.5,
-                                  span_hz=6000.0, min_steady=0.8)
-                self.cal = m
-                t0 = time.time()
-                while not m.done and time.time() - t0 < 6:
-                    time.sleep(0.05)
+                pr.phase = 'on'
+                time.sleep(2.2)
+                pr.phase = None
+                self.keyer.stop()
                 self.cal = None
-                if not m.done:
-                    raise RuntimeError('dati insufficienti dal ricevitore')
-                r = m.result()
+                r = pr.result()
                 if not r['ok']:
-                    raise RuntimeError(f'non vedo la mia portante sulla discesa ({r["why"]}, {r["snr"]} dB)')
+                    raise RuntimeError(r['why'])
                 t = self.tx_cfg()
                 t['corr'] = round(float(t.get('corr', 0.0)) - r['err_hz'], 1)
                 save_cfg(self.cfg)
@@ -1869,6 +1871,35 @@ class Hub:
                 self.cal = None
                 self.cal_busy = False
                 self.post_json(self.cfg_msg())
+        threading.Thread(target=run, daemon=True).start()
+
+    def tx_stream_test(self):
+        """Prova di banda per la SSB (10 s di due toni in streaming, ricezione accesa)."""
+        if not self.keyer or not self.tx or self.keyer.busy or self.cal_busy:
+            self.post_json({'type': 'txtest', 'ok': False, 'why': 'TX non pronto'})
+            return
+        up = self.tx_up()
+        if up is None:
+            self.post_json({'type': 'txtest', 'ok': False, 'why': 'metti il VFO A in una zona libera del transponder'})
+            return
+        self.cal_busy = True
+
+        def run():
+            lost0 = getattr(self.src, 'lost', 0)
+            n0, t0 = getattr(self.src, 'nsamp', 0), time.time()
+            self.on_tx_ptt(True)
+            try:
+                r = txmod.stream_test(self.tx, up, 10.0)
+            finally:
+                self.on_tx_ptt(False)
+                self.cal_busy = False
+            dt = time.time() - t0
+            r['rx_rate'] = round((getattr(self.src, 'nsamp', 0) - n0) / max(0.1, dt) / 1000, 1)   # kHz dopo il Decimator
+            r['rx_lost'] = getattr(self.src, 'lost', 0) - lost0
+            r['ok'] = bool(r.get('ok')) and r['rx_lost'] == 0
+            r['type'] = 'txtest'
+            log(f'Prova streaming TX: {r}')
+            self.post_json(r)
         threading.Thread(target=run, daemon=True).start()
 
     def pluto_msg(self):
@@ -2537,6 +2568,8 @@ class Hub:
                     self.keyer.tune(min(10.0, float(c.get('s', 5))))
                 elif k == 'tx_cal':
                     self.tx_cal()
+                elif k == 'tx_stream_test':
+                    self.tx_stream_test()
                 elif k == 'pluto' and isinstance(c.get('v'), dict):
                     self.pluto_set(c['v'])
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto', 'spyserver', 'kiwi'):

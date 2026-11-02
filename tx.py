@@ -136,9 +136,15 @@ class PlutoTx:
                 self.phy = did
             elif nm == 'cf-ad9361-dds-core-lpc':
                 self.dds = did
+                idx = {}
                 for c in d.iter('channel'):
                     if c.get('type') == 'output' and c.get('name'):
                         self.dch[c.get('name')] = c.get('id')
+                    se = c.find('scan-element')
+                    if c.get('type') == 'output' and se is not None:
+                        idx[c.get('id')] = int(se.get('index'))
+                self.tx_nch = max(idx.values()) + 1 if idx else 2
+                self.tx_mask = (1 << idx.get('voltage0', 0)) | (1 << idx.get('voltage1', 1))
         if not self.phy or not self.dds or 'TX1_I_F1' not in self.dch:
             raise RuntimeError('TX: il Pluto non ha il generatore di toni (DDS) dove me lo aspetto')
         p, dch = self.phy, self.dch
@@ -159,7 +165,7 @@ class PlutoTx:
         d, c = self.dds, self.dch
         for nm in ('TX1_I_F1', 'TX1_Q_F1'):
             self._write(d, c[nm], 'frequency', DDS_F)
-            self._write(d, c[nm], 'scale', 0.7)
+            self._write(d, c[nm], 'scale', 0.95)
         self._write(d, c['TX1_I_F1'], 'phase', 0 if self.inv else 90000)
         self._write(d, c['TX1_Q_F1'], 'phase', 90000 if self.inv else 0)
         try:
@@ -340,3 +346,159 @@ class CwKeyer:
             sent += tk
         _wait_until(t)
         self.on_progress(sent, '')
+
+
+class TxProbe:
+    """Trova la propria portante sulla discesa per differenza: spettro a chiave alzata e a chiave giù.
+
+    Cerca entro ±span Hz da dove deve arrivare (l'LNB può sbagliare di decine di kHz): vince la riga che sale
+    di più quando si trasmette, quindi i beacon e le altre stazioni non ingannano. Poi la frequenza fine."""
+
+    def __init__(self, fs, expect_off, span=40000.0):
+        self.fs, self.e, self.span = float(fs), float(expect_off), float(span)
+        self.phase = None             # 'off' | 'on' | None
+        self.buf = {'off': [], 'on': []}
+        self.n = {'off': 0, 'on': 0}
+
+    def feed(self, iq):
+        if self.phase in self.buf:
+            self.buf[self.phase].append(iq.copy())
+            self.n[self.phase] += len(iq)
+
+    @property
+    def done(self):                   # compatibile con il giro della calibrazione (non usato)
+        return False
+
+    def _base(self, x):
+        import numpy as np
+        t = np.arange(len(x)) / self.fs
+        y = x * np.exp(-2j * np.pi * self.e * t).astype(np.complex64)
+        d = max(1, int(self.fs // (2.4 * self.span)))
+        m = len(y) // d
+        return y[:m * d].reshape(m, d).mean(1), self.fs / d
+
+    def _psd(self, y, nfft):
+        import numpy as np
+        w = np.hanning(nfft).astype(np.float32)
+        segs = [y[i:i + nfft] for i in range(0, len(y) - nfft + 1, nfft // 2)]
+        return np.mean([np.abs(np.fft.fft(s * w)) ** 2 for s in segs], axis=0) + 1e-20
+
+    def result(self):
+        import numpy as np
+        if self.n['off'] < self.fs * 0.5 or self.n['on'] < self.fs * 0.8:
+            return {'ok': False, 'why': 'dati insufficienti dal ricevitore'}
+        yo, fs2 = self._base(np.concatenate(self.buf['off']))
+        yi, _ = self._base(np.concatenate(self.buf['on']))
+        nfft = 1 << int(np.log2(fs2 / 12.0))          # ~12 Hz per riga
+        po, pi = self._psd(yo, nfft), self._psd(yi, nfft)
+        f = np.fft.fftfreq(nfft, 1 / fs2)
+        sel = (np.abs(f) <= self.span) & (np.abs(f + self.e) > 1500)   # niente picco DC del ricevitore
+        r = np.where(sel, 10 * np.log10(pi / po), -99)
+        k = int(np.argmax(r))
+        rise = float(r[k])
+        snr = float(10 * np.log10(pi[k] / np.median(pi[sel])))
+        if rise < 10 or snr < 12:
+            return {'ok': False, 'why': f'non vedo la mia portante sulla discesa (sale di {rise:.0f} dB): '
+                                        f'alza PWR o controlla l\'amplificatore', 'snr': round(snr, 1)}
+        # frequenza fine: porto la riga a 0 Hz, stretto, FFT lunga con interpolazione
+        f0 = float(f[k])
+        t = np.arange(len(yi)) / fs2
+        z = yi * np.exp(-2j * np.pi * f0 * t)
+        d = max(1, int(fs2 // 400))
+        m = len(z) // d
+        z = z[:m * d].reshape(m, d).mean(1)
+        fs3 = fs2 / d
+        N = 1 << int(np.ceil(np.log2(len(z) * 8)))
+        sp = np.abs(np.fft.fft(z * np.hanning(len(z)), N)) ** 2
+        ff = np.fft.fftfreq(N, 1 / fs3)
+        win = np.abs(ff) < 30
+        j = np.nonzero(win)[0][np.argmax(sp[win])]
+        a, b, c = np.log(sp[j - 1] + 1e-30), np.log(sp[j] + 1e-30), np.log(sp[(j + 1) % N] + 1e-30)
+        den = a - 2 * b + c
+        dd = 0.5 * (a - c) / den if den != 0 else 0.0
+        err = f0 + ff[j] + dd * fs3 / N
+        return {'ok': True, 'err_hz': round(float(err), 1), 'snr': round(snr, 1), 'rise': round(rise, 1)}
+
+
+def stream_test(tx, f_up, secs=10.0, on_status=None):
+    """Prova di banda per la SSB: manda al Pluto un flusso continuo di campioni (due toni a +750 e +1875 Hz
+    sulla salita) per secs secondi, su una connessione a parte, mentre la ricezione continua.
+    Restituisce la velocità ottenuta: se sta sotto PLUTO_RATE la USB (o il PC) non ce la fa."""
+    import numpy as np
+    from sources import PLUTO_RATE
+    fs = float(PLUTO_RATE)
+    N = 36864                                   # 16 ms: fs/N = 62,5 Hz, i toni chiudono il giro esatti
+    n = np.arange(N)
+    off = (-tx.fq if tx.inv else tx.fq)
+    z = 0.35 * (np.exp(2j * np.pi * (off + 750.0) * n / fs) + np.exp(2j * np.pi * (off + 1875.0) * n / fs))
+    a = np.empty(2 * N, '<i2')
+    a[0::2] = np.round(z.real * 16384)
+    a[1::2] = np.round(z.imag * 16384)
+    data = a.tobytes()
+    words = (getattr(tx, 'tx_nch', 2) + 31) // 32
+    mask = ''.join(f'{(getattr(tx, "tx_mask", 3) >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
+    s = socket.create_connection((tx.host, tx.PORT), timeout=5)
+    s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4 << 20)
+    except OSError:
+        pass
+    f = s.makefile('rb')
+
+    def rint():
+        while True:
+            b = f.readline()
+            if not b:
+                raise OSError('il Pluto ha chiuso la connessione del flusso TX')
+            t = b.decode('ascii', 'replace').strip()
+            if t:
+                return int(t)
+    res = {'ok': False}
+    try:
+        tx.set_freq(f_up)
+        tx.lo_on(True)
+        s.sendall(f'SET {tx.dds} BUFFERS_COUNT 8\r\n'.encode('ascii'))
+        rint()
+        s.sendall(f'OPEN {tx.dds} {N} {mask}\r\n'.encode('ascii'))
+        r = rint()
+        if r < 0:
+            raise RuntimeError(f'il Pluto non apre il flusso TX (errore {r})')
+        tx.key(True)
+        t0 = time.perf_counter()
+        sent, wmax, nw = 0, 0.0, 0
+        while time.perf_counter() - t0 < secs:
+            w0 = time.perf_counter()
+            s.sendall(f'WRITEBUF {tx.dds} {len(data)}\r\n'.encode('ascii') + data)
+            r = rint()
+            if r < 0:
+                raise RuntimeError(f'errore {r} scrivendo i campioni')
+            wmax = max(wmax, time.perf_counter() - w0)
+            sent += N
+            nw += 1
+        el = time.perf_counter() - t0
+        rate = sent / el
+        res = {'ok': rate >= 0.98 * fs, 'rate': round(rate / 1e6, 3), 'need': round(fs / 1e6, 3),
+               'secs': round(el, 1), 'wmax_ms': round(wmax * 1000, 1), 'writes': nw}
+    except Exception as e:
+        res = {'ok': False, 'why': str(e)}
+    finally:
+        try:
+            tx.key(False)
+        except Exception:
+            pass
+        try:
+            s.sendall(f'CLOSE {tx.dds}\r\n'.encode('ascii'))
+            rint()
+        except Exception:
+            pass
+        try:
+            s.close()
+        except OSError:
+            pass
+        try:
+            tx.lo_on(False)
+            tx._dds()                                   # dopo il flusso il DAC torna al generatore di toni (CW)
+            tx._write(tx.dds, tx.dch['TX1_I_F1'], 'raw', 1)
+        except Exception:
+            pass
+    return res
