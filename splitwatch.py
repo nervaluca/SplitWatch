@@ -66,10 +66,12 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS,
                      PlutoSource, PLUTO_RANGE, SpyServerSource, KiwiSource)
 import banco
+import tx as txmod
 import ponti
 
+TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.79'
+VERSION = '1.80'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -332,6 +334,14 @@ class Hub:
         self.center = None
         self.hw_center = None                  # centro come lo dice il ricevitore (senza correzione)
         self.cal = None                        # misura di calibrazione in corso
+        self.tx = None                         # TX del Pluto verso QO-100 (CW)
+        self.keyer = None
+        self.tx_mute = False                   # semiduplex: audio muto mentre si trasmette
+        self.tx_mute_until = 0.0
+        self.tx_err = ''
+        self.tx_connecting = False
+        global TX_HUB
+        TX_HUB = self
         self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
         self.cal_busy = False
         self.sm_last = 0.0
@@ -1078,6 +1088,7 @@ class Hub:
             if rate == 0:
                 msg = nodata + ' · ' + msg
             log(msg)
+            self.tx_ensure()
             txt = (self.status if rate else nodata) + ' · ' + f'{rate/1000:.0f} k/s'
             self.post_json({'type': 'status', 'text': txt, 'en': i18n.en(txt)})
             self._watchdog(rate)
@@ -1162,6 +1173,8 @@ class Hub:
                     pend_rows = []
                 if pend_audio:
                     a = np.concatenate(pend_audio)
+                    if self.tx_mute or time.time() < self.tx_mute_until:
+                        a = np.zeros_like(a)                 # semiduplex: in TX non si ascolta
                     st = self.engine is not None and self.engine.ssb
                     self.post_bin((b'\x03' if st else b'\x02') + struct.pack('<d', 0.0) + a.tobytes())
                     pend_audio = []
@@ -1693,6 +1706,171 @@ class Hub:
         else:
             self.post_json(self.cfg_msg())
 
+    # ------------------------------------------------------------------ TX (Pluto → QO-100)
+    def tx_cfg(self):
+        t = self.cfg.setdefault('tx', {})
+        t.setdefault('on', False)
+        t.setdefault('pwr', -20.0)
+        t.setdefault('wpm', 24)
+        t.setdefault('full', True)
+        t.setdefault('inv', False)
+        t.setdefault('corr', 0.0)
+        t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
+                                'QRZ? DE {CALL}', 'R R TU'])
+        return t
+
+    def tx_avail(self):
+        """TX solo con il Pluto dietro l'LNB di QO-100."""
+        return self.src_kind == 'pluto' and 9.70e9 < self.conv() < 9.80e9
+
+    def tx_up(self):
+        """Frequenza di salita per il VFO A (None se fuori dal transponder o vicino a un beacon)."""
+        if not self.dx_abs:
+            return None
+        f = self.dx_abs - txmod.QO_SHIFT + float(self.tx_cfg().get('corr', 0.0))
+        return f if txmod.up_ok(f) else None
+
+    def tx_ensure(self):
+        """Apre o chiude il TX secondo le impostazioni (chiamato ogni 3 s e a ogni cambio)."""
+        t = self.tx_cfg()
+        want = bool(t.get('on')) and self.tx_avail() and isinstance(self.src, PlutoSource)
+        if not want:
+            if self.tx is not None:
+                self.tx_close()
+            return
+        if self.tx is not None or self.tx_connecting:
+            return
+        self.tx_connecting = True
+
+        def run():
+            try:
+                tr = txmod.PlutoTx(self.cfg.get('pluto', {}).get('host', '192.168.2.1'), self.on_status)
+                tr.inv = bool(t.get('inv'))
+                tr.connect()
+                tr.level = float(t.get('pwr', -20))
+                tr.power(True)
+                k = txmod.CwKeyer(tr, self.on_tx_ptt, self.on_tx_progress, self.on_status)
+                k.wpm = int(t.get('wpm', 24))
+                k.freq_fn = self.tx_up
+                self.tx, self.keyer, self.tx_err = tr, k, ''
+                log(f'TX Pluto pronto: tono DDS {tr.fq:.0f} Hz')
+            except Exception as e:
+                self.tx_err = str(e)
+                self.on_status(str(e))
+                t['on'] = False
+                save_cfg(self.cfg)
+            finally:
+                self.tx_connecting = False
+                self.post_json(self.cfg_msg())
+        threading.Thread(target=run, daemon=True).start()
+
+    def tx_close(self):
+        k, tr = self.keyer, self.tx
+        self.keyer = self.tx = None
+        if k is not None:
+            k.stop()
+        if tr is not None:
+            tr.close()
+        self.tx_mute = False
+        self.cmd_q.put(('ptt', False))
+
+    def on_tx_ptt(self, on):
+        full = bool(self.tx_cfg().get('full', True))
+        if on:
+            if not full:
+                self.tx_mute = True
+                self.cmd_q.put(('ptt', True))
+        else:
+            if self.tx_mute:
+                self.tx_mute = False
+                self.tx_mute_until = time.time() + 0.4     # la propria discesa arriva ~0,27 s dopo
+                self.cmd_q.put(('ptt', False))
+        self.post_json({'type': 'tx', 'busy': bool(on)})
+
+    def on_tx_progress(self, sent, rest):
+        self.post_json({'type': 'tx', 'busy': bool(self.keyer and self.keyer.busy), 'sent': sent[-40:], 'rest': rest[:80]})
+
+    def tx_text(self, text):
+        call = self.rbn_call() or ''
+        return re.sub(r'\{(MY)?CALL\}', call, str(text), flags=re.I)
+
+    def tx_msg(self):
+        t = self.tx_cfg()
+        up = self.tx_up() if self.tx_avail() else None
+        return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
+                'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
+                'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
+                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or ''}
+
+    def tx_set(self, v):
+        t = self.tx_cfg()
+        if 'on' in v:
+            t['on'] = bool(v['on'])
+            if not t['on']:
+                self.tx_close()
+        if 'pwr' in v:
+            t['pwr'] = max(-60.0, min(0.0, float(v['pwr'])))
+            if self.tx:
+                self.tx.level = t['pwr']
+        if 'wpm' in v:
+            t['wpm'] = max(10, min(45, int(v['wpm'])))
+            if self.keyer:
+                self.keyer.wpm = t['wpm']
+        if 'full' in v:
+            t['full'] = bool(v['full'])
+        if 'inv' in v:
+            t['inv'] = bool(v['inv'])
+            if self.tx:
+                self.tx.set_inv(t['inv'])
+        if 'corr' in v:
+            t['corr'] = 0.0 if v['corr'] == 'reset' else max(-50000.0, min(50000.0, float(v['corr'])))
+        if isinstance(v.get('macros'), list):
+            t['macros'] = [str(x)[:120] for x in v['macros'][:8]]
+        save_cfg(self.cfg)
+        self.tx_ensure()
+        self.post_json(self.cfg_msg())
+
+    def tx_cal(self):
+        """Misura dove arriva la propria portante sulla discesa e corregge la salita (quarzo del Pluto)."""
+        if not self.keyer or self.cal_busy or not self.fs or self.hw_center is None:
+            self.post_json({'type': 'txcal', 'ok': False, 'why': 'TX non pronto'})
+            return
+        up = self.tx_up()
+        if up is None:
+            self.post_json({'type': 'txcal', 'ok': False, 'why': 'metti il VFO A in una zona libera del transponder'})
+            return
+        self.cal_busy = True
+
+        def run():
+            try:
+                expect_rx = self.dx_abs - self.conv()               # dove deve arrivare, al ricevitore
+                self.keyer.tune(4.5)
+                time.sleep(1.0)                                     # salita, satellite (~0,27 s) e AGC
+                m = calib.Measure(self.fs, self.hw_center, expect_rx, self.ppm(), secs=2.5,
+                                  span_hz=6000.0, min_steady=0.8)
+                self.cal = m
+                t0 = time.time()
+                while not m.done and time.time() - t0 < 6:
+                    time.sleep(0.05)
+                self.cal = None
+                if not m.done:
+                    raise RuntimeError('dati insufficienti dal ricevitore')
+                r = m.result()
+                if not r['ok']:
+                    raise RuntimeError(f'non vedo la mia portante sulla discesa ({r["why"]}, {r["snr"]} dB)')
+                t = self.tx_cfg()
+                t['corr'] = round(float(t.get('corr', 0.0)) - r['err_hz'], 1)
+                save_cfg(self.cfg)
+                log(f'TX calibrato: errore {r["err_hz"]:+.1f} Hz, correzione {t["corr"]:+.1f} Hz')
+                self.post_json({'type': 'txcal', 'ok': True, 'err': r['err_hz'], 'corr': t['corr']})
+            except Exception as e:
+                self.post_json({'type': 'txcal', 'ok': False, 'why': str(e)})
+            finally:
+                self.cal = None
+                self.cal_busy = False
+                self.post_json(self.cfg_msg())
+        threading.Thread(target=run, daemon=True).start()
+
     def pluto_msg(self):
         pc = self.cfg.get('pluto', {})
         return {'host': pc.get('host', '192.168.2.1'), 'gain': pc.get('gain')}
@@ -1997,7 +2175,7 @@ class Hub:
                 'band_order': [b for b in HF_BANDS + VHF_BANDS + ('QO',) if self.band_ok(b)],
                 'conv': self.conv(), 'beacon_lock': bool(self.cfg.get('beacon_lock')),
                 'fm_bw': int(self.cfg.get('fm_bw', 12000)), 'am_bw': int(self.cfg.get('am_bw', 8000)),
-                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'spy': self.spy_msg(), 'kiwi': self.kiwi_msg(), 'banco_v': banco.versione(self.cfg),
+                'sql': float(self.cfg.get('sql', 0)), 'rtl': self.rtl_msg(), 'pluto': self.pluto_msg(), 'spy': self.spy_msg(), 'kiwi': self.kiwi_msg(), 'tx': self.tx_msg(), 'banco_v': banco.versione(self.cfg),
                 'band': band_of(self.dx_abs or 0) or band_of(self.center or 0),
                 'bw_rx': float(self.cfg.get('filtro', 500)), 'snr': float(self.cfg.get('sensibilita', 5.0)),
                 'audio_devs': [n for i, n, ch in self.audio_devs], 'audio_dev': self.cfg.get('audio_dev'),
@@ -2343,6 +2521,22 @@ class Hub:
                     self.spy_set(c['v'])
                 elif k == 'kiwi' and isinstance(c.get('v'), dict):
                     self.kiwi_set(c['v'])
+                elif k == 'tx' and isinstance(c.get('v'), dict):
+                    self.tx_set(c['v'])
+                elif k == 'tx_send' and self.keyer:
+                    self.keyer.send(self.tx_text(c.get('text', '')))
+                elif k == 'tx_macro' and self.keyer:
+                    ms = self.tx_cfg().get('macros', [])
+                    i = int(c.get('i', -1))
+                    if 0 <= i < len(ms):
+                        self.keyer.send(self.tx_text(ms[i]))
+                elif k == 'tx_stop':
+                    if self.keyer:
+                        self.keyer.stop()
+                elif k == 'tx_tune' and self.keyer:
+                    self.keyer.tune(min(10.0, float(c.get('s', 5))))
+                elif k == 'tx_cal':
+                    self.tx_cal()
                 elif k == 'pluto' and isinstance(c.get('v'), dict):
                     self.pluto_set(c['v'])
                 elif k == 'source' and c.get('kind') in ('perseus', 'audio', 'iq', 'extio', 'rtl', 'pluto', 'spyserver', 'kiwi'):
@@ -2546,6 +2740,11 @@ def hard_exit(code=0):
     Su Windows os._exit passa dalla chiusura delle DLL caricate: perseususb.dll in quel momento
     aspetta il suo thread USB e il processo resta appeso (si vede in Gestione attività).
     TerminateProcess invece chiude e basta, come «Termina attività»."""
+    try:
+        if TX_HUB is not None and TX_HUB.tx is not None:
+            TX_HUB.tx_close()                    # mai lasciare il Pluto in trasmissione
+    except Exception:
+        pass
     try:
         flush_cfg()                              # impostazioni ancora da scrivere
     except Exception:
