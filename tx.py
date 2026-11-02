@@ -205,6 +205,15 @@ class PlutoTx:
                 raise RuntimeError(f'TX: il Pluto non accetta {lo/1e6:.6f} MHz')
             self.lo = lo
 
+    def set_freq_off(self, f_up, off):
+        """Per il flusso di campioni (SSB): il segnale sta a +off dall'oscillatore, esatto."""
+        lo = int(round(f_up - (-off if self.inv else off)))
+        if lo != self.lo:
+            r = self._write(self.phy, 'altvoltage1', 'frequency', lo)
+            if r is not None and r < 0:
+                raise RuntimeError(f'TX: il Pluto non accetta {lo/1e6:.6f} MHz')
+            self.lo = lo
+
     def key(self, down):
         """Chiave giù / su, con la rampa (ogni passo è una scrittura: ~1 ms)."""
         if down == self.down or self.sock is None:
@@ -502,3 +511,242 @@ def stream_test(tx, f_up, secs=10.0, on_status=None):
         except Exception:
             pass
     return res
+
+
+# ---------------------------------------------------------------------------------------------- SSB
+SSB_PEAK = 29000          # cresta dei campioni verso il DAC (fondo scala 32767): la portante del DDS sta a 0,95
+TX_RATE = 2304000         # come la ricezione del Pluto
+SSB_OFF = 500000          # come il CW: oscillatore 500 kHz sotto, portante residua e immagine fuori dal transponder
+SSB_N = 36864             # campioni per buffer (16 ms); 128 campioni audio a 8 kHz
+SSB_MAX_S = 300.0         # PTT acceso al massimo 5 minuti (sicurezza)
+
+
+def _kaiser_lp(ntaps, fc, fs, beta=5.65):
+    import numpy as np
+    n = np.arange(ntaps) - (ntaps - 1) / 2
+    h = np.sinc(2 * fc / fs * n) * np.kaiser(ntaps, beta)
+    return h / h.sum()
+
+
+class _Interp:
+    """Interpolatore polifase complesso ×L con stato (blocchi consecutivi senza giunture).
+    Una sola moltiplicazione di matrici per blocco: finestre dell'ingresso × fasi del filtro."""
+
+    def __init__(self, L, h):
+        import numpy as np
+        self.L = int(L)
+        n = (len(h) + L - 1) // L * L
+        hh = np.zeros(n)
+        hh[:len(h)] = h * L
+        self.k = n // L
+        # colonna p = fase p del filtro, rovesciata (convoluzione → prodotto scalare sulle finestre)
+        self.H = np.stack([hh[p::L][::-1] for p in range(L)], axis=1).astype(np.complex64)
+        self.tail = np.zeros(self.k - 1, np.complex64)
+
+    def __call__(self, x):
+        import numpy as np
+        z = np.concatenate([self.tail, x.astype(np.complex64)])
+        self.tail = z[len(z) - (self.k - 1):].copy() if self.k > 1 else np.zeros(0, np.complex64)
+        W = np.lib.stride_tricks.sliding_window_view(z, self.k)      # len(x) finestre
+        return (W @ self.H).reshape(-1)
+
+
+class SsbMod:
+    """Audio del microfono (8 kHz) → USB a +SSB_OFF, campioni a 2,304 MS/s pronti per il Pluto.
+
+    Filtro 300–2700 Hz complesso (fa da solo la banda laterale superiore), compressore lento a blocchi,
+    tosatura dolce rifiltrata, poi due interpolazioni (×12 e ×24) con reiezione delle immagini > 60 dB."""
+
+    def __init__(self, comp=True, gain_db=0.0, inv=False):
+        import numpy as np
+        self.comp = bool(comp)
+        self.inv = bool(inv)
+        self.gain = 10 ** (gain_db / 20)
+        n = np.arange(201) - 100
+        self.hc = (_kaiser_lp(201, 1200.0, 8000.0) * np.exp(2j * np.pi * 1500.0 * n / 8000.0)).astype(np.complex64)
+        self.tc = np.zeros(200, np.complex64)
+        self.i1 = _Interp(12, _kaiser_lp(181, 3600.0, 96000.0))
+        self.i2 = _Interp(24, _kaiser_lp(192, 4000.0, float(TX_RATE), beta=8.0))
+        k = np.arange(576)                                     # 500 kHz / 2,304 MHz = 125/576: tabella esatta
+        self.rot = np.exp(2j * np.pi * SSB_OFF * k / TX_RATE).astype(np.complex64)
+        self.ri = 0
+        self.g = 1.0
+        self.level = -90.0
+
+    def __call__(self, a):
+        import numpy as np
+        a = np.asarray(a, np.float32) * self.gain
+        if self.comp:                                          # compressore: livello medio verso −12 dB
+            rms = float(np.sqrt(np.mean(a * a)) + 1e-6)
+            want = min(10.0, 0.25 / rms)                       # al massimo +20 dB sulle pause
+            k = 0.5 if want < self.g else 0.03                 # giù subito, su piano
+            g1 = self.g + (want - self.g) * k
+            a = a * np.linspace(self.g, g1, len(a), dtype=np.float32)
+            self.g = g1
+        pk = float(np.max(np.abs(a))) if len(a) else 0.0
+        self.level = 20 * np.log10(pk + 1e-6)
+        a = np.where(np.abs(a) > 0.7, np.sign(a) * (0.7 + 0.3 * np.tanh((np.abs(a) - 0.7) / 0.3)), a)
+        z = np.concatenate([self.tc, a.astype(np.complex64)])
+        y = np.convolve(z, self.hc, mode='valid')
+        self.tc = z[-200:]
+        y = self.i2(self.i1(y))
+        n = len(y)
+        idx = (self.ri + np.arange(n)) % 576
+        self.ri = (self.ri + n) % 576
+        y = y * self.rot[idx] * 2.0                            # il filtro complesso dimezza (solo metà spettro)
+        if self.inv:
+            y = np.conj(y)                                     # I/Q scambiati nel Pluto: torna USB a +off
+        m = np.max(np.abs(y)) if n else 0.0
+        if m > 1.0:
+            y = y / m                                          # mai oltre il fondo scala
+        out = np.empty(2 * n, '<i2')
+        out[0::2] = np.round(y.real * SSB_PEAK)
+        out[1::2] = np.round(y.imag * SSB_PEAK)
+        return out.tobytes()
+
+
+class SsbTx:
+    """PTT in SSB: microfono → SsbMod → flusso continuo verso il Pluto (connessione a parte)."""
+
+    def __init__(self, tx, on_status, on_level=None, on_end=None):
+        self.tx, self.on_status, self.on_level, self.on_end = tx, on_status, on_level, on_end
+        self.alive = False
+        self.th = None
+
+    def start(self, f_up, mic=None, gain_db=0.0, comp=True):
+        if self.alive:
+            return
+        self.alive = True
+        self.th = threading.Thread(target=self._run, args=(f_up, mic, gain_db, comp), daemon=True)
+        self.th.start()
+
+    def stop(self):
+        self.alive = False
+
+    def _mic(self, dev):
+        """Microfono a 48 kHz (o a quello che regge), ridotto a 8 kHz in una coda."""
+        import numpy as np
+        import sounddevice as sd
+        q = queue.Queue(maxsize=100)
+        st = {'rate': None}
+        dec = {'h': None, 'tail': None, 'ph': 0}
+
+        def cb(indata, frames, t, status):
+            x = indata[:, 0].astype(np.float32)
+            r = st['rate']
+            if r == 8000:
+                y = x
+            else:
+                z = np.concatenate([dec['tail'], x])
+                f = np.convolve(z, dec['h'], mode='valid')
+                dec['tail'] = z[-(len(dec['h']) - 1):]
+                step = r / 8000.0
+                pos = dec['ph'] + np.arange(0, len(f) - dec['ph'], step)
+                dec['ph'] = float(pos[-1] + step - len(f)) if len(pos) else dec['ph'] - len(f)
+                y = np.interp(pos, np.arange(len(f)), f).astype(np.float32)
+            try:
+                q.put_nowait(y)
+            except queue.Full:
+                pass
+        dv = None if dev in (None, '') else dev
+        for rate in (48000, 44100, 16000, 8000):
+            try:
+                if rate != 8000:
+                    dec['h'] = _kaiser_lp(63, 3300.0, float(rate)).astype(np.float32)
+                    dec['tail'] = np.zeros(62, np.float32)
+                st['rate'] = rate
+                s = sd.InputStream(device=dv, channels=1, samplerate=rate, blocksize=int(rate * 0.01),
+                                   dtype='float32', callback=cb)
+                s.start()
+                return s, q
+            except Exception as e:
+                last = e
+        raise RuntimeError(f'microfono non disponibile ({last})')
+
+    def _run(self, f_up, mic, gain_db, comp):
+        import numpy as np
+        tx = self.tx
+        mod = SsbMod(comp, gain_db, tx.inv)
+        s = ms = None
+        f = None
+        try:
+            ms, mq = self._mic(mic)
+            tx.set_freq_off(f_up, SSB_OFF)
+            tx.lo_on(True)
+            s = socket.create_connection((tx.host, tx.PORT), timeout=5)
+            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            f = s.makefile('rb')
+
+            def rint():
+                while True:
+                    b = f.readline()
+                    if not b:
+                        raise OSError('il Pluto ha chiuso il flusso TX')
+                    t = b.decode('ascii', 'replace').strip()
+                    if t:
+                        return int(t)
+            words = (getattr(tx, 'tx_nch', 2) + 31) // 32
+            mask = ''.join(f'{(getattr(tx, "tx_mask", 3) >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
+            s.sendall(f'SET {tx.dds} BUFFERS_COUNT 4\r\n'.encode('ascii'))
+            rint()
+            s.sendall(f'OPEN {tx.dds} {SSB_N} {mask}\r\n'.encode('ascii'))
+            if rint() < 0:
+                raise RuntimeError('il Pluto non apre il flusso TX')
+            buf = np.zeros(0, np.float32)
+            need = SSB_N // 288
+            t0 = time.perf_counter()
+            keyed = False
+            lastlev = 0.0
+            while self.alive and time.perf_counter() - t0 < SSB_MAX_S:
+                while len(buf) < need:
+                    try:
+                        buf = np.concatenate([buf, mq.get(timeout=0.05)])
+                    except queue.Empty:
+                        buf = np.concatenate([buf, np.zeros(need - len(buf), np.float32)])   # microfono in ritardo
+                if len(buf) > 8000 * 0.25:                     # troppo indietro (orologi diversi): taglio
+                    buf = buf[-need:]
+                a, buf = buf[:need], buf[need:]
+                data = mod(a)
+                s.sendall(f'WRITEBUF {tx.dds} {len(data)}\r\n'.encode('ascii') + data)
+                if rint() < 0:
+                    raise RuntimeError('errore scrivendo i campioni')
+                if not keyed:
+                    tx.key(True)                               # il livello sale dopo il primo buffer: niente botto
+                    keyed = True
+                now = time.perf_counter()
+                if self.on_level and now - lastlev > 0.2:
+                    lastlev = now
+                    self.on_level(mod.level, 20 * np.log10(max(1e-3, mod.g)))
+            if time.perf_counter() - t0 >= SSB_MAX_S:
+                self.on_status('TX SSB: 5 minuti di PTT, spento per sicurezza')
+        except Exception as e:
+            self.on_status(f'TX SSB: {e}')
+        finally:
+            self.alive = False
+            try:
+                tx.key(False)
+            except Exception:
+                pass
+            if s is not None:
+                try:
+                    s.sendall(f'CLOSE {tx.dds}\r\n'.encode('ascii'))
+                except Exception:
+                    pass
+                try:
+                    s.close()
+                except OSError:
+                    pass
+            if ms is not None:
+                try:
+                    ms.stop()
+                    ms.close()
+                except Exception:
+                    pass
+            try:
+                tx.lo_on(False)
+                tx._dds()                                      # di nuovo il generatore di toni per il CW
+                tx._write(tx.dds, tx.dch['TX1_I_F1'], 'raw', 1)
+            except Exception:
+                pass
+            if self.on_end:
+                self.on_end()

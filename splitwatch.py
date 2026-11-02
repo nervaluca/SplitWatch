@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.80'
+VERSION = '1.81'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -340,6 +340,8 @@ class Hub:
         self.tx_mute_until = 0.0
         self.tx_err = ''
         self.tx_connecting = False
+        self.ssbtx = None                      # PTT in SSB (flusso dal microfono)
+        self.tx_lvl_t = 0.0
         global TX_HUB
         TX_HUB = self
         self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
@@ -1715,6 +1717,9 @@ class Hub:
         t.setdefault('full', True)
         t.setdefault('inv', False)
         t.setdefault('corr', 0.0)
+        t.setdefault('mic', '')
+        t.setdefault('micgain', 0.0)
+        t.setdefault('comp', True)
         t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
                                 'QRZ? DE {CALL}', 'R R TU'])
         return t
@@ -1764,7 +1769,59 @@ class Hub:
                 self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
 
+    def mic_list(self):
+        try:
+            from sources import list_audio_inputs
+            return [n for _, n, _ in list_audio_inputs()]
+        except Exception:
+            return []
+
+    def mic_dev(self, label):
+        """Etichetta scelta nella pagina → indice del dispositivo (None = predefinito di Windows)."""
+        if not label:
+            return None
+        try:
+            from sources import list_audio_inputs
+            for i, n, _ in list_audio_inputs():
+                if n == label:
+                    return i
+        except Exception:
+            pass
+        return None
+
+    def tx_ptt(self, on):
+        """PTT della SSB: microfono → Pluto."""
+        if on:
+            if self.ssbtx is not None and self.ssbtx.alive:
+                return
+            if not self.tx or not self.keyer:
+                self.on_status('TX non pronto: accendi ⏻ TX')
+                return
+            up = self.tx_up()
+            if up is None or not txmod.up_ok(up + 3000):
+                self.on_status('TX SSB: VFO A fuori dal transponder o troppo vicino a un beacon')
+                return
+            self.keyer.stop()
+            t = self.tx_cfg()
+            st = txmod.SsbTx(self.tx, self.on_status, self.on_tx_level, self.on_ssb_end)
+            self.ssbtx = st
+            self.on_tx_ptt(True)
+            st.start(up, self.mic_dev(t.get('mic')), float(t.get('micgain', 0)), bool(t.get('comp', True)))
+            log(f'PTT SSB: salita {up/1e6:.6f} MHz')
+        else:
+            if self.ssbtx is not None:
+                self.ssbtx.stop()
+
+    def on_ssb_end(self):
+        self.on_tx_ptt(False)
+        self.post_json({'type': 'tx', 'ptt': False, 'busy': False})
+
+    def on_tx_level(self, mic_db, comp_db):
+        self.post_json({'type': 'tx', 'ptt': True, 'busy': True, 'mic': round(mic_db, 1), 'comp': round(comp_db, 1)})
+
     def tx_close(self):
+        if self.ssbtx is not None:
+            self.ssbtx.stop()
         k, tr = self.keyer, self.tx
         self.keyer = self.tx = None
         if k is not None:
@@ -1800,7 +1857,9 @@ class Hub:
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
-                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or ''}
+                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or '',
+                'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
+                'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive)}
 
     def tx_set(self, v):
         t = self.tx_cfg()
@@ -1824,6 +1883,12 @@ class Hub:
                 self.tx.set_inv(t['inv'])
         if 'corr' in v:
             t['corr'] = 0.0 if v['corr'] == 'reset' else max(-50000.0, min(50000.0, float(v['corr'])))
+        if 'mic' in v:
+            t['mic'] = str(v['mic'] or '')[:200]
+        if 'micgain' in v:
+            t['micgain'] = max(-20.0, min(30.0, float(v['micgain'])))
+        if 'comp' in v:
+            t['comp'] = bool(v['comp'])
         if isinstance(v.get('macros'), list):
             t['macros'] = [str(x)[:120] for x in v['macros'][:8]]
         save_cfg(self.cfg)
@@ -2564,10 +2629,13 @@ class Hub:
                 elif k == 'tx_stop':
                     if self.keyer:
                         self.keyer.stop()
+                    self.tx_ptt(False)
                 elif k == 'tx_tune' and self.keyer:
                     self.keyer.tune(min(10.0, float(c.get('s', 5))))
                 elif k == 'tx_cal':
                     self.tx_cal()
+                elif k == 'tx_ptt':
+                    self.tx_ptt(bool(c.get('on')))
                 elif k == 'tx_stream_test':
                     self.tx_stream_test()
                 elif k == 'pluto' and isinstance(c.get('v'), dict):
