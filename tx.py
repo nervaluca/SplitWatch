@@ -765,3 +765,50 @@ class SsbTx:
                 pass
             if self.on_end:
                 self.on_end()
+
+
+class EchoTrack:
+    """Segue la propria eco: mentre si trasmette in CW raccoglie la discesa attorno a dove deve arrivare il
+    segnale e, a fine messaggio, misura di quanti Hz è spostato (deriva del quarzo del Pluto che si scalda,
+    LNB senza aggancio…). Si accorge solo di spostamenti entro ±400 Hz e con un segnale ben sopra il rumore."""
+
+    def __init__(self, fs, expect_off):
+        self.fs, self.e = float(fs), float(expect_off)
+        self.d = max(1, int(self.fs // 2000))         # ~2 kHz di banda: bastano per ±400 Hz
+        self.fs2 = self.fs / self.d
+        self.ph = 0.0
+        self.buf = []
+        self.n = 0
+        self.on = False
+
+    def feed(self, iq):
+        import numpy as np
+        if not self.on:
+            return
+        n = len(iq)
+        ph = self.ph + (-2 * np.pi * self.e / self.fs) * np.arange(n)
+        self.ph = float((ph[-1] - 2 * np.pi * self.e / self.fs) % (2 * np.pi)) if n else self.ph
+        y = iq * np.exp(1j * ph).astype(np.complex64)
+        m = n // self.d
+        if m:
+            self.buf.append(y[:m * self.d].reshape(m, self.d).mean(1))
+            self.n += m
+
+    def result(self):
+        import numpy as np
+        if self.n < self.fs2 * 1.0:
+            return None
+        x = np.concatenate(self.buf)
+        N = 1 << int(np.ceil(np.log2(len(x) * 4)))
+        sp = np.abs(np.fft.fft(x * np.hanning(len(x)), N)) ** 2
+        f = np.fft.fftfreq(N, 1 / self.fs2)
+        win = np.abs(f) <= 400
+        idx = np.nonzero(win)[0]
+        k = idx[np.argmax(sp[idx])]
+        snr = 10 * np.log10(sp[k] / (np.median(sp[idx]) + 1e-30))
+        if snr < 18:
+            return None
+        a, b, c = np.log(sp[k - 1] + 1e-30), np.log(sp[k] + 1e-30), np.log(sp[(k + 1) % N] + 1e-30)
+        den = a - 2 * b + c
+        dd = 0.5 * (a - c) / den if den != 0 else 0.0
+        return float(f[k] + dd * self.fs2 / N), float(snr)

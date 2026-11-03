@@ -341,6 +341,7 @@ class Hub:
         self.tx_err = ''
         self.tx_connecting = False
         self.ssbtx = None                      # PTT in SSB (flusso dal microfono)
+        self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
         self.tx_lvl_t = 0.0
         global TX_HUB
         TX_HUB = self
@@ -1150,6 +1151,9 @@ class Hub:
                 if self.src_kind != 'file':
                     self.rec.push(blk)
                 m = self.cal
+                ec = self.echo
+                if ec is not None:
+                    ec.feed(blk)
                 if m is not None:
                     m.feed(blk)
                 elif self.cfg.get('beacon_lock') and self.src_kind != 'file':
@@ -1720,6 +1724,7 @@ class Hub:
         t.setdefault('mic', '')
         t.setdefault('micgain', 0.0)
         t.setdefault('comp', True)
+        t.setdefault('track', True)
         t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
                                 'QRZ? DE {CALL}', 'R R TU'])
         return t
@@ -1832,7 +1837,50 @@ class Hub:
         self.tx_mute = False
         self.cmd_q.put(('ptt', False))
 
+    def echo_start(self):
+        """CW in partenza: tra ~0,3 s (salita e satellite) comincio a raccogliere la mia eco."""
+        t = self.tx_cfg()
+        if not t.get('track', True) or self.ssbtx is not None and self.ssbtx.alive or self.cal_busy:
+            return
+        if not self.fs or self.hw_center is None or not self.dx_abs:
+            return
+        if self.echo is not None and self.echo.dx == self.dx_abs:
+            return                                          # messaggi in coda: continuo la stessa misura
+        k = 1 + self.ppm() * 1e-6
+        ec = txmod.EchoTrack(self.fs, (self.dx_abs - self.conv()) / k - self.hw_center)
+        ec.dx = self.dx_abs
+        self.echo = ec
+        threading.Timer(0.35, lambda: setattr(ec, 'on', True)).start()
+
+    def echo_end(self):
+        ec = self.echo
+        if ec is None:
+            return
+
+        def fin():
+            ec.on = False
+            if self.echo is ec:
+                self.echo = None
+            r = ec.result()
+            if r is None or self.dx_abs != ec.dx:
+                return
+            err, snr = r
+            if abs(err) < 3:
+                return
+            t = self.tx_cfg()
+            step = max(-150.0, min(150.0, 0.9 * err))          # al massimo 150 Hz per volta: una misura sbagliata non fa danni
+            t['corr'] = round(float(t.get('corr', 0.0)) - step, 1)
+            save_cfg(self.cfg)
+            log(f'TX: la mia eco era {err:+.1f} Hz fuori ({snr:.0f} dB), correzione {t["corr"]:+.1f} Hz')
+            self.on_status(f'TX allineato sulla mia eco: {-step:+.0f} Hz')
+            self.post_json(self.cfg_msg())
+        threading.Timer(0.45, fin).start()                     # la coda dell'eco arriva ~0,3 s dopo
+
     def on_tx_ptt(self, on):
+        if on and self.keyer is not None and self.keyer.busy:  # solo CW (in SSB non c'è una portante da misurare)
+            self.echo_start()
+        elif not on:
+            self.echo_end()
         full = bool(self.tx_cfg().get('full', True))
         if on:
             if not full:
@@ -1859,7 +1907,7 @@ class Hub:
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
                 'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or '',
-                'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
+                'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive)}
 
     def tx_set(self, v):
@@ -1890,10 +1938,31 @@ class Hub:
             t['micgain'] = max(-20.0, min(30.0, float(v['micgain'])))
         if 'comp' in v:
             t['comp'] = bool(v['comp'])
+        if 'track' in v:
+            t['track'] = bool(v['track'])
         if isinstance(v.get('macros'), list):
             t['macros'] = [str(x)[:120] for x in v['macros'][:8]]
         save_cfg(self.cfg)
         self.tx_ensure()
+        self.post_json(self.cfg_msg())
+
+    def tx_sync(self, err):
+        """Sincro TX/RX: il clic sulla propria eco dice di quanto arriva fuori; la salita si sposta di altrettanto."""
+        try:
+            err = float(err)
+        except (TypeError, ValueError):
+            return
+        if not self.tx_avail():
+            self.on_status('Sincro TX/RX: il Pluto non è in uso')
+            return
+        if abs(err) > 20000:
+            self.on_status(f'Sincro TX/RX: il clic è {err/1000:+.1f} kHz dalla riga, troppo lontano dalla tua eco')
+            return
+        t = self.tx_cfg()
+        t['corr'] = round(max(-50000.0, min(50000.0, float(t.get('corr', 0.0)) - err)), 1)
+        save_cfg(self.cfg)
+        log(f'TX sincronizzato sulla mia eco: era {err:+.1f} Hz fuori, correzione {t["corr"]:+.1f} Hz')
+        self.on_status(f'TX sincronizzato sulla tua eco: {-err:+.0f} Hz, cambiando frequenza resta allineato')
         self.post_json(self.cfg_msg())
 
     def tx_cal(self):
@@ -2635,6 +2704,8 @@ class Hub:
                     self.keyer.tune(min(10.0, float(c.get('s', 5))))
                 elif k == 'tx_cal':
                     self.tx_cal()
+                elif k == 'tx_sync':
+                    self.tx_sync(c.get('err'))
                 elif k == 'tx_ptt':
                     self.tx_ptt(bool(c.get('on')))
                 elif k == 'tx_stream_test':
