@@ -1805,6 +1805,7 @@ class Hub:
             t = self.tx_cfg()
             st = txmod.SsbTx(self.tx, self.on_status, self.on_tx_level, self.on_ssb_end)
             self.ssbtx = st
+            st.on_stats = log
             self.on_tx_ptt(True)
             st.start(up, self.mic_dev(t.get('mic')), float(t.get('micgain', 0)), bool(t.get('comp', True)))
             log(f'PTT SSB: salita {up/1e6:.6f} MHz')

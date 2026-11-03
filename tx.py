@@ -536,8 +536,8 @@ class _Interp:
         import numpy as np
         self.L = int(L)
         n = (len(h) + L - 1) // L * L
-        hh = np.zeros(n)
-        hh[:len(h)] = h * L
+        hh = np.zeros(n, np.complex128)
+        hh[:len(h)] = np.asarray(h) * L
         self.k = n // L
         # colonna p = fase p del filtro, rovesciata (convoluzione → prodotto scalare sulle finestre)
         self.H = np.stack([hh[p::L][::-1] for p in range(L)], axis=1).astype(np.complex64)
@@ -566,10 +566,14 @@ class SsbMod:
         self.hc = (_kaiser_lp(201, 1200.0, 8000.0) * np.exp(2j * np.pi * 1500.0 * n / 8000.0)).astype(np.complex64)
         self.tc = np.zeros(200, np.complex64)
         self.i1 = _Interp(12, _kaiser_lp(181, 3600.0, 96000.0))
-        self.i2 = _Interp(24, _kaiser_lp(192, 4000.0, float(TX_RATE), beta=8.0))
-        k = np.arange(576)                                     # 500 kHz / 2,304 MHz = 125/576: tabella esatta
-        self.rot = np.exp(2j * np.pi * SSB_OFF * k / TX_RATE).astype(np.complex64)
+        # spostamento a +500 kHz senza moltiplicare a 2,3 MHz: a 96 kHz si sposta di 20 kHz (500000 mod 96000),
+        # poi l'ultimo filtro è un passa-banda su 501,5 kHz che prende la 5ª immagine (20 kHz + 5 × 96 kHz)
+        k = np.arange(24)
+        self.rot = np.exp(2j * np.pi * (SSB_OFF % 96000) * k / 96000.0).astype(np.complex64)
         self.ri = 0
+        h2 = _kaiser_lp(192, 4000.0, float(TX_RATE), beta=8.0)
+        n2 = np.arange(len(h2)) - (len(h2) - 1) / 2
+        self.i2 = _Interp(24, h2 * np.exp(2j * np.pi * (SSB_OFF + 1500.0) * n2 / TX_RATE))
         self.g = 1.0
         self.level = -90.0
 
@@ -589,20 +593,17 @@ class SsbMod:
         z = np.concatenate([self.tc, a.astype(np.complex64)])
         y = np.convolve(z, self.hc, mode='valid')
         self.tc = z[-200:]
-        y = self.i2(self.i1(y))
+        y = self.i1(y)
+        idx = (self.ri + np.arange(len(y))) % 24
+        self.ri = (self.ri + len(y)) % 24
+        y = self.i2(y * self.rot[idx]) * 2.0                   # il filtro complesso dimezza (solo metà spettro)
         n = len(y)
-        idx = (self.ri + np.arange(n)) % 576
-        self.ri = (self.ri + n) % 576
-        y = y * self.rot[idx] * 2.0                            # il filtro complesso dimezza (solo metà spettro)
         if self.inv:
             y = np.conj(y)                                     # I/Q scambiati nel Pluto: torna USB a +off
         m = np.max(np.abs(y)) if n else 0.0
         if m > 1.0:
             y = y / m                                          # mai oltre il fondo scala
-        out = np.empty(2 * n, '<i2')
-        out[0::2] = np.round(y.real * SSB_PEAK)
-        out[1::2] = np.round(y.imag * SSB_PEAK)
-        return out.tobytes()
+        return (y.astype(np.complex64).view(np.float32) * SSB_PEAK).astype('<i2').tobytes()   # I, Q, I, Q…
 
 
 class SsbTx:
@@ -610,6 +611,7 @@ class SsbTx:
 
     def __init__(self, tx, on_status, on_level=None, on_end=None):
         self.tx, self.on_status, self.on_level, self.on_end = tx, on_status, on_level, on_end
+        self.on_stats = None
         self.alive = False
         self.th = None
 
@@ -687,7 +689,7 @@ class SsbTx:
                         return int(t)
             words = (getattr(tx, 'tx_nch', 2) + 31) // 32
             mask = ''.join(f'{(getattr(tx, "tx_mask", 3) >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
-            s.sendall(f'SET {tx.dds} BUFFERS_COUNT 4\r\n'.encode('ascii'))
+            s.sendall(f'SET {tx.dds} BUFFERS_COUNT 8\r\n'.encode('ascii'))   # 128 ms di riserva nel Pluto
             rint()
             s.sendall(f'OPEN {tx.dds} {SSB_N} {mask}\r\n'.encode('ascii'))
             if rint() < 0:
@@ -697,19 +699,32 @@ class SsbTx:
             t0 = time.perf_counter()
             keyed = False
             lastlev = 0.0
+            st = {'zeri': 0, 'tagli': 0, 'wmax': 0.0, 'mod': 0.0, 'nb': 0, 't': time.perf_counter()}
             while self.alive and time.perf_counter() - t0 < SSB_MAX_S:
                 while len(buf) < need:
                     try:
                         buf = np.concatenate([buf, mq.get(timeout=0.05)])
                     except queue.Empty:
                         buf = np.concatenate([buf, np.zeros(need - len(buf), np.float32)])   # microfono in ritardo
+                        st['zeri'] += 1
                 if len(buf) > 8000 * 0.25:                     # troppo indietro (orologi diversi): taglio
                     buf = buf[-need:]
+                    st['tagli'] += 1
                 a, buf = buf[:need], buf[need:]
+                m0 = time.perf_counter()
                 data = mod(a)
+                w0 = time.perf_counter()
+                st['mod'] += w0 - m0
                 s.sendall(f'WRITEBUF {tx.dds} {len(data)}\r\n'.encode('ascii') + data)
                 if rint() < 0:
                     raise RuntimeError('errore scrivendo i campioni')
+                st['wmax'] = max(st['wmax'], time.perf_counter() - w0)
+                st['nb'] += 1
+                if self.on_stats and time.perf_counter() - st['t'] >= 3.0:
+                    el = time.perf_counter() - st['t']
+                    self.on_stats(f"TX SSB: {st['nb'] * SSB_N / el / 1e6:.3f} MS/s · modulatore {st['mod'] / el * 100:.0f}% · "
+                                  f"scrittura max {st['wmax'] * 1000:.0f} ms · microfono vuoto {st['zeri']} · tagli {st['tagli']}")
+                    st.update(zeri=0, tagli=0, wmax=0.0, mod=0.0, nb=0, t=time.perf_counter())
                 if not keyed:
                     tx.key(True)                               # il livello sale dopo il primo buffer: niente botto
                     keyed = True
