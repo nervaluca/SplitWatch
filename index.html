@@ -527,6 +527,17 @@ body:not(.ssb) .rig .smc.needle{height:84px}
         <div class="tgl"><button id="bTxComp" aria-pressed="true" title="Compressore: voce più densa e uniforme (consigliato in SSB; spento per i modi digitali)">Compressore</button></div>
         <button id="bTxTest" title="Prova per la SSB: per 10 s manda al Pluto un flusso continuo di campioni (due toni sulla salita) mentre ricevi, e misura se la USB regge">Prova streaming (10 s)</button>
       </div>
+      <div id="padSet" class="rtlbox">
+        <b>Paddle (porta COM)</b>
+        <span class="lic">Punto su CTS, linea su DSR (o DCD). Con il TX spento suona solo il sidetone: ci si può esercitare.</span>
+        <label for="selPad" title="Porta COM dell'adattatore USB-seriale a cui è collegato il paddle">Porta <select id="selPad"></select></label>
+        <label for="selPadMode" title="Iambico B: con le leve strette e poi lasciate aggiunge un segno (Curtis B). Iambico A: si ferma subito. Tasto verticale: la chiave segue il contatto">Modo <select id="selPadMode"><option value="b">Iambico B</option><option value="a">Iambico A</option><option value="s">Tasto verticale</option></select></label>
+        <label for="iPadWpm" title="Velocità del keyer (la stessa delle macro)">Velocità <input id="iPadWpm" type="number" min="10" max="45" class="short" style="width:4.5em"> WPM</label>
+        <div class="tgl"><button id="bPadSwap" aria-pressed="false" title="Scambia punto e linea">Inverti paddle</button><button id="bSide" aria-pressed="true" title="Nota di controllo mentre manipoli, generata qui nella pagina senza ritardo (l'eco del satellite torna dopo circa 270 ms)">Sidetone</button></div>
+        <label class="rng" for="rSideHz">Nota sidetone <input type="range" id="rSideHz" min="400" max="1000" step="10"><span id="sideHz"></span></label>
+        <label class="rng" for="rSideVol">Volume sidetone <input type="range" id="rSideVol" min="0" max="1" step="0.05"></label>
+        <span id="padState" class="lic"></span>
+      </div>
   </div>
   <div class="tab" data-t="net" hidden>
       <label for="chkRbn" title="Spot CW del Reverse Beacon Network: sul waterfall e per confermare i nominativi decodificati"><input type="checkbox" id="chkRbn"> RBN</label>
@@ -910,6 +921,7 @@ function connect(){
       else if(m.type==='sm'){onSm(m)}
       else if(m.type==='lock'){onLock(m)}
       else if(m.type==='tx'){onTx(m)}
+      else if(m.type==='side'){sideTone(m.on)}
       else if(m.type==='txtest'){setStatus(m.why?L('Prova streaming non riuscita: ','Streaming test failed: ')+m.why:L(`Prova streaming: TX ${m.rate} di ${m.need} MS/s, RX ${m.rx_rate} kHz, blocchi RX persi ${m.rx_lost}, scrittura più lenta ${m.wmax_ms} ms · ${m.ok?'REGGE ✓':'NON REGGE ✗'}`,`Streaming test: TX ${m.rate} of ${m.need} MS/s, RX ${m.rx_rate} kHz, RX blocks lost ${m.rx_lost}, slowest write ${m.wmax_ms} ms · ${m.ok?'OK ✓':'TOO SLOW ✗'}`),!m.ok)}
       else if(m.type==='txcal'){setStatus(m.ok?L(`TX calibrato: errore ${m.err>=0?'+':''}${m.err.toFixed(1)} Hz, correzione ${m.corr>=0?'+':''}${m.corr.toFixed(1)} Hz`,`TX calibrated: error ${m.err.toFixed(1)} Hz, correction ${m.corr.toFixed(1)} Hz`):L('Calibrazione TX non riuscita: ','TX calibration failed: ')+m.why,!m.ok)}
       else if(m.type==='banco'){onBanco(m)}
@@ -1645,7 +1657,7 @@ $('#iSpyHost').onchange=e=>{const v=e.target.value.trim();if(v){send({cmd:'spy',
 $('#selSpyGain').onchange=e=>send({cmd:'spy',v:{gain:+e.target.value}});
 $('#selSpyBw').onchange=e=>{send({cmd:'spy',v:{bw:+e.target.value}});setStatus('Cambio ricevitore…')};
 $('#selSpyBits').onchange=e=>{send({cmd:'spy',v:{bits:+e.target.value}});setStatus('Cambio ricevitore…')};
-function txUI(m){const r=m.tx||{},on=!!r.avail;$('#txBar').hidden=!on;$('#txSet').hidden=!on;if(!on)return;TXC=r;
+function txUI(m){const r=m.tx||{},on=!!r.avail;TXC=r;padUI(r);$('#txBar').hidden=!on;$('#txSet').hidden=!on;if(!on)return;TXC=r;
   $('#txBar').classList.toggle('ssbm',m.modo==='ssb');$('#bTxPtt').setAttribute('aria-pressed',String(!!r.ptt));
   const sm=$('#selTxMic'),mk3=JSON.stringify(r.mics||[]);if(sm.dataset.k!==mk3){sm.dataset.k=mk3;sm.innerHTML='<option value="">'+T('Predefinito di Windows')+'</option>'+(r.mics||[]).map(n=>`<option>${hesc(n)}</option>`).join('')}
   if(document.activeElement!==sm)sm.value=r.mic||'';
@@ -1691,6 +1703,36 @@ $('#iTxCorr').onchange=e=>{const v=parseFloat(e.target.value.replace(',','.'));i
 $('#bTxInv').onclick=()=>send({cmd:'tx',v:{inv:$('#bTxInv').getAttribute('aria-pressed')!=='true'}});
 $('#bTxCorr0').onclick=()=>send({cmd:'tx',v:{corr:'reset'}});
 $('#bTxTrack').onclick=()=>send({cmd:'tx',v:{track:$('#bTxTrack').getAttribute('aria-pressed')!=='true'}});
+// ---- paddle: impostazioni e sidetone (contesto audio suo, a bassa latenza, separato dalla ricezione)
+function padUI(r){const s=$('#selPad'),ps=r.ports||[],k=JSON.stringify(ps)+'|'+(r.pad||'');
+  if(s.dataset.k!==k){s.dataset.k=k;let h='<option value="">'+T('Nessuno')+'</option>'+ps.map(p=>`<option value="${hesc(p[0])}">${hesc(p[0])} · ${hesc(p[1])}</option>`).join('');
+    if(r.pad&&!ps.some(p=>p[0]===r.pad))h+=`<option value="${hesc(r.pad)}">${hesc(r.pad)} (${L('non trovata','not found')})</option>`;s.innerHTML=h}
+  if(document.activeElement!==s)s.value=r.pad||'';
+  if(document.activeElement!==$('#selPadMode'))$('#selPadMode').value=r.pmode||'b';
+  if(document.activeElement!==$('#iPadWpm'))$('#iPadWpm').value=r.wpm||24;
+  $('#bPadSwap').setAttribute('aria-pressed',String(!!r.pswap));$('#bSide').setAttribute('aria-pressed',String(r.side!==false));
+  if(document.activeElement!==$('#rSideHz'))$('#rSideHz').value=r.stone||650;setT($('#sideHz'),` ${r.stone||650} Hz`);
+  if(document.activeElement!==$('#rSideVol'))$('#rSideVol').value=r.svol!=null?r.svol:0.5;
+  const st=$('#padState');setT(st,!r.pad?'':r.pad_ok?L(`Paddle pronto su ${r.pad}`,`Paddle ready on ${r.pad}`):r.pad_err?L('Errore: ','Error: ')+r.pad_err:'…');st.style.color=r.pad_err?'#ff5a5a':''}
+const SIDE={c:null,o:null,g:null};
+function sideInit(){if(SIDE.c)return;try{const C=window.AudioContext||window.webkitAudioContext;SIDE.c=new C({latencyHint:'interactive'});
+  SIDE.g=SIDE.c.createGain();SIDE.g.gain.value=0;SIDE.g.connect(SIDE.c.destination);SIDE.o=SIDE.c.createOscillator();SIDE.o.type='sine';SIDE.o.connect(SIDE.g);SIDE.o.start()}catch(e){SIDE.c=null}}
+function sideTone(on){if(on&&TXC.side===false)on=false;if(!SIDE.c){if(!on)return;sideInit();if(!SIDE.c)return}
+  const c=SIDE.c,n=c.currentTime;if(c.state==='suspended')c.resume();
+  SIDE.o.frequency.setValueAtTime(TXC.stone||650,n);
+  const v=on?Math.pow(TXC.svol!=null?+TXC.svol:0.5,2)*0.5:0;SIDE.g.gain.cancelScheduledValues(n);SIDE.g.gain.setTargetAtTime(v,n,0.0025)}
+// il browser fa partire l'audio solo dopo un clic: preparo il sidetone al primo clic se c'è un paddle
+document.addEventListener('pointerdown',()=>{if(TXC.pad){sideInit();if(SIDE.c&&SIDE.c.state==='suspended')SIDE.c.resume()}},{capture:true});
+const sideBeep=()=>{sideTone(true);clearTimeout(sideBeep.t);sideBeep.t=setTimeout(()=>sideTone(false),180)};
+$('#selPad').onchange=e=>send({cmd:'tx',v:{pad:e.target.value}});
+$('#selPadMode').onchange=e=>send({cmd:'tx',v:{pmode:e.target.value}});
+$('#iPadWpm').onchange=e=>{const v=parseInt(e.target.value);if(v)send({cmd:'tx',v:{wpm:v}})};
+$('#bPadSwap').onclick=()=>send({cmd:'tx',v:{pswap:$('#bPadSwap').getAttribute('aria-pressed')!=='true'}});
+$('#bSide').onclick=()=>send({cmd:'tx',v:{side:$('#bSide').getAttribute('aria-pressed')!=='true'}});
+$('#rSideHz').oninput=e=>{TXC.stone=+e.target.value;setT($('#sideHz'),` ${e.target.value} Hz`);sideBeep()};
+$('#rSideHz').onchange=e=>send({cmd:'tx',v:{stone:+e.target.value}});
+$('#rSideVol').oninput=e=>{TXC.svol=+e.target.value;sideBeep()};
+$('#rSideVol').onchange=e=>send({cmd:'tx',v:{svol:+e.target.value}});
 // Sincro TX/RX: armato, il prossimo clic sul waterfall è la mia eco (non sintonizza)
 let syncArmed=false;
 const setSyncBtn=()=>{const b=$('#bTxSync');b.setAttribute('aria-pressed',String(syncArmed));setT(b,syncArmed?L('Clicca la tua eco…','Click your echo…'):L('Sincro TX/RX','TX/RX sync'))};

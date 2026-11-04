@@ -343,6 +343,9 @@ class Hub:
         self.ssbtx = None                      # PTT in SSB (flusso dal microfono)
         self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
         self.tx_lvl_t = 0.0
+        self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
+        self.pad_port, self.pad_err, self.pad_try, self.pad_sent = '', '', 0.0, ''
+        self.ports_cache = (0.0, [])
         global TX_HUB
         TX_HUB = self
         self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
@@ -1725,6 +1728,12 @@ class Hub:
         t.setdefault('micgain', 0.0)
         t.setdefault('comp', True)
         t.setdefault('track', True)
+        t.setdefault('pad', '')                # porta COM del paddle ('' = nessuno)
+        t.setdefault('pmode', 'b')             # 'b' iambico B, 'a' iambico A, 's' tasto verticale
+        t.setdefault('pswap', False)
+        t.setdefault('side', True)             # sidetone nella pagina
+        t.setdefault('stone', 650)
+        t.setdefault('svol', 0.5)
         t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
                                 'QRZ? DE {CALL}', 'R R TU'])
         return t
@@ -1743,6 +1752,7 @@ class Hub:
     def tx_ensure(self):
         """Apre o chiude il TX secondo le impostazioni (chiamato ogni 3 s e a ogni cambio)."""
         t = self.tx_cfg()
+        self.pad_ensure()
         want = bool(t.get('on')) and self.tx_avail() and isinstance(self.src, PlutoSource)
         if not want:
             if self.tx is not None:
@@ -1773,6 +1783,70 @@ class Hub:
                 self.tx_connecting = False
                 self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
+
+    # ---- paddle su porta COM
+    def com_ports(self):
+        t0, lst = self.ports_cache
+        if time.time() - t0 > 5:
+            lst = txmod.com_ports()
+            self.ports_cache = (time.time(), lst)
+        return lst
+
+    def pad_ensure(self):
+        """Apre o chiude il paddle secondo le impostazioni. Funziona anche senza Pluto: solo sidetone (esercizio)."""
+        t = self.tx_cfg()
+        want = str(t.get('pad') or '')
+        p = self.paddle
+        if p is not None and (not p.alive or self.pad_port != want):
+            p.close()
+            self.paddle = None
+            if not p.alive and p.err and self.pad_port == want:
+                self.pad_err = p.err
+                self.pad_try = time.time()
+        if not want or self.paddle is not None:
+            if not want:
+                self.pad_err = ''
+            return
+        if self.pad_port == want and self.pad_err and time.time() - self.pad_try < 10:
+            return                                         # riprovo ogni 10 s (cavo staccato)
+        self.pad_port, self.pad_try = want, time.time()
+        try:
+            inp = txmod.PaddleIn(want)
+        except Exception as e:
+            first = self.pad_err == ''
+            self.pad_err = str(e)
+            if first:
+                self.on_status(f'Paddle: non riesco ad aprire {want} ({e})')
+            return
+        k = txmod.PaddleKeyer(inp, self.on_pad_side, self.on_pad_char, self.on_pad_ptt, self.on_status)
+        k.mode = str(t.get('pmode', 'b'))
+        k.swap = bool(t.get('pswap'))
+        k.wpm = int(t.get('wpm', 24))
+        k.tx_fn = self.pad_tx
+        k.freq_fn = self.tx_up
+        self.paddle, self.pad_err = k, ''
+        log(f'Paddle su {want}: {k.mode}')
+        self.on_status(f'Paddle pronto su {want}')
+
+    def pad_tx(self):
+        if self.tx is None or self.ssbtx is not None and self.ssbtx.alive:
+            return None
+        return self.tx, self.keyer
+
+    def on_pad_side(self, on):
+        self.post_json({'type': 'side', 'on': bool(on)})
+
+    def on_pad_char(self, c):
+        self.pad_sent = (self.pad_sent + c)[-40:]
+        self.post_json({'type': 'tx', 'sent': self.pad_sent, 'rest': '', 'busy': bool(self.paddle and self.paddle.tx)})
+
+    def on_pad_ptt(self, on, real):
+        if real:
+            self.on_tx_ptt(on)
+        if not on:
+            self.pad_sent = ''
+            threading.Timer(1.5, lambda: self.paddle is None or self.paddle.busy or
+                            self.post_json({'type': 'tx', 'sent': '', 'rest': ''})).start()
 
     def mic_list(self):
         try:
@@ -1877,7 +1951,7 @@ class Hub:
         threading.Timer(0.45, fin).start()                     # la coda dell'eco arriva ~0,3 s dopo
 
     def on_tx_ptt(self, on):
-        if on and self.keyer is not None and self.keyer.busy:  # solo CW (in SSB non c'è una portante da misurare)
+        if on and (self.keyer is not None and self.keyer.busy or self.paddle is not None and self.paddle.busy):  # solo CW (in SSB non c'è una portante da misurare)
             self.echo_start()
         elif not on:
             self.echo_end()
@@ -1908,7 +1982,10 @@ class Hub:
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
                 'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or '',
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
-                'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive)}
+                'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
+                'pad': t.get('pad', ''), 'pmode': t.get('pmode', 'b'), 'pswap': bool(t.get('pswap')),
+                'side': bool(t.get('side', True)), 'stone': int(t.get('stone', 650)), 'svol': float(t.get('svol', 0.5)),
+                'ports': self.com_ports(), 'pad_ok': bool(self.paddle and self.paddle.alive), 'pad_err': self.pad_err}
 
     def tx_set(self, v):
         t = self.tx_cfg()
@@ -1940,6 +2017,23 @@ class Hub:
             t['comp'] = bool(v['comp'])
         if 'track' in v:
             t['track'] = bool(v['track'])
+        if 'pad' in v:
+            t['pad'] = str(v['pad'] or '')[:40]
+            self.pad_err = ''
+        if v.get('pmode') in ('a', 'b', 's'):
+            t['pmode'] = v['pmode']
+        if 'pswap' in v:
+            t['pswap'] = bool(v['pswap'])
+        if 'side' in v:
+            t['side'] = bool(v['side'])
+        if 'stone' in v:
+            t['stone'] = max(300, min(1200, int(v['stone'])))
+        if 'svol' in v:
+            t['svol'] = max(0.0, min(1.0, float(v['svol'])))
+        if self.paddle is not None:
+            self.paddle.mode = t['pmode']
+            self.paddle.swap = bool(t['pswap'])
+            self.paddle.wpm = int(t.get('wpm', 24))
         if isinstance(v.get('macros'), list):
             t['macros'] = [str(x)[:120] for x in v['macros'][:8]]
         save_cfg(self.cfg)
@@ -2689,6 +2783,8 @@ class Hub:
                     self.kiwi_set(c['v'])
                 elif k == 'tx' and isinstance(c.get('v'), dict):
                     self.tx_set(c['v'])
+                elif k in ('tx_send', 'tx_macro') and self.paddle is not None and self.paddle.busy:
+                    self.on_status('Paddle in uso: macro non mandata')
                 elif k == 'tx_send' and self.keyer:
                     self.keyer.send(self.tx_text(c.get('text', '')))
                 elif k == 'tx_macro' and self.keyer:
@@ -2914,6 +3010,8 @@ def hard_exit(code=0):
     aspetta il suo thread USB e il processo resta appeso (si vede in Gestione attività).
     TerminateProcess invece chiude e basta, come «Termina attività»."""
     try:
+        if TX_HUB is not None and TX_HUB.paddle is not None:
+            TX_HUB.paddle.close()
         if TX_HUB is not None and TX_HUB.tx is not None:
             TX_HUB.tx_close()                    # mai lasciare il Pluto in trasmissione
     except Exception:

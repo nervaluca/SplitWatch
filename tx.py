@@ -812,3 +812,235 @@ class EchoTrack:
         den = a - 2 * b + c
         dd = 0.5 * (a - c) / den if den != 0 else 0.0
         return float(f[k] + dd * self.fs2 / N), float(snr)
+
+
+# ------------------------------------------------------------------ paddle su porta COM
+# Punto su CTS, linea su DSR (o DCD, come l'HaliKey Serial). DTR e RTS accesi: con il cavo RS-232 (DB9)
+# il comune del paddle va su DTR; con le schedine TTL il comune va a massa (gli ingressi hanno il pull-up).
+
+DECODE = {}
+for _k, _v in MORSE.items():
+    DECODE.setdefault(_v, _k)
+DECODE.update({'.-.-.': '<AR>', '...-.-': '<SK>', '-.--.': '<KN>', '-...-.-': '<BK>'})
+
+PAD_HANG = 0.8          # s: dopo l'ultimo segno l'oscillatore TX resta acceso (fra lettere e parole)
+PAD_DEBOUNCE = 0.003    # s: tasto verticale, contatto stabile per almeno 3 ms
+
+
+def com_ports():
+    """Porte COM presenti: [(nome, descrizione)]."""
+    try:
+        from serial.tools import list_ports
+        return [(p.device, p.description or p.device) for p in sorted(list_ports.comports(), key=lambda p: p.device)]
+    except Exception:
+        return []
+
+
+class PaddleIn:
+    """Legge le due leve dalla porta COM."""
+
+    def __init__(self, port):
+        import serial
+        s = serial.Serial()
+        s.port = port
+        s.baudrate = 9600
+        s.dtr = True                  # alimenta il comune (cavo RS-232, schema A)
+        s.rts = True
+        s.open()
+        self.s = s
+
+    def read(self):
+        s = self.s
+        return bool(s.cts), bool(s.dsr or s.cd)
+
+    def close(self):
+        try:
+            self.s.close()
+        except Exception:
+            pass
+
+
+class PaddleKeyer:
+    """Keyer per il paddle: iambico A o B, oppure tasto verticale.
+
+    tx_fn() → (PlutoTx, CwKeyer) se si può trasmettere, altrimenti None: allora suona solo il sidetone (esercizio).
+    on_side(on): sidetone nella pagina; on_char(c): segno decodificato; on_ptt(on): inizio e fine della trasmissione."""
+    POLL = 0.001
+
+    def __init__(self, inp, on_side, on_char, on_ptt, on_status):
+        self.inp = inp
+        self.on_side, self.on_char, self.on_ptt, self.on_status = on_side, on_char, on_ptt, on_status
+        self.mode = 'b'               # 'b' iambico B, 'a' iambico A, 's' tasto verticale
+        self.swap = False
+        self.wpm = 24
+        self.tx_fn = None
+        self.freq_fn = None
+        self.alive = True
+        self.busy = False             # leve in uso (anche solo sidetone)
+        self.tx = None                # PlutoTx mentre si trasmette davvero
+        self.r_off = 0.004
+        self.err = ''
+        self.mem_dit = self.mem_dah = False
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def close(self):
+        self.alive = False
+
+    # ---- leve
+    def _paddles(self):
+        a, b = self.inp.read()
+        return (b, a) if self.swap else (a, b)
+
+    def _u(self):
+        return 1.2 / max(5, min(60, self.wpm))
+
+    # ---- trasmissione
+    def _ptt_on(self):
+        if self.busy:
+            return
+        self.busy = True
+        self.tx = None
+        r = self.tx_fn() if self.tx_fn else None
+        if r is not None:
+            tx, keyer = r
+            if keyer is not None and keyer.busy:        # il paddle ha la precedenza sulle macro
+                keyer.stop()
+                end = time.perf_counter() + 0.3
+                while keyer.busy and time.perf_counter() < end:
+                    time.sleep(0.002)
+            f = self.freq_fn() if self.freq_fn else None
+            if not tx.enabled:
+                pass
+            elif f is None:
+                self.on_status('Paddle: VFO A fuori dal transponder o vicino a un beacon, solo sidetone')
+            else:
+                try:
+                    tx.set_freq(f)
+                    tx.lo_on(True)
+                    self.tx = tx
+                except Exception as e:
+                    self.on_status(f'Paddle: TX non riuscito ({e})')
+        self.on_ptt(True, self.tx is not None)
+
+    def _ptt_off(self):
+        if not self.busy:
+            return
+        tx, self.tx = self.tx, None
+        if tx is not None:
+            try:
+                tx.key(False)
+                tx.lo_on(False)
+            except Exception:
+                pass
+        self.busy = False
+        self.on_ptt(False, tx is not None)
+
+    def _key(self, down):
+        self.on_side(down)
+        tx = self.tx
+        if tx is None:
+            return
+        try:
+            tx.key(down)
+        except Exception as e:
+            self.tx = None
+            self.on_status(f'Paddle: TX interrotto ({e})')
+
+    # ---- iambico
+    def _watch(self, until, dah):
+        """Fino a until guarda la leva opposta (memoria del segno): serve all'iambico B e allo squeeze."""
+        while True:
+            d = until - time.perf_counter()
+            if d <= 0:
+                return
+            dit_p, dah_p = self._paddles()
+            if dah and dit_p:
+                self.mem_dit = True
+            if not dah and dah_p:
+                self.mem_dah = True
+            time.sleep(min(self.POLL, max(0.0, d - 0.0005)) if d > 0.0015 else 0)
+
+    def _element(self, dah):
+        u = self._u()
+        t0 = time.perf_counter()
+        end_on = t0 + (3 * u if dah else u)
+        self._key(True)
+        self._watch(end_on - (self.r_off if self.tx else 0.0), dah)
+        t1 = time.perf_counter()
+        self._key(False)
+        if self.tx is not None:
+            self.r_off = 0.8 * self.r_off + 0.2 * min(0.02, time.perf_counter() - t1)
+        self._watch(end_on + u, dah)              # spazio di un'unità dopo il segno
+
+    def _next(self, last):
+        dit, dah = self._paddles()
+        if self.mode == 'b':
+            dit, dah = dit or self.mem_dit, dah or self.mem_dah
+        self.mem_dit = self.mem_dah = False
+        if last == '.':
+            return '-' if dah else '.' if dit else None
+        return '.' if dit else '-' if dah else None
+
+    def _run(self):
+        _hires_timer()
+        last, elems, t_end, word = None, '', time.perf_counter(), False
+        st_down, st_cand, st_since, t_down = False, False, 0.0, 0.0
+        try:
+            while self.alive:
+                now = time.perf_counter()
+                u = self._u()
+                if self.mode == 's':
+                    dit, dah = self._paddles()
+                    v = dit or dah
+                    if v != st_cand:
+                        st_cand, st_since = v, now
+                    if st_cand != st_down and now - st_since >= PAD_DEBOUNCE:
+                        st_down = st_cand
+                        if st_down:
+                            self._ptt_on()
+                            self._key(True)
+                            t_down = now
+                        else:
+                            self._key(False)
+                            elems += '-' if now - t_down > 2 * u else '.'
+                            t_end, word = now, True
+                    if st_down and now - t_down > MAX_KEY_S:
+                        self._key(False)
+                        self.on_status('Paddle: chiave giù da troppo tempo, alzata')
+                        st_down = False
+                        t_down = now
+                    nxt = None
+                    if st_down:
+                        time.sleep(self.POLL)
+                        continue
+                else:
+                    nxt = self._next(last)
+                if nxt is not None:
+                    self._ptt_on()
+                    self._element(nxt == '-')
+                    elems += nxt
+                    last = nxt
+                    t_end, word = time.perf_counter(), True
+                    continue
+                last = None
+                gap = now - t_end
+                if elems and gap > 1.5 * u:               # fine lettera (3 unità, 1 già passata)
+                    self.on_char(DECODE.get(elems, '?'))
+                    elems = ''
+                if word and not elems and gap > 4.5 * u:   # fine parola (7 unità)
+                    self.on_char(' ')
+                    word = False
+                if self.busy and gap > max(PAD_HANG, 8 * u) and not st_down:
+                    self._ptt_off()
+                time.sleep(self.POLL)
+        except Exception as e:
+            self.err = str(e)
+            self.on_status(f'Paddle: porta COM persa ({e})')
+        finally:
+            try:
+                self.on_side(False)
+            except Exception:
+                pass
+            self._ptt_off()
+            self.alive = False
+            self.inp.close()
