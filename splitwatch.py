@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.81'
+VERSION = '1.82'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1980,7 +1980,7 @@ class Hub:
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
-                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'call': self.rbn_call() or '',
+                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
                 'pad': t.get('pad', ''), 'pmode': t.get('pmode', 'b'), 'pswap': bool(t.get('pswap')),
@@ -2448,6 +2448,8 @@ class Hub:
 
     # -------------------------------------------------------------- web
     def post_json(self, obj):
+        if isinstance(obj.get('why'), str) and obj['why'] and 'why_en' not in obj:
+            obj['why_en'] = i18n.en(obj['why'])          # motivo dell'errore anche in inglese
         if self.loop:
             self.loop.call_soon_threadsafe(self._broadcast, json.dumps(obj))
 
