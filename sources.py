@@ -1,4 +1,4 @@
-"""Sorgenti IQ per FZR Skimmer.
+"""Sorgenti IQ per FZR SDR.
 
 PerseusExtIO : Perseus dal vivo tramite ExtIO_perseus.dll (32 bit, formato Winrad/HDSDR)
 WavFile      : riproduzione in tempo reale di una registrazione IQ (CW Skimmer, HDSDR, SDR Console)
@@ -122,7 +122,7 @@ class WavFile:
                     f.seek(sz + (sz & 1), 1)
 
     def _fzrx(self):
-        """Blocco scritto da FZR Skimmer: centro e DX."""
+        """Blocco scritto da FZR SDR: centro e DX."""
         try:
             for cid, d in self._chunks():
                 if cid == b'fzrx':
@@ -292,7 +292,7 @@ class PerseusExtIO:
         from ctypes import wintypes
         try:
             if struct.calcsize('P') != 4:
-                raise RuntimeError('ExtIO_perseus.dll è a 32 bit: serve la versione a 32 bit di FZR Skimmer')
+                raise RuntimeError('ExtIO_perseus.dll è a 32 bit: serve la versione a 32 bit di FZR SDR')
             dll_path = os.path.join(self.folder, 'ExtIO_perseus.dll')
             if not os.path.exists(dll_path):
                 raise RuntimeError(f'Non trovo ExtIO_perseus.dll in {self.folder}')
@@ -553,7 +553,7 @@ class ExtIOSource:
         dll = None
         try:
             if struct.calcsize('P') != 4:
-                raise RuntimeError('I plugin ExtIO per HDSDR sono a 32 bit: serve FZR Skimmer a 32 bit')
+                raise RuntimeError('I plugin ExtIO per HDSDR sono a 32 bit: serve FZR SDR a 32 bit')
             if not os.path.exists(self.dll_path):
                 raise RuntimeError(f'Non trovo {self.dll_path}')
             folder = os.path.dirname(self.dll_path)
@@ -792,7 +792,7 @@ class PerseusDirect:
         import ctypes
         try:
             if struct.calcsize('P') != 4:
-                raise RuntimeError('perseususb.dll è a 32 bit: serve la versione a 32 bit di FZR Skimmer')
+                raise RuntimeError('perseususb.dll è a 32 bit: serve la versione a 32 bit di FZR SDR')
             path = os.path.join(self.folder, 'perseususb.dll')
             if not os.path.exists(path):
                 raise RuntimeError(f'Non trovo perseususb.dll in {self.folder} (è nella cartella di CW Skimmer o del software Perseus)')
@@ -1133,7 +1133,7 @@ def find_rtl_dongles(max_age=30.0):
 class RtlTcpSource:
     """Chiavetta RTL-SDR (24 MHz – 1,7 GHz; con il «direct sampling» anche le onde corte) tramite rtl_tcp.
 
-    Se il server è su questo PC e non è già acceso, FZR Skimmer avvia rtl_tcp.exe da solo (serve il driver
+    Se il server è su questo PC e non è già acceso, FZR SDR avvia rtl_tcp.exe da solo (serve il driver
     WinUSB della chiavetta, quello che si installa con Zadig per SDR#). Si può usare anche una chiavetta
     su un altro computer (Raspberry, ecc.) con rtl_tcp acceso là: basta l'indirizzo.
     I campioni (8 bit) arrivano a 1,92 MS/s e si riducono a 192 kHz."""
@@ -1176,7 +1176,7 @@ class RtlTcpSource:
         import subprocess
         exe = self.exe or find_rtl_tcp()
         if not exe:
-            raise RuntimeError('Non trovo rtl_tcp.exe: mettilo nella cartella di FZR Skimmer (o nella sottocartella rtl), '
+            raise RuntimeError('Non trovo rtl_tcp.exe: mettilo nella cartella di FZR SDR (o nella sottocartella rtl), '
                                'oppure avvialo a mano e scrivi l\'indirizzo')
         args = [exe, '-a', '127.0.0.1', '-p', str(self.port), '-s', str(RTL_RATE), '-d', str(self.dev)]
         self.proc = subprocess.Popen(args, cwd=os.path.dirname(exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1700,7 +1700,7 @@ class SpyServerSource:
         except OSError:
             pass
         self.sock.settimeout(10)
-        self._send(0, struct.pack('<I', SPY_VERSION) + b'FZR Skimmer')
+        self._send(0, struct.pack('<I', SPY_VERSION) + b'FZR SDR')
         self.alive = True
         threading.Thread(target=self._reader, daemon=True).start()
         if not self.got.wait(8) or self.info is None:
@@ -1869,7 +1869,7 @@ class KiwiSource:
         url = self._url('SND')
         try:
             self.ws = connect(url, open_timeout=8, close_timeout=1, max_size=None, compression=None,
-                              user_agent_header='FZR Skimmer')
+                              user_agent_header='FZR SDR')
         except Exception as e:
             raise RuntimeError(f'KiwiSDR non risponde su {self.host}:{self.port} ({e})')
         self.alive = True
@@ -1921,7 +1921,7 @@ class KiwiSource:
         try:
             from websockets.sync.client import connect
             self.wfs = connect(self._url('W/F'), open_timeout=8, close_timeout=1, max_size=None, compression=None,
-                               user_agent_header='FZR Skimmer')
+                               user_agent_header='FZR SDR')
         except Exception as e:
             self.on_status(f'KiwiSDR: waterfall largo non disponibile ({e})')
             self.wfs = None
@@ -1944,7 +1944,7 @@ class KiwiSource:
                             self._wf_send('SET wf_speed=4')
                             self._wf_send('SET wf_comp=0')
                             self._wf_send('SET interp=13')
-                            self._wf_send('SET ident_user=FZR_Skimmer')
+                            self._wf_send('SET ident_user=FZR_SDR')
                             self._wf_tune()
                         elif name in ('too_busy', 'down') or (name == 'badp' and value not in ('0', '')):
                             self.on_status('KiwiSDR: waterfall largo non disponibile su questo Kiwi '
@@ -1988,7 +1988,7 @@ class KiwiSource:
         self._tune()
         self._agc()
         self._send('SET compression=0')
-        self._send('SET ident_user=FZR_Skimmer')
+        self._send('SET ident_user=FZR_SDR')
         self._send('SET keepalive')
 
     def _tune(self):

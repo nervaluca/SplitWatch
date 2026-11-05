@@ -1,8 +1,8 @@
-"""FZR Skimmer - ricevitore per pile-up in split con il Perseus.
+"""FZR SDR (prima FZR Skimmer) - ricevitore SDR con skimmer CW e RTTY, pile-up in split e TX su QO-100.
 
 Uso:
-  FZRSkimmer.exe                         Perseus dal vivo (ExtIO_perseus.dll nella stessa cartella)
-  FZRSkimmer.exe registrazione.wav       riproduce una registrazione IQ
+  FZRSDR.exe                         Perseus dal vivo (ExtIO_perseus.dll nella stessa cartella)
+  FZRSDR.exe registrazione.wav       riproduce una registrazione IQ
        --centro 18085.0                  frequenza centrale della registrazione in kHz (CW Skimmer non la salva)
        --dx 18085.0                      frequenza del DX in kHz
        --porta 8073                      porta dell'interfaccia web
@@ -16,7 +16,7 @@ import sys as _sys
 
 def _errore_avvio(tipo, val, tb):
     """Errore prima che il programma parta (es. un file mancante nella compilazione): lo scrive in
-    fzrskimmer_errore.txt accanto all'exe ed esce, invece di restare appeso a una finestra di Windows."""
+    fzrsdr_errore.txt accanto all'exe ed esce, invece di restare appeso a una finestra di Windows."""
     import traceback
     txt = ''.join(traceback.format_exception(tipo, val, tb))
     try:
@@ -27,7 +27,7 @@ def _errore_avvio(tipo, val, tb):
         pass
     try:
         base = _os.path.dirname(_sys.executable) if getattr(_sys, 'frozen', False) else _os.path.dirname(_os.path.abspath(__file__))
-        with open(_os.path.join(base, 'fzrskimmer_errore.txt'), 'a', encoding='utf-8') as f:
+        with open(_os.path.join(base, 'fzrsdr_errore.txt'), 'a', encoding='utf-8') as f:
             f.write(txt + '\n')
     except Exception:
         pass
@@ -71,14 +71,14 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.83'
-APP = 'FZR Skimmer'
-TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
+VERSION = '2.0'
+APP = 'FZR SDR'
+TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
 
 
 def find_license():
-    """Licenza di FZR Skimmer: solo quella registrata qui incollando la chiave (nessuna attivazione automatica,
+    """Licenza di FZR SDR: solo quella registrata qui incollando la chiave (nessuna attivazione automatica,
     nemmeno prendendo quella di ADIF FZR: la chiave è la stessa, ma va incollata anche qui)."""
     for d in (DATA_DIR, app_dir()):
         info = licenza.carica(d)
@@ -113,18 +113,22 @@ def _writable(d):
 
 def data_dir():
     """Cartella per impostazioni, registro e licenza: quella dell'exe se scrivibile,
-    altrimenti %APPDATA%\\FZRSkimmer (come ADIF FZR)."""
+    altrimenti %APPDATA%\\FZRSDR (come ADIF FZR). Chi aveva già FZR Skimmer installato per tutti gli utenti
+    continua a usare %APPDATA%\\FZRSkimmer: lì ci sono licenza, impostazioni e registrazioni."""
     if _writable(app_dir()):
         return app_dir()
-    fb = os.path.join(os.environ.get('APPDATA') or os.path.expanduser('~'), 'FZRSkimmer')
+    root = os.environ.get('APPDATA') or os.path.expanduser('~')
+    old = os.path.join(root, 'FZRSkimmer')
+    fb = old if os.path.isdir(old) else os.path.join(root, 'FZRSDR')
     _writable(fb)
     return fb
 
 
 DATA_DIR = data_dir()
-CFG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.json')
+CFG_PATH = os.path.join(DATA_DIR, 'fzrsdr.json')
 OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni della vecchia versione Split Watch
-LOG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.log')
+SKIM_CFG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.json')     # impostazioni di FZR Skimmer (fino alla 1.83)
+LOG_PATH = os.path.join(DATA_DIR, 'fzrsdr.log')
 
 
 if sys.stdout is None:                      # eseguibile senza finestra nera
@@ -252,7 +256,7 @@ def load_calls(extra_dirs=()):
 
 
 def load_cfg():
-    for path in (CFG_PATH, OLD_CFG_PATH):          # recupera memorie e impostazioni di FZR Skimmer
+    for path in (CFG_PATH, SKIM_CFG_PATH, OLD_CFG_PATH):   # recupera memorie e impostazioni di FZR Skimmer e Split Watch
         try:
             with open(path, encoding='utf-8') as f:
                 return json.load(f)
@@ -810,7 +814,7 @@ class Hub:
                     except Exception:
                         pass
                 log('Prova terminata: ricevitore fermato')
-                self.on_status('Prova di 5 minuti terminata: registra FZR Skimmer per continuare')
+                self.on_status('Prova di 30 minuti terminata: registra FZR SDR per continuare')
                 self.post_json(self.cfg_msg())
 
     def register(self, call, key):
@@ -833,7 +837,7 @@ class Hub:
     def switch_source(self, kind, dev=None):
         """Cambia ricevitore senza riavviare il programma."""
         if self.locked and kind != 'file':
-            self.on_status('Prova terminata: registra FZR Skimmer per riattivare il ricevitore')
+            self.on_status('Prova terminata: registra FZR SDR per riattivare il ricevitore')
             return
 
         def run():
@@ -1063,8 +1067,8 @@ class Hub:
             except Exception:
                 import traceback
                 log('ERRORE nel calcolo:\n' + traceback.format_exc())
-                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi fzrskimmer.log',
-                                'en': 'Processing error: see fzrskimmer.log'})
+                self.post_json({'type': 'status', 'text': 'Errore nel calcolo: vedi fzrsdr.log',
+                                'en': 'Processing error: see fzrsdr.log'})
                 time.sleep(1)
 
     def diag_thread(self):
@@ -1323,7 +1327,7 @@ class Hub:
             if (self.is_ssb() and old and why in (None, 'radio') and abs(self.dx_abs - old) < 30000):
                 # SSB: si sposta solo il DX, RX2 resta dov'è (lo scostamento cambia)
                 self.cfg['rx2_off'] = round(float(self.cfg.get('rx2_off', 5000.0)) - (self.dx_abs - old))
-            if why in (None, 'band'):                   # deciso in FZR Skimmer (non dalla manopola, non dalla calibrazione)
+            if why in (None, 'band'):                   # deciso in FZR SDR (non dalla manopola, non dalla calibrazione)
                 self.rig_follow_dx()
             if self.engine:
                 self.engine.set_dx(self.dx_abs - self.center)
@@ -1581,7 +1585,7 @@ class Hub:
                 self.src.set_lo(float(f))              # «Frequenza radio» letta dalla radio: niente più a mano
             return
         if first:
-            # appena collegata: se la radio è in una banda HF la segue FZR Skimmer, altrimenti la porto io sul DX
+            # appena collegata: se la radio è in una banda HF la segue FZR SDR, altrimenti la porto io sul DX
             if band_of(f):
                 moved = True
             else:
@@ -1591,7 +1595,7 @@ class Hub:
                 return
         if not moved:
             return
-        # manopola della radio girata: il DX (o l'RX) di FZR Skimmer va lì
+        # manopola della radio girata: il DX (o l'RX) di FZR SDR va lì
         self.cmd_q.put(('dx', float(f), 'radio'))
         if self.fs and self.center and abs(f - self.center) > self.fs * 0.42 and \
                 self.tunable():
@@ -2972,7 +2976,7 @@ class Hub:
             return (200, [('Content-Type', 'text/html; charset=utf-8'), ('Cache-Control', 'no-store')], body)
         if path == '/ws':
             return None
-        if path == '/versione':                       # un FZR Skimmer appena avviato chiede chi è già acceso
+        if path == '/versione':                       # un FZR SDR appena avviato chiede chi è già acceso
             return (200, [('Content-Type', 'text/plain'), ('Cache-Control', 'no-store')], VERSION.encode())
         if path in ('/logo.png', '/favicon.ico'):
             try:
@@ -2994,7 +2998,7 @@ class Hub:
         self.rbn_apply()
         self.rig_apply()
         log(f'Impostazioni in {CFG_PATH}')
-        log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 5 minuti'))
+        log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 30 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         self.first_run_source()
         self.rtl_scan()
@@ -3135,7 +3139,7 @@ def open_app_window(url):
 
 
 def close_app_windows():
-    """Chiude i processi Edge/Chrome che usano il profilo della finestra di FZR Skimmer."""
+    """Chiude i processi Edge/Chrome che usano il profilo della finestra di FZR SDR."""
     if os.name != 'nt':
         return
     import subprocess
@@ -3158,7 +3162,7 @@ def port_in_use(port):
 
 
 def running_version(port):
-    """Versione del FZR Skimmer già acceso sulla porta (None se è uno vecchio, che non lo dice)."""
+    """Versione del FZR SDR già acceso sulla porta (None se è uno vecchio, che non lo dice)."""
     import urllib.request
     try:
         op = urllib.request.build_opener(urllib.request.ProxyHandler({}))      # niente proxy per questo PC
@@ -3170,8 +3174,8 @@ def running_version(port):
 
 
 def close_old_instance(port):
-    """Chiude il FZR Skimmer di un'altra versione rimasto acceso (aggiornando, il vecchio teneva la porta
-    e la finestra nuova si collegava a lui). Solo un processo FZRSkimmer.exe, mai altri programmi."""
+    """Chiude il FZR SDR di un'altra versione rimasto acceso (aggiornando, il vecchio teneva la porta
+    e la finestra nuova si collegava a lui). Solo un processo FZRSDR.exe, mai altri programmi."""
     if os.name != 'nt':
         return False
     import subprocess
@@ -3189,7 +3193,7 @@ def close_old_instance(port):
                                   text=True, timeout=10, creationflags=0x08000000).stdout.lower()
         except Exception:
             continue
-        if 'fzrskimmer' not in info:
+        if 'fzrsdr' not in info and 'fzrskimmer' not in info:     # anche il vecchio FZR Skimmer
             continue
         subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], capture_output=True, timeout=10,
                        creationflags=0x08000000)
@@ -3217,7 +3221,7 @@ def local_ip():
 
 
 def main():
-    p = argparse.ArgumentParser(description='FZR Skimmer - pile-up in split con il Perseus')
+    p = argparse.ArgumentParser(description='FZR SDR - ricevitore SDR, skimmer CW/RTTY e TX QO-100')
     p.add_argument('file', nargs='?', help='registrazione IQ .wav da riprodurre')
     p.add_argument('--centro', type=float, help='frequenza centrale della registrazione (kHz)')
     p.add_argument('--dx', type=float, help='frequenza del DX (kHz)')
@@ -3229,10 +3233,10 @@ def main():
     p.add_argument('--browser', action='store_true', help='usa il browser normale invece della finestra propria')
     p.add_argument('--prova', type=float, nargs='?', const=0, default=None, metavar='SECONDI',
                    help='si comporta da non registrato (ignora la licenza) per provare la versione di prova; '
-                        'con un numero la prova dura quei secondi (al massimo 5 minuti)')
+                        'con un numero la prova dura quei secondi (al massimo 30 minuti)')
     args = p.parse_args()
     if port_in_use(args.porta) and running_version(args.porta) != VERSION and close_old_instance(args.porta):
-        log(f'Chiuso il FZR Skimmer di un\'altra versione rimasto acceso: parte la {VERSION}')
+        log(f'Chiuso il FZR SDR di un\'altra versione rimasto acceso: parte la {VERSION}')
     if port_in_use(args.porta):
         # già acceso (la stessa versione): riapro solo la finestra
         if not args.no_browser:
