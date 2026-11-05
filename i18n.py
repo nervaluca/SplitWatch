@@ -122,6 +122,7 @@ _EN = [
     (r'errore (-?\d+) scrivendo i campioni', r'error \1 writing the samples'),
     (r'errore scrivendo i campioni', 'error writing the samples'),
     (r'microfono non disponibile', 'microphone not available'),
+    (r'il microfono non manda audio', 'the microphone sends no audio'),
     (r'frequenza di salita fuori dal transponder o vicino a un beacon: non trasmetto',
      'uplink frequency outside the transponder or near a beacon: not transmitting'),
     (r'TX spento: accendilo prima', 'TX off: switch it on first'),

@@ -551,19 +551,118 @@ class _Interp:
         return (W @ self.H).reshape(-1)
 
 
+EQ_F = (200.0, 400.0, 800.0, 1600.0, 2600.0)     # bande dell'equalizzatore TX (Hz)
+EQ_TAPS = 129                                    # 16 ms a 8 kHz: risoluzione ~60 Hz, ritardo fisso
+
+
+def eq_fir(gains, fs=8000.0):
+    """Equalizzatore a 5 bande → filtro FIR a fase lineare (piatto = impulso: stesso ritardo sempre)."""
+    import numpy as np
+    g = [max(-12.0, min(12.0, float(x))) for x in (list(gains or []) + [0.0] * 5)[:5]]
+    h = np.zeros(EQ_TAPS, np.float32)
+    if not any(g):
+        h[EQ_TAPS // 2] = 1.0
+        return h
+    nf = 2048
+    f = np.linspace(0, fs / 2, nf // 2 + 1)
+    db = np.interp(np.log(np.maximum(f, 60.0)), np.log(EQ_F), g)   # in mezzo interpolato, fuori piatto
+    hz = np.fft.irfft(10 ** (db / 20), nf)
+    h = np.roll(hz, EQ_TAPS // 2)[:EQ_TAPS] * np.kaiser(EQ_TAPS, 6.0)
+    return h.astype(np.float32)
+
+
+def _ssb_bp():
+    """Passa-banda complesso 300–2700 Hz a 8 kHz: fa da solo la banda laterale superiore (guadagno ½)."""
+    import numpy as np
+    n = np.arange(201) - 100
+    return (_kaiser_lp(201, 1200.0, 8000.0) * np.exp(2j * np.pi * 1500.0 * n / 8000.0)).astype(np.complex64)
+
+
+class EnvClip:
+    """Tosatore sull'inviluppo del segnale SSB (8 kHz complesso), poi di nuovo il filtro 300–2700 Hz.
+
+    Come il processore a RF delle radio: taglia le creste dell'ampiezza senza toccare la fase, quindi
+    distorce poco e abbassa davvero il rapporto cresta/media (più potenza media a parità di cresta).
+    Riceve metà dei dB del processore. Il filtro c'è sempre (ritardo fisso, niente salti)."""
+
+    def __init__(self):
+        import numpy as np
+        self.hc = _ssb_bp()
+        self.tails = [np.zeros(200, np.complex64), np.zeros(200, np.complex64)]
+
+    def __call__(self, y, proc_db):
+        import numpy as np
+        if proc_db > 0:
+            y = y * (10 ** (proc_db / 40))
+        for i in range(2):                                     # due passaggi: il filtro rifà meno creste
+            if proc_db > 0:
+                m = np.abs(y)
+                y = np.where(m > 0.45, y * (0.45 / np.maximum(m, 1e-9)), y)
+            z = np.concatenate([self.tails[i], y.astype(np.complex64)])
+            self.tails[i] = z[-200:]
+            y = np.convolve(z, self.hc, mode='valid')          # su un segnale complesso il filtro rende 1
+        return y
+
+
+class VoiceProc:
+    """La voce a 8 kHz prima del modulatore: guadagno del microfono, equalizzatore, processore.
+
+    Processore (0–20 dB): livellatore lento che alza le parti deboli fino a quei dB; la tosatura vera la fa
+    EnvClip sul segnale SSB già formato. 0 = spento: solo le creste oltre 0,7 vengono arrotondate.
+    I valori si cambiano anche mentre si trasmette."""
+
+    def __init__(self, gain_db=0.0, proc_db=10.0, eq=None):
+        import numpy as np
+        self.te = np.zeros(EQ_TAPS - 1, np.float32)
+        self.g = 1.0
+        self.level = -90.0
+        self.comp_db = 0.0
+        self.set(gain_db, proc_db, eq if eq is not None else [0] * 5)
+
+    def set(self, gain_db=None, proc_db=None, eq=None):
+        if gain_db is not None:
+            self.gain = 10 ** (float(gain_db) / 20)
+        if proc_db is not None:
+            self.proc = max(0.0, min(20.0, float(proc_db)))
+        if eq is not None:
+            self.h = eq_fir(eq)
+
+    def __call__(self, a):
+        import numpy as np
+        a = np.asarray(a, np.float32) * self.gain
+        h = self.h
+        z = np.concatenate([self.te, a])
+        a = np.convolve(z, h, mode='valid').astype(np.float32)
+        self.te = z[len(z) - (EQ_TAPS - 1):]
+        p = self.proc
+        if p > 0:                                              # livellatore: livello medio verso −12 dB
+            rms = float(np.sqrt(np.mean(a * a)) + 1e-6)
+            want = min(10 ** (p / 20), 0.25 / rms)
+            k = 0.5 if want < self.g else 0.03                 # giù subito, su piano
+            g1 = self.g + (want - self.g) * k
+            a = a * np.linspace(self.g, g1, len(a), dtype=np.float32)
+            self.g = g1
+        else:
+            self.g = 1.0
+        self.comp_db = 20 * np.log10(max(1e-3, self.g))
+        pk = float(np.max(np.abs(a))) if len(a) else 0.0
+        self.level = 20 * np.log10(pk + 1e-6)
+        return np.where(np.abs(a) > 0.7, np.sign(a) * (0.7 + 0.3 * np.tanh((np.abs(a) - 0.7) / 0.3)), a).astype(np.float32)
+
+
 class SsbMod:
     """Audio del microfono (8 kHz) → USB a +SSB_OFF, campioni a 2,304 MS/s pronti per il Pluto.
 
-    Filtro 300–2700 Hz complesso (fa da solo la banda laterale superiore), compressore lento a blocchi,
-    tosatura dolce rifiltrata, poi due interpolazioni (×12 e ×24) con reiezione delle immagini > 60 dB."""
+    VoiceProc (guadagno, equalizzatore, processore), poi il filtro 300–2700 Hz complesso (fa da solo la banda
+    laterale superiore e toglie le armoniche della tosatura), poi due interpolazioni (×12 e ×24) con reiezione
+    delle immagini > 60 dB."""
 
-    def __init__(self, comp=True, gain_db=0.0, inv=False):
+    def __init__(self, gain_db=0.0, proc_db=10.0, eq=None, inv=False):
         import numpy as np
-        self.comp = bool(comp)
         self.inv = bool(inv)
-        self.gain = 10 ** (gain_db / 20)
-        n = np.arange(201) - 100
-        self.hc = (_kaiser_lp(201, 1200.0, 8000.0) * np.exp(2j * np.pi * 1500.0 * n / 8000.0)).astype(np.complex64)
+        self.vp = VoiceProc(gain_db, proc_db, eq)
+        self.ec = EnvClip()
+        self.hc = _ssb_bp()
         self.tc = np.zeros(200, np.complex64)
         self.i1 = _Interp(12, _kaiser_lp(181, 3600.0, 96000.0))
         # spostamento a +500 kHz senza moltiplicare a 2,3 MHz: a 96 kHz si sposta di 20 kHz (500000 mod 96000),
@@ -574,25 +673,14 @@ class SsbMod:
         h2 = _kaiser_lp(192, 4000.0, float(TX_RATE), beta=8.0)
         n2 = np.arange(len(h2)) - (len(h2) - 1) / 2
         self.i2 = _Interp(24, h2 * np.exp(2j * np.pi * (SSB_OFF + 1500.0) * n2 / TX_RATE))
-        self.g = 1.0
-        self.level = -90.0
 
     def __call__(self, a):
         import numpy as np
-        a = np.asarray(a, np.float32) * self.gain
-        if self.comp:                                          # compressore: livello medio verso −12 dB
-            rms = float(np.sqrt(np.mean(a * a)) + 1e-6)
-            want = min(10.0, 0.25 / rms)                       # al massimo +20 dB sulle pause
-            k = 0.5 if want < self.g else 0.03                 # giù subito, su piano
-            g1 = self.g + (want - self.g) * k
-            a = a * np.linspace(self.g, g1, len(a), dtype=np.float32)
-            self.g = g1
-        pk = float(np.max(np.abs(a))) if len(a) else 0.0
-        self.level = 20 * np.log10(pk + 1e-6)
-        a = np.where(np.abs(a) > 0.7, np.sign(a) * (0.7 + 0.3 * np.tanh((np.abs(a) - 0.7) / 0.3)), a)
+        a = self.vp(a)
         z = np.concatenate([self.tc, a.astype(np.complex64)])
         y = np.convolve(z, self.hc, mode='valid')
         self.tc = z[-200:]
+        y = self.ec(y, self.vp.proc)
         y = self.i1(y)
         idx = (self.ri + np.arange(len(y))) % 24
         self.ri = (self.ri + len(y)) % 24
@@ -606,6 +694,99 @@ class SsbMod:
         return (y.astype(np.complex64).view(np.float32) * SSB_PEAK).astype('<i2').tobytes()   # I, Q, I, Q…
 
 
+def open_mic(dev):
+    """Microfono a 48 kHz (o a quello che regge), ridotto a 8 kHz in una coda. → (stream, coda)"""
+    import numpy as np
+    import sounddevice as sd
+    q = queue.Queue(maxsize=100)
+    st = {'rate': None}
+    dec = {'h': None, 'tail': None, 'ph': 0}
+
+    def cb(indata, frames, t, status):
+        x = indata[:, 0].astype(np.float32)
+        r = st['rate']
+        if r == 8000:
+            y = x
+        else:
+            z = np.concatenate([dec['tail'], x])
+            f = np.convolve(z, dec['h'], mode='valid')
+            dec['tail'] = z[-(len(dec['h']) - 1):]
+            step = r / 8000.0
+            pos = dec['ph'] + np.arange(0, len(f) - dec['ph'], step)
+            dec['ph'] = float(pos[-1] + step - len(f)) if len(pos) else dec['ph'] - len(f)
+            y = np.interp(pos, np.arange(len(f)), f).astype(np.float32)
+        try:
+            q.put_nowait(y)
+        except queue.Full:
+            pass
+    dv = None if dev in (None, '') else dev
+    last = None
+    for rate in (48000, 44100, 16000, 8000):
+        try:
+            if rate != 8000:
+                dec['h'] = _kaiser_lp(63, 3300.0, float(rate)).astype(np.float32)
+                dec['tail'] = np.zeros(62, np.float32)
+            st['rate'] = rate
+            s = sd.InputStream(device=dv, channels=1, samplerate=rate, blocksize=int(rate * 0.01),
+                               dtype='float32', callback=cb)
+            s.start()
+            return s, q
+        except Exception as e:
+            last = e
+    raise RuntimeError(f'microfono non disponibile ({last})')
+
+
+def mic_record(dev, secs=5.0):
+    """Registra secs secondi dal microfono (8 kHz, senza guadagno): per la prova voce."""
+    import numpy as np
+    s, q = open_mic(dev)
+    out, n, end = [], 0, time.time() + secs + 2.0
+    try:
+        while n < secs * 8000 and time.time() < end:
+            try:
+                y = q.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            out.append(y)
+            n += len(y)
+    finally:
+        try:
+            s.stop()
+            s.close()
+        except Exception:
+            pass
+    return np.concatenate(out)[:int(secs * 8000)] if out else np.zeros(0, np.float32)
+
+
+def voice_preview(raw, gain_db, proc_db, eq):
+    """La voce come la sente chi ti ascolta: VoiceProc a blocchi come in trasmissione, poi la banda 300–2700."""
+    import numpy as np
+    vp, ec, hc = VoiceProc(gain_db, proc_db, eq), EnvClip(), _ssb_bp()
+    tc = np.zeros(200, np.complex64)
+    out = []
+    for i in range(0, len(raw), 128):
+        z = np.concatenate([tc, vp(raw[i:i + 128]).astype(np.complex64)])
+        tc = z[-200:]
+        out.append(ec(np.convolve(z, hc, mode='valid'), vp.proc))
+    y = np.concatenate(out) if out else np.zeros(0, np.complex64)
+    return (y.real * 2.0).astype(np.float32)
+
+
+def wav_b64(x, rate=8000):
+    """Campioni float (±1) → WAV 16 bit in base64, per farli suonare alla pagina."""
+    import base64
+    import io
+    import wave
+    import numpy as np
+    b = io.BytesIO()
+    with wave.open(b, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes((np.clip(x, -1, 1) * 32000).astype('<i2').tobytes())
+    return base64.b64encode(b.getvalue()).decode('ascii')
+
+
 class SsbTx:
     """PTT in SSB: microfono → SsbMod → flusso continuo verso il Pluto (connessione a parte)."""
 
@@ -615,64 +796,32 @@ class SsbTx:
         self.alive = False
         self.th = None
 
-    def start(self, f_up, mic=None, gain_db=0.0, comp=True):
+    def start(self, f_up, mic=None, gain_db=0.0, proc_db=10.0, eq=None):
         if self.alive:
             return
         self.alive = True
-        self.th = threading.Thread(target=self._run, args=(f_up, mic, gain_db, comp), daemon=True)
+        self.mod = None
+        self.th = threading.Thread(target=self._run, args=(f_up, mic, gain_db, proc_db, eq), daemon=True)
         self.th.start()
 
     def stop(self):
         self.alive = False
 
-    def _mic(self, dev):
-        """Microfono a 48 kHz (o a quello che regge), ridotto a 8 kHz in una coda."""
-        import numpy as np
-        import sounddevice as sd
-        q = queue.Queue(maxsize=100)
-        st = {'rate': None}
-        dec = {'h': None, 'tail': None, 'ph': 0}
+    def set(self, gain_db=None, proc_db=None, eq=None):
+        """Regolazioni della voce mentre si trasmette."""
+        m = getattr(self, 'mod', None)
+        if m is not None:
+            m.vp.set(gain_db, proc_db, eq)
 
-        def cb(indata, frames, t, status):
-            x = indata[:, 0].astype(np.float32)
-            r = st['rate']
-            if r == 8000:
-                y = x
-            else:
-                z = np.concatenate([dec['tail'], x])
-                f = np.convolve(z, dec['h'], mode='valid')
-                dec['tail'] = z[-(len(dec['h']) - 1):]
-                step = r / 8000.0
-                pos = dec['ph'] + np.arange(0, len(f) - dec['ph'], step)
-                dec['ph'] = float(pos[-1] + step - len(f)) if len(pos) else dec['ph'] - len(f)
-                y = np.interp(pos, np.arange(len(f)), f).astype(np.float32)
-            try:
-                q.put_nowait(y)
-            except queue.Full:
-                pass
-        dv = None if dev in (None, '') else dev
-        for rate in (48000, 44100, 16000, 8000):
-            try:
-                if rate != 8000:
-                    dec['h'] = _kaiser_lp(63, 3300.0, float(rate)).astype(np.float32)
-                    dec['tail'] = np.zeros(62, np.float32)
-                st['rate'] = rate
-                s = sd.InputStream(device=dv, channels=1, samplerate=rate, blocksize=int(rate * 0.01),
-                                   dtype='float32', callback=cb)
-                s.start()
-                return s, q
-            except Exception as e:
-                last = e
-        raise RuntimeError(f'microfono non disponibile ({last})')
-
-    def _run(self, f_up, mic, gain_db, comp):
+    def _run(self, f_up, mic, gain_db, proc_db, eq):
         import numpy as np
         tx = self.tx
-        mod = SsbMod(comp, gain_db, tx.inv)
+        mod = SsbMod(gain_db, proc_db, eq, tx.inv)
+        self.mod = mod
         s = ms = None
         f = None
         try:
-            ms, mq = self._mic(mic)
+            ms, mq = open_mic(mic)
             tx.set_freq_off(f_up, SSB_OFF)
             tx.lo_on(True)
             s = socket.create_connection((tx.host, tx.PORT), timeout=5)
@@ -731,7 +880,7 @@ class SsbTx:
                 now = time.perf_counter()
                 if self.on_level and now - lastlev > 0.2:
                     lastlev = now
-                    self.on_level(mod.level, 20 * np.log10(max(1e-3, mod.g)))
+                    self.on_level(mod.vp.level, mod.vp.comp_db)
             if time.perf_counter() - t0 >= SSB_MAX_S:
                 self.on_status('TX SSB: 5 minuti di PTT, spento per sicurezza')
         except Exception as e:

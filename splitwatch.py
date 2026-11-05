@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '1.82'
+VERSION = '1.83'
 APP = 'FZR Skimmer'
 TRIAL_S = 5 * 60                                   # prova senza registrazione: 5 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -346,6 +346,8 @@ class Hub:
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
         self.pad_port, self.pad_err, self.pad_try, self.pad_sent = '', '', 0.0, ''
         self.ports_cache = (0.0, [])
+        self.mic_raw = None                    # ultima prova voce (8 kHz, senza guadagno)
+        self.mic_busy = False
         global TX_HUB
         TX_HUB = self
         self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
@@ -1727,6 +1729,8 @@ class Hub:
         t.setdefault('mic', '')
         t.setdefault('micgain', 0.0)
         t.setdefault('comp', True)
+        t.setdefault('proc', 10.0 if t.get('comp', True) else 0.0)   # processore SSB, dB (0 = spento)
+        t.setdefault('eq', [0, 0, 0, 0, 0])                          # equalizzatore TX: 200…2600 Hz, dB
         t.setdefault('track', True)
         t.setdefault('pad', '')                # porta COM del paddle ('' = nessuno)
         t.setdefault('pmode', 'b')             # 'b' iambico B, 'a' iambico A, 's' tasto verticale
@@ -1848,6 +1852,38 @@ class Hub:
             threading.Timer(1.5, lambda: self.paddle is None or self.paddle.busy or
                             self.post_json({'type': 'tx', 'sent': '', 'rest': ''})).start()
 
+    def mic_test(self):
+        """Prova voce: 5 s dal microfono, poi originale ed elaborato alla pagina (senza trasmettere)."""
+        if self.mic_busy or self.ssbtx is not None and self.ssbtx.alive:
+            return
+        self.mic_busy = True
+        t = self.tx_cfg()
+
+        def run():
+            try:
+                self.post_json({'type': 'mictest', 'rec': True})
+                raw = txmod.mic_record(self.mic_dev(t.get('mic')), 5.0)
+                if len(raw) < 8000:
+                    raise RuntimeError('il microfono non manda audio')
+                self.mic_raw = raw
+                g = 10 ** (float(t.get('micgain', 0)) / 20)
+                pk = 20 * np.log10(float(np.max(np.abs(raw * g))) + 1e-6)
+                self.post_json({'type': 'mictest', 'ok': True, 'raw': txmod.wav_b64(raw * g), 'peak': round(pk, 1)})
+                self.mic_play()
+            except Exception as e:
+                self.post_json({'type': 'mictest', 'ok': False, 'why': str(e)})
+            finally:
+                self.mic_busy = False
+        threading.Thread(target=run, daemon=True).start()
+
+    def mic_play(self):
+        """L'ultima prova voce elaborata con le regolazioni di adesso (si può riascoltare dopo ogni ritocco)."""
+        if self.mic_raw is None:
+            return
+        t = self.tx_cfg()
+        y = txmod.voice_preview(self.mic_raw, float(t.get('micgain', 0)), float(t.get('proc', 10)), list(t.get('eq', [0] * 5)))
+        self.post_json({'type': 'mictest', 'ok': True, 'proc': txmod.wav_b64(y), 'play': True})
+
     def mic_list(self):
         try:
             from sources import list_audio_inputs
@@ -1886,7 +1922,7 @@ class Hub:
             self.ssbtx = st
             st.on_stats = log
             self.on_tx_ptt(True)
-            st.start(up, self.mic_dev(t.get('mic')), float(t.get('micgain', 0)), bool(t.get('comp', True)))
+            st.start(up, self.mic_dev(t.get('mic')), float(t.get('micgain', 0)), float(t.get('proc', 10)), list(t.get('eq', [0] * 5)))
             log(f'PTT SSB: salita {up/1e6:.6f} MHz')
         else:
             if self.ssbtx is not None:
@@ -1981,7 +2017,7 @@ class Hub:
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
                 'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
-                'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)),
+                'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)), 'proc': float(t.get('proc', 10)), 'eq': list(t.get('eq', [0] * 5)), 'mictest': self.mic_raw is not None,
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
                 'pad': t.get('pad', ''), 'pmode': t.get('pmode', 'b'), 'pswap': bool(t.get('pswap')),
                 'side': bool(t.get('side', True)), 'stone': int(t.get('stone', 650)), 'svol': float(t.get('svol', 0.5)),
@@ -2015,6 +2051,13 @@ class Hub:
             t['micgain'] = max(-20.0, min(30.0, float(v['micgain'])))
         if 'comp' in v:
             t['comp'] = bool(v['comp'])
+        if 'proc' in v:
+            t['proc'] = max(0.0, min(20.0, float(v['proc'])))
+            t['comp'] = t['proc'] > 0
+        if isinstance(v.get('eq'), list):
+            t['eq'] = [max(-12.0, min(12.0, float(x))) for x in (v['eq'] + [0] * 5)[:5]]
+        if self.ssbtx is not None and self.ssbtx.alive and ('proc' in v or 'eq' in v or 'micgain' in v):
+            self.ssbtx.set(float(t.get('micgain', 0)), float(t.get('proc', 10)), list(t['eq']))   # anche in trasmissione
         if 'track' in v:
             t['track'] = bool(v['track'])
         if 'pad' in v:
@@ -2800,6 +2843,10 @@ class Hub:
                     self.tx_ptt(False)
                 elif k == 'tx_tune' and self.keyer:
                     self.keyer.tune(min(10.0, float(c.get('s', 5))))
+                elif k == 'mic_test':
+                    self.mic_test()
+                elif k == 'mic_play':
+                    threading.Thread(target=self.mic_play, daemon=True).start()
                 elif k == 'tx_cal':
                     self.tx_cal()
                 elif k == 'tx_sync':
