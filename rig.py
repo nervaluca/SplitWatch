@@ -1,9 +1,9 @@
-"""Comando della radio con Hamlib (rigctld) per FZR Skimmer.
+"""Comando della radio con Hamlib (rigctld) per FZR SDR.
 
-FZR Skimmer non carica le librerie di Hamlib: parla con rigctld via rete (porta 4532), come
+FZR SDR non carica le librerie di Hamlib: parla con rigctld via rete (porta 4532), come
 fanno WSJT-X e molti logger. Due modi:
-  - "avvia": FZR Skimmer apre rigctld.exe con modello, porta COM e velocità scelti, e lo chiude all'uscita;
-  - "collega": rigctld è già aperto (da un altro programma o a mano), FZR Skimmer si collega soltanto.
+  - "avvia": FZR SDR apre rigctld.exe con modello, porta COM e velocità scelti, e lo chiude all'uscita;
+  - "collega": rigctld è già aperto (da un altro programma o a mano), FZR SDR si collega soltanto.
 rigctld è un programma a sé: va bene sia a 32 sia a 64 bit.
 """
 import os

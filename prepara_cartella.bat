@@ -1,5 +1,5 @@
 @echo off
-rem FZR Skimmer - prepara la cartella con i file del Perseus
+rem FZR SDR - prepara la cartella con i file del Perseus
 rem Copia perseususb.dll e i file .sbs da CW Skimmer (o dal software Perseus) in questa cartella.
 setlocal
 set "DEST=%~dp0"
@@ -30,5 +30,5 @@ if not exist "%DEST%MASTER.SCP" if not exist "%DEST%MASTER.DTA" (
   echo Elenco nominativi non trovato: scarica MASTER.SCP da www.supercheckpartial.com
   echo e mettilo in questa cartella, per evidenziare i call riconosciuti.
 )
-echo Fatto. Ora la cartella %DEST% e' completa: avvia FZRSkimmer.exe
+echo Fatto. Ora la cartella %DEST% e' completa: avvia FZRSDR.exe
 pause

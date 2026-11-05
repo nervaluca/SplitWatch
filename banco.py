@@ -1,7 +1,7 @@
-"""Banco di memorie di FZR Skimmer: frequenze con nome, modo e gruppo, per tutti i ricevitori e tutti i modi.
+"""Banco di memorie di FZR SDR: frequenze con nome, modo e gruppo, per tutti i ricevitori e tutti i modi.
 
 Ogni memoria: {'id', 'nome', 'hz', 'modo', 'gruppo', 'x'} dove 'x' tiene le impostazioni che la memoria
-si porta dietro (filtro, banda laterale, squelch…). Si salva in fzrskimmer.json, chiave 'banco'.
+si porta dietro (filtro, banda laterale, squelch…). Si salva in fzrsdr.json, chiave 'banco'.
 Al primo uso il banco parte con un gruppo di frequenze utili (si possono cancellare o rimettere).
 """
 
@@ -64,7 +64,7 @@ def _mhz(f):
     return (t + '0' * (3 - len(t.split('.')[1]))).replace('.', ',')
 
 
-# arrivati con la versione 3 del banco (FZR Skimmer 1.50): canali dei ripetitori UHF e aeroporti del Nord-Ovest
+# arrivati con la versione 3 del banco (FZR SDR 1.50): canali dei ripetitori UHF e aeroporti del Nord-Ovest
 _AER = 'Aeroporti Nord-Ovest (AM)'
 _V3 = (
     # ponti 70 cm: le tre griglie usate in Italia (uscita; l'ingresso è l'uscita + lo shift)
@@ -86,7 +86,7 @@ _V3 = (
 PRESET = PRESET + _V3
 _V3_KEYS = {(p['hz'], p['modo']) for p in _V3}
 
-# versione 4 (FZR Skimmer 1.60): QO-100, si ricevono con il convertitore «QO-100 (LNB 9750 MHz)»
+# versione 4 (FZR SDR 1.60): QO-100, si ricevono con il convertitore «QO-100 (LNB 9750 MHz)»
 _QO = 'QO-100 (con LNB)'
 _V4 = [_ch('Beacon basso (CW)', 10489.500, 'rxcw', _QO),
        _ch('Fetta CW (skimmer)', 10489.525, 'normale', _QO),

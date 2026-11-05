@@ -65,6 +65,7 @@ def main():
     ok = ok and test_rtty()
     ok = ok and test_fm()
     ok = ok and test_banco()
+    ok = ok and test_ponti()
     print('OK' if ok else 'FALLITO')
     return 0 if ok else 1
 
@@ -159,6 +160,21 @@ def test_banco():
     banco.cancella(cfg, m['id'])
     ok = n > 100 and len(banco.lista(cfg)) == n and banco.preset(cfg) == 0
     print(f'banco: {n} memorie predefinite', 'ok' if ok else 'NO')
+    return ok
+
+
+
+def test_ponti():
+    import os, tempfile
+    import ponti
+    d = ponti.km('JN35', 'JN45')
+    p = os.path.join(tempfile.gettempdir(), 'fzr_chirp_test.csv')
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write('Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,Mode\n0,R1,145.625000,-,0.600000,Tone,82.5,FM\n')
+    fonte, rows = ponti.leggi(p)
+    m = ponti.memoria(rows[0], fonte)
+    ok = 150 < d < 170 and m['hz'] == 145625000 and 'shift -600 kHz' in m['nota'] and 'tono 82.5' in m['nota']
+    print(f'ponti: JN35-JN45 {d:.0f} km, CHIRP', 'ok' if ok else 'NO')
     return ok
 
 

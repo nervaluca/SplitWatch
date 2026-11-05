@@ -1,4 +1,4 @@
-"""Reverse Beacon Network (solo CW) per FZR Skimmer.
+"""Reverse Beacon Network (solo CW) per FZR SDR.
 
 Si collega a telnet.reversebeacon.net:7000 con il nominativo dell'operatore, legge gli spot
 e li tiene in memoria (ultimi 15 minuti). Servono a:

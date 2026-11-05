@@ -1,4 +1,4 @@
-"""FZRTTY: skimmer RTTY multicanale per FZR Skimmer.
+"""FZRTTY: skimmer RTTY multicanale per FZR SDR.
 
 RTTY dei radioamatori: 45,45 baud, shift 170 Hz, Baudot (ITA2), 1 bit di start, 5 di dati, 1,5 di stop.
 Il mark è la frequenza più alta (come gli Icom: la frequenza del segnale è il mark).

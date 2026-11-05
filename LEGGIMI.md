@@ -1,4 +1,4 @@
-# FZR Skimmer 1.46
+# FZR SDR 1.46
 
 IW1FZR
 
@@ -32,41 +32,41 @@ Tutti dai siti ufficiali; servono solo per il ricevitore o la funzione indicata.
 ## Installazione
 
 **Con l'installazione (consigliato, dalla 1.34)**: da GitHub → Actions → ultima compilazione → Artifacts
-scarica `FZRSkimmer_Setup`, scompatta e avvia `FZRSkimmer_Setup_1.46.exe`.
-- Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR Skimmer`
+scarica `FZRSDR_Setup`, scompatta e avvia `FZRSDR_Setup_1.46.exe`.
+- Non servono permessi di amministratore: installa in `%LOCALAPPDATA%\Programs\FZR SDR`
   (chi vuole sceglie «per tutti gli utenti», in Program Files: allora impostazioni, registro e licenza
-  vanno in `%APPDATA%\FZRSkimmer`).
+  vanno in `%APPDATA%\FZRSDR`).
 - Copia da solo `perseususb.dll` e i file `.sbs` da CW Skimmer, software Perseus o HDSDR, e l'elenco
   nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il Perseus lo installi dopo:
-  menu Start → FZR Skimmer → «Copia i file del Perseus».
+  menu Start → FZR SDR → «Copia i file del Perseus».
 - Icona sul desktop e nel menu Start, disinstallazione da Impostazioni → App.
-- **Dov'è la cartella**: è nascosta in AppData. Win+R → `%LOCALAPPDATA%\Programs\FZR Skimmer` → Invio
-  (lì ci sono fzrskimmer.json, fzrskimmer.log, rtl e registrazioni). Oppure menu Start → tasto destro su
-  FZR Skimmer → Apri percorso file. Installato «per tutti gli utenti»: programma in `C:\Program Files\FZR Skimmer`,
-  impostazioni, log e registrazioni in `%APPDATA%\FZRSkimmer`.
-- Per aggiornare basta avviare il setup nuovo: chiude FZR Skimmer e non tocca impostazioni, memorie,
+- **Dov'è la cartella**: è nascosta in AppData. Win+R → `%LOCALAPPDATA%\Programs\FZR SDR` → Invio
+  (lì ci sono fzrsdr.json, fzrsdr.log, rtl e registrazioni). Oppure menu Start → tasto destro su
+  FZR SDR → Apri percorso file. Installato «per tutti gli utenti»: programma in `C:\Program Files\FZR SDR`,
+  impostazioni, log e registrazioni in `%APPDATA%\FZRSDR`.
+- Per aggiornare basta avviare il setup nuovo: chiude FZR SDR e non tocca impostazioni, memorie,
   licenza e registrazioni.
-- Chi usava lo zip: per tenere impostazioni e memorie copia `fzrskimmer.json` dalla vecchia cartella
+- Chi usava lo zip: per tenere impostazioni e memorie copia `fzrsdr.json` dalla vecchia cartella
   in quella nuova (con il programma chiuso).
 - Windows può mostrare l'avviso SmartScreen (programma non firmato): «Ulteriori informazioni» → «Esegui comunque».
 
 **Con lo zip** (come prima):
 
-1. Scarica da GitHub → **Actions** → ultima compilazione → **Artifacts** lo zip `FZRSkimmer`
-   e scompattalo dove vuoi (es. `C:\FZRSkimmer`).
+1. Scarica da GitHub → **Actions** → ultima compilazione → **Artifacts** lo zip `FZRSDR`
+   e scompattalo dove vuoi (es. `C:\FZRSDR`).
 2. Avvia una volta **prepara_cartella.bat**: copia `perseususb.dll` e i file `perseus*.sbs`
    dalla cartella di CW Skimmer (o del software Perseus). Da quel momento la cartella è completa.
-   Se non lo fai, FZR Skimmer cerca comunque quei file nella cartella di CW Skimmer.
+   Se non lo fai, FZR SDR cerca comunque quei file nella cartella di CW Skimmer.
 3. **Chiudi CW Skimmer, HDSDR e il software Perseus**: il Perseus lo può usare
    un solo programma per volta.
-4. Avvia `FZRSkimmer.exe`: si apre la finestra di FZR Skimmer (usa Edge in modalità app,
+4. Avvia `FZRSDR.exe`: si apre la finestra di FZR SDR (usa Edge in modalità app,
    senza barra degli indirizzi). **Chiudendo la finestra, o con il pulsante Esci, si ferma
    anche il Perseus** e il programma esce.
-   Dal tablet in stazione: apri nel browser l'indirizzo scritto in `fzrskimmer.log`
+   Dal tablet in stazione: apri nel browser l'indirizzo scritto in `fzrsdr.log`
    (tipo `http://192.168.x.x:8073`). Dal tablet chiudere il browser non spegne nulla:
    per spegnere usa **Esci**.
    Se il ricevitore non parte: **Riavvia ricevitore** (in basso). Il programma riprova già da solo 3 volte.
-   Se ancora niente, controlla in Gestione attività che non ci sia un altro `FZRSkimmer.exe` acceso.
+   Se ancora niente, controlla in Gestione attività che non ci sia un altro `FZRSDR.exe` acceso.
    Opzioni: `--browser` apre nel browser normale; `--no-browser` non apre finestre.
 
 I file del Perseus (`perseususb.dll`, `.sbs`) sono di Microtelecom: non vanno caricati
@@ -77,12 +77,12 @@ Se le stazioni appaiono specchiate rispetto al centro, spunta **Inverti I/Q**.
 
 ## Registrazione
 
-FZR Skimmer usa **la stessa registrazione di ADIF FZR** (stessa chiave, stesso nominativo).
-- Senza registrazione funziona **5 minuti per ogni avvio**, poi il ricevitore si ferma
+FZR SDR usa **la stessa registrazione di ADIF FZR** (stessa chiave, stesso nominativo).
+- Senza registrazione funziona **30 minuti per ogni avvio**, poi il ricevitore si ferma
   e compare la finestra di registrazione. La riproduzione delle registrazioni IQ è libera.
 - **Registra** (in alto): nominativo + chiave incollata, oppure **Verifica online** se il
   nominativo è già abilitato sul sito. **Richiedi una chiave** apre la pagina di iw1fzr.it.
-- Se ADIF FZR è già registrato sullo stesso PC, FZR Skimmer trova da solo la sua licenza.
+- Se ADIF FZR è già registrato sullo stesso PC, FZR SDR trova da solo la sua licenza.
 - La licenza viene salvata in `licenza.json` accanto all'exe.
 
 ## Nominativi riconosciuti
@@ -116,7 +116,7 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
   FunCube e altri.
   - Serve il plugin **a 32 bit** per HDSDR del ricevitore (`ExtIO_SDRplay….dll`,
     `ExtIO_AirspyHF.dll`…) con il suo driver installato: se funziona in HDSDR funziona anche qui.
-  - FZR Skimmer lo cerca da solo nelle cartelle di HDSDR, SDRplay e Airspy e in quella del
+  - FZR SDR lo cerca da solo nelle cartelle di HDSDR, SDRplay e Airspy e in quella del
     programma; altrimenti **Plugin → Sfoglia…** e scegli la DLL.
   - **Campionamento**: l'elenco viene dal plugin; scegli 192 kHz o meno (Airspy HF+: 192).
     Se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo
@@ -128,7 +128,7 @@ Si sceglie in basso nella pagina, alla voce **Ricevitore**, senza riavviare:
 
 ## Chiavetta RTL-SDR, VHF/UHF, FM e AM (1.40)
 
-FZR Skimmer funziona anche **senza Perseus**, con una chiavetta **RTL-SDR** (RTL-SDR Blog V3/V4, Nooelec…):
+FZR SDR funziona anche **senza Perseus**, con una chiavetta **RTL-SDR** (RTL-SDR Blog V3/V4, Nooelec…):
 24 MHz – 1,7 GHz (10 m, 6 m, 2 m, 70 cm, 23 cm, aeronautica, nautica, PMR446, satelliti); con il direct sampling
 delle V3/V4 anche le onde corte (con meno dinamica del Perseus).
 - **Driver**: WinUSB installato con **Zadig** (lo stesso di SDR#). Se SDR# o SDR++ la vedono, è a posto.
@@ -237,9 +237,9 @@ La taratura si ricorda per ogni ricevitore (Perseus, ExtIO, scheda audio).
 
 ## Radio (CAT) con Hamlib
 
-FZR Skimmer comanda la radio (IC-7600 e tutte quelle di Hamlib) in parallelo al Perseus, tramite
+FZR SDR comanda la radio (IC-7600 e tutte quelle di Hamlib) in parallelo al Perseus, tramite
 **rigctld** di Hamlib. Installa Hamlib per Windows (https://github.com/Hamlib/Hamlib/releases,
-file `hamlib-w32-….exe` o `-w64`, va bene l'uno o l'altro): FZR Skimmer trova `rigctld.exe` da solo
+file `hamlib-w32-….exe` o `-w64`, va bene l'uno o l'altro): FZR SDR trova `rigctld.exe` da solo
 (cartelle di Hamlib, WSJT-X, JTDX), altrimenti **Sfoglia…**.
 
 In basso **Radio…**: modello (IC-7600 = 3063, scrivi «7600» per cercarlo), porta COM e velocità
@@ -247,8 +247,8 @@ In basso **Radio…**: modello (IC-7600 = 3063, scrivi «7600» per cercarlo), p
 già aperto da un altro programma (computer e porta, di solito 4532). La spunta **Radio (CAT)** la
 accende e la spegne.
 
-- **La radio segue FZR Skimmer**: DX, pulsanti di banda, modo (CW, oppure USB/LSB in SSB).
-- **FZR Skimmer segue la radio**: giri la manopola e il DX si sposta; se esci dalla banda ricevuta il
+- **La radio segue FZR SDR**: DX, pulsanti di banda, modo (CW, oppure USB/LSB in SSB).
+- **FZR SDR segue la radio**: giri la manopola e il DX si sposta; se esci dalla banda ricevuta il
   Perseus si risintonizza. Con «Audio della radio» la frequenza si legge da sola.
 - **Split**: in SSB il TX segue RX2 (rotellina = TX già sulla stazione che hai trovato); in DXpedition
   **TX → ascolto** o tasto **T** mette il TX sull'ultimo ascolto rilevato; tasto destro sul waterfall →
@@ -257,7 +257,7 @@ accende e la spegne.
 - **Quando trasmetti** l'audio tace e, appena torni in ricezione, il ricevitore è subito pronto
   (l'AGC riparte da zero): niente più 1–2 secondi di sordità in isofrequenza. Lo capisce dal PTT
   della radio (CAT) e, anche senza CAT, da come il proprio segnale satura la banda.
-- All'avvio: se la radio è già su una banda HF la segue FZR Skimmer, altrimenti la radio va sul DX.
+- All'avvio: se la radio è già su una banda HF la segue FZR SDR, altrimenti la radio va sul DX.
 
 ## Calibrazione della frequenza
 
@@ -299,7 +299,7 @@ sintonizza da sola, metti prima la stazione campione dentro la banda ricevuta.
 
 Nel riquadro **Audio** del pannello radio (nei modi Skimmer, compatti: 💾 m:ss e ● REC):
 
-- **💾 Salva ultimi m:ss** – FZR Skimmer tiene sempre in memoria gli ultimi minuti ricevuti
+- **💾 Salva ultimi m:ss** – FZR SDR tiene sempre in memoria gli ultimi minuti ricevuti
   (5 min di base, si cambia in basso alla voce **Memoria**). Il pulsante li scrive su disco
   senza fermare il ricevitore: utile per controllare con calma se il DX ti ha messo a log.
   Occupa RAM: a 96 kHz circa 23 MB al minuto (5 min ≈ 115 MB), a 192 kHz il doppio.
@@ -319,13 +319,13 @@ elenco delle registrazioni e **Sfoglia…** per aprire un WAV qualsiasi (CW Skim
 SDR Console; la finestra si apre sul PC). **Torna al ricevitore** riaccende il Perseus.
 
 Il waterfall, il testo decodificato e la ricerca dell'ascolto funzionano come dal vivo.
-Centro e DX si leggono dal file (FZR Skimmer, HDSDR, nome del file); CW Skimmer non salva
+Centro e DX si leggono dal file (FZR SDR, HDSDR, nome del file); CW Skimmer non salva
 la frequenza: scrivila in **Centro kHz**, viene ricordata per quel file.
 La riproduzione è libera anche senza registrazione del programma.
 
 Da riga di comando:
 
-    FZRSkimmer.exe registrazione.wav --centro 18085 --dx 18085.04
+    FZRSDR.exe registrazione.wav --centro 18085 --dx 18085.04
 
 **Riavvia ricevitore**: chiude e riapre il Perseus (o la scheda audio) senza chiudere il
 programma: un paio di secondi di buco, si ricarica il firmware, le impostazioni restano,
@@ -373,7 +373,7 @@ In alto a sinistra, **Modo**:
     21083… (centro 15 kHz sopra: tutto il segmento RTTY nel waterfall).
   - **DIGI** (FT8, FT4, PSK…): USB-D, banda 100–3100 Hz, memorie sulle frequenze FT8 (7074, 14074…).
     Per decodificare con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge
-    («FZR Skimmer») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso;
+    («FZR SDR») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso;
     cuffia «DX e RX2 insieme» e RX2 spento (🔇 RX2).
   - Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D (DIGI).
 
@@ -396,7 +396,7 @@ l'inizio perso) vengono mostrate corrette con il **?**, anche quelle arrivate pr
 
 ## Reverse Beacon Network (RBN)
 
-Casella **RBN** in basso (accesa di base): FZR Skimmer si collega a telnet.reversebeacon.net
+Casella **RBN** in basso (accesa di base): FZR SDR si collega a telnet.reversebeacon.net
 (solo CW) con il tuo nominativo (quello della registrazione; se non sei registrato compare
 il campo **Nominativo**). Serve Internet.
 
@@ -429,6 +429,6 @@ il campo **Nominativo**). Serve Internet.
 
 
 Tutte le impostazioni (banda, DX, memorie, filtro, sensibilità, ricevitore, larghezza, scorrimento,
-colori) stanno in `fzrskimmer.json` accanto all'exe; se quella cartella non è scrivibile, in
-`%APPDATA%\FZRSkimmer`. Il percorso esatto è scritto all'inizio di `fzrskimmer.log`
-(al primo avvio vengono riprese da `splitwatch.json`, se c'è). Il registro è `fzrskimmer.log`.
+colori) stanno in `fzrsdr.json` accanto all'exe; se quella cartella non è scrivibile, in
+`%APPDATA%\FZRSDR`. Il percorso esatto è scritto all'inizio di `fzrsdr.log`
+(al primo avvio vengono riprese da `splitwatch.json`, se c'è). Il registro è `fzrsdr.log`.

@@ -1,12 +1,12 @@
-"""Registrazione IQ di FZR Skimmer.
+"""Registrazione IQ di FZR SDR.
 
 Memoria continua: gli ultimi N minuti restano in RAM (16 bit a blocchi con la loro scala,
 circa 23 MB al minuto a 96 kHz) e con «Salva ultimi minuti» finiscono in un WAV.
 Registrazione manuale: scrive direttamente su disco finché non la fermi.
 
-I WAV sono IQ stereo a 24 bit, leggibili da HDSDR, SDR Console, CW Skimmer e da FZR Skimmer.
+I WAV sono IQ stereo a 24 bit, leggibili da HDSDR, SDR Console, CW Skimmer e da FZR SDR.
 Dentro c'è il blocco 'auxi' (frequenza centrale, come HDSDR) e un blocco 'fzrx' con il DX,
-così riaprendoli in FZR Skimmer centro e DX tornano da soli.
+così riaprendoli in FZR SDR centro e DX tornano da soli.
 """
 import collections
 import json

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-licenza.py — Registrazione FZR Skimmer (stesse chiavi di ADIF FZR) (firma crittografica Ed25519).
+licenza.py — Registrazione FZR SDR (stesse chiavi di ADIF FZR) (firma crittografica Ed25519).
 
 MODELLO DI SICUREZZA (robusto):
   * Ogni licenza e' una FIRMA Ed25519 del messaggio  "NOMINATIVO|LIVELLO".

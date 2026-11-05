@@ -1,20 +1,22 @@
-; FZR Skimmer - installazione per Windows (Inno Setup 6)
+; FZR SDR - installazione per Windows (Inno Setup 6)
 ; Compilato da GitHub Actions dopo l'exe:  ISCC /DMyAppVersion=1.34 installer.iss
-; Il risultato è Output\FZRSkimmer_Setup_<versione>.exe
+; Il risultato è Output\FZRSDR_Setup_<versione>.exe
 ;
-; - installa per l'utente (nessun permesso di amministratore) in %LOCALAPPDATA%\Programs\FZR Skimmer;
+; - installa per l'utente (nessun permesso di amministratore) in %LOCALAPPDATA%\Programs\FZR SDR;
 ;   chi vuole può scegliere «per tutti gli utenti» (Program Files): in quel caso impostazioni,
-;   registro e licenza vanno in %APPDATA%\FZRSkimmer, il programma lo fa già da solo
+;   registro e licenza vanno in %APPDATA%\FZRSDR, il programma lo fa già da solo
 ; - copia perseususb.dll e i file .sbs del Perseus da CW Skimmer / software Perseus / HDSDR
 ;   (sono file di Microtelecom: non stanno nel setup, si prendono dal PC)
 ; - copia l'elenco dei nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer) se c'è
-; - aggiornando, chiude FZR Skimmer e non tocca impostazioni, memorie, licenza e registrazioni
+; - aggiornando, chiude FZR SDR e non tocca impostazioni, memorie, licenza e registrazioni
+; - FZR SDR si chiamava FZR Skimmer: stesso AppId, quindi aggiorna l'installazione vecchia nella sua cartella
+;   (impostazioni e licenza restano lì) e toglie FZRSkimmer.exe e i vecchi collegamenti
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0"
 #endif
-#define MyAppName "FZR Skimmer"
-#define MyAppExe "FZRSkimmer.exe"
+#define MyAppName "FZR SDR"
+#define MyAppExe "FZRSDR.exe"
 
 [Setup]
 AppId={{1CD37371-78D0-5699-9C91-B81A21FB4C3A}
@@ -29,7 +31,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline dialog
 OutputDir=Output
-OutputBaseFilename=FZRSkimmer_Setup_{#MyAppVersion}
+OutputBaseFilename=FZRSDR_Setup_{#MyAppVersion}
 SetupIconFile=logo.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
@@ -48,13 +50,19 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 it.DesktopIcon=Icona sul desktop
 it.Leggimi=Istruzioni (LEGGIMI)
 it.CopiaPerseus=Copia i file del Perseus
-it.Avvia=Avvia FZR Skimmer
-it.NoPerseus=Non ho trovato perseususb.dll (CW Skimmer, software Perseus o HDSDR).%n%nCon una chiavetta RTL-SDR non serve: scegli «RTL-SDR (chiavetta)» in basso in FZR Skimmer.%n%nSe usi il Perseus, installa il suo software oppure copia perseususb.dll e i file perseus*.sbs nella cartella del programma; poi dal menu Start: «Copia i file del Perseus».%n%nCon ExtIO, l'audio della radio o le registrazioni non servono.
+it.Avvia=Avvia FZR SDR
+it.NoPerseus=Non ho trovato perseususb.dll (CW Skimmer, software Perseus o HDSDR).%n%nCon una chiavetta RTL-SDR non serve: scegli «RTL-SDR (chiavetta)» in basso in FZR SDR.%n%nSe usi il Perseus, installa il suo software oppure copia perseususb.dll e i file perseus*.sbs nella cartella del programma; poi dal menu Start: «Copia i file del Perseus».%n%nCon ExtIO, l'audio della radio o le registrazioni non servono.
 en.DesktopIcon=Desktop icon
 en.Leggimi=Instructions (README)
 en.CopiaPerseus=Copy the Perseus files
-en.Avvia=Start FZR Skimmer
-en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR).%n%nWith an RTL-SDR dongle it is not needed: pick «RTL-SDR (dongle)» at the bottom of FZR Skimmer.%n%nIf you use the Perseus, install its software or copy perseususb.dll and the perseus*.sbs files into the program folder; then from the Start menu: «Copy the Perseus files».%n%nThey are not needed for ExtIO, radio audio or recordings.
+en.Avvia=Start FZR SDR
+en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR).%n%nWith an RTL-SDR dongle it is not needed: pick «RTL-SDR (dongle)» at the bottom of FZR SDR.%n%nIf you use the Perseus, install its software or copy perseususb.dll and the perseus*.sbs files into the program folder; then from the Start menu: «Copy the Perseus files».%n%nThey are not needed for ExtIO, radio audio or recordings.
+
+[InstallDelete]
+; il programma si chiamava FZR Skimmer: via l'exe e i collegamenti col nome vecchio
+Type: files; Name: "{app}\FZRSkimmer.exe"
+Type: files; Name: "{autodesktop}\FZR Skimmer.lnk"
+Type: filesandordirs; Name: "{autoprograms}\FZR Skimmer"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -128,12 +136,13 @@ begin
             and not FileExists(ExpandConstant('{app}\MASTER.SCP'));
 end;
 
-{ aggiornando: FZR Skimmer va chiuso (l'exe "a file unico" sono due processi) }
+{ aggiornando: FZR SDR va chiuso (l'exe "a file unico" sono due processi) }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   RC: Integer;
 begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#MyAppExe}', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM FZRSkimmer.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM rtl_tcp.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
   Sleep(800);
   Result := '';

@@ -1,4 +1,4 @@
-"""FZR Skimmer - motore DSP in streaming.
+"""FZR SDR - motore DSP in streaming.
 
 Riceve blocchi IQ complessi (numpy complex64) e produce:
   - righe di waterfall (uint8, una ogni 10 ms)
