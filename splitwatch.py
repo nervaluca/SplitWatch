@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.0'
+VERSION = '2.1'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -684,6 +684,128 @@ class Hub:
             self.lk_hold = time.time() + 1.2
             self.lk_buf, self.lk_n = [], 0
         self._lock_msg(True, delta, b)
+
+    # ------------------------------------------------------------------ QO-100 in tre passi
+    def qo_find(self):
+        """Passo 2: cerca i tre beacon in tutta la banda del Pluto (2,3 MHz) e misura l'errore dell'LNB.
+        I beacon hanno distanze fisse (CW basso, PSK +250 kHz, CW alto +500 kHz): li cerco insieme, così
+        l'errore si trova anche se è di centinaia di kHz e un segnale forte non inganna."""
+        if getattr(self, 'qo_busy', False):
+            return
+        self.qo_busy = True
+
+        def run():
+            try:
+                if not isinstance(self.src, PlutoSource):
+                    raise RuntimeError('la ricerca larga dei beacon c\'è con l\'ADALM-Pluto: con gli altri ricevitori usa «Calibra…» sul beacon 10489,5')
+                cv = self.conv()
+                if not 9.70e9 < cv < 9.80e9:
+                    raise RuntimeError('prima il passo 1: convertitore QO-100 (LNB 9750 MHz)')
+                if self.center is None or abs(self.center - 10489.75e6) > 600e3:
+                    self.go_band('QO')
+                    time.sleep(1.5)
+                self.post_json({'type': 'qo', 'step': 'find', 'busy': True})
+                r = self.src.wide_spectrum()
+                if r is None:
+                    raise RuntimeError('dati insufficienti dal ricevitore')
+                p, bw = r
+                n = len(p)
+                db = 10 * np.log10(p + 1e-30)
+                noise = float(np.median(db))
+                k = 1 + self.ppm() * 1e-6
+                hw = self.hw_center
+                rel = [((b - cv) / k - hw) for b in QO100_BEACONS]             # dove dovrebbero essere (Hz dal LO)
+                idx0 = [int(round(f / bw)) + n // 2 for f in rel]
+                lim = int(0.43 * PLUTO_RATE / bw)                                # bordi del filtro: fuori
+                rng = int(320e3 / bw)
+                best = None
+                for d in range(-rng, rng + 1):
+                    pos = [i + d for i in idx0]
+                    if min(pos) - 5 < n // 2 - lim or max(pos) + 5 > n // 2 + lim:
+                        continue
+                    s1 = db[pos[0] - 1:pos[0] + 2].max() - noise                # CW basso: riga stretta
+                    s3 = db[pos[2] - 1:pos[2] + 2].max() - noise                # CW alto
+                    s2 = db[pos[1] - 4:pos[1] + 5].mean() - noise               # PSK: banda di ~2,4 kHz
+                    sc = min(s1, 40) + min(s3, 40) + min(s2, 30)
+                    if best is None or sc > best[0]:
+                        best = (sc, d, s1, s2, s3)
+                if best is None:
+                    raise RuntimeError('i beacon non cadono nella banda ricevuta: ripeti il passo 1')
+                sc, d, s1, s2, s3 = best
+                seen = [bool(s1 > 10), bool(s2 > 4), bool(s3 > 10)]
+                if sum(seen) < 2:
+                    raise RuntimeError(f'beacon non trovati (CW basso {s1:.0f} dB, PSK {s2:.0f} dB, CW alto {s3:.0f} dB sopra il rumore): '
+                                       'controlla parabola, LNB e guadagno')
+                # frequenza fine sul CW più forte (interpolazione parabolica fra i punti)
+                j = 0 if s1 >= s3 else 2
+                c = idx0[j] + d
+                c = c - 1 + int(np.argmax(db[c - 1:c + 2]))
+                a_, b_, c_ = db[c - 1], db[c], db[c + 1]
+                den = a_ - 2 * b_ + c_
+                frac = 0.5 * (a_ - c_) / den if den else 0.0
+                delta = ((c + frac - n // 2) * bw - rel[j]) * k             # il beacon appare spostato di delta
+                self.qo_delta = delta
+                log(f'QO-100: beacon trovati (CW basso {s1:.0f} dB, PSK {s2:.0f} dB, CW alto {s3:.0f} dB), LNB fuori di {delta:+.0f} Hz')
+                self.post_json({'type': 'qo', 'step': 'find', 'ok': True, 'delta': round(delta, 1),
+                                'snr': [round(s1), round(s2), round(s3)], 'seen': seen, 'conv': cv})
+            except Exception as e:
+                self.post_json({'type': 'qo', 'step': 'find', 'ok': False, 'why': str(e)})
+            finally:
+                self.qo_busy = False
+        threading.Thread(target=run, daemon=True).start()
+
+    def qo_apply(self):
+        """Corregge l'oscillatore dell'LNB con l'errore misurato e accende l'aggancio al beacon (che poi rifinisce
+        al Hz e segue la deriva). Il centro mostrato e il DX non si spostano."""
+        delta = getattr(self, 'qo_delta', None)
+        if delta is None or self.hw_center is None or not self.src:
+            return
+        cv = self.conv()
+        k = 1 + self.ppm() * 1e-6
+        self.cfg.setdefault('conv', {})[self.src_kind] = round(cv - delta)
+        self.cfg['beacon_lock'] = True
+        save_cfg(self.cfg)
+        hw = self.hw_center + delta / k
+        self.hw_center = hw
+        try:
+            self.src.set_lo(hw, notify=False)
+        except TypeError:
+            self.src.set_lo(hw)
+        self.lk_ok = False
+        self.lk_hold = time.time() + 1.2
+        self.lk_buf, self.lk_n = [], 0
+        self.qo_delta = None
+        log(f'QO-100: LNB corretto di {delta:+.0f} Hz, oscillatore {self.conv()/1e6:.6f} MHz, aggancio beacon acceso')
+        self.on_status(f'LNB corretto di {delta/1000:+.3f} kHz: oscillatore {self.conv()/1e6:.6f} MHz, aggancio al beacon acceso')
+        self.post_json({'type': 'qo', 'step': 'apply', 'ok': True, 'conv': self.conv()})
+        self.post_json(self.cfg_msg())
+
+    def qo_free(self):
+        """Passo 3: porta il VFO A in un punto libero della fetta CW (10489,512–538), per la prova del TX."""
+        def run():
+            try:
+                if not isinstance(self.src, PlutoSource):
+                    raise RuntimeError('serve l\'ADALM-Pluto')
+                r = self.src.wide_spectrum(nfft=120)
+                if r is None:
+                    raise RuntimeError('dati insufficienti dal ricevitore')
+                p, bw = r
+                n = len(p)
+                db = 10 * np.log10(p + 1e-30)
+                k = 1 + self.ppm() * 1e-6
+                cand = []
+                for f in np.arange(10489.512e6, 10489.5385e6, 500.0):
+                    i = int(round(((f - self.conv()) / k - self.hw_center) / bw)) + n // 2
+                    if 3 <= i < n - 3:
+                        cand.append((float(db[i - 3:i + 4].max()), float(f)))  # il più forte entro ±1 kHz
+                if not cand:
+                    raise RuntimeError('la fetta CW non è nella banda ricevuta')
+                f = min(cand)[1]
+                self.cmd_q.put(('dx', f, 'band'))
+                self.post_json({'type': 'qo', 'step': 'free', 'ok': True, 'hz': f})
+            except Exception as e:
+                self.post_json({'type': 'qo', 'step': 'free', 'ok': False, 'why': str(e)})
+        threading.Thread(target=run, daemon=True).start()
 
     def _lock_msg(self, ok, delta, b):
         m = {'type': 'lock', 'ok': ok, 'hz': None if delta is None else round(delta, 1),
@@ -2145,24 +2267,44 @@ class Hub:
         self.cal_busy = True
 
         def run():
+            prev_hw = self.hw_center
+            moved = False
             try:
-                expect_rx = self.dx_abs - self.conv()               # dove deve arrivare, al ricevitore
-                k = 1 + self.ppm() * 1e-6
-                pr = txmod.TxProbe(self.fs, expect_rx / k - self.hw_center)
-                self.cal = pr
-                pr.phase = 'off'                                    # prima il fondo, chiave alzata
-                time.sleep(1.2)
-                pr.phase = None
-                self.keyer.tune(4.0)
-                time.sleep(1.0)                                     # salita, satellite (~0,27 s) e AGC
-                pr.phase = 'on'
-                time.sleep(2.2)
-                pr.phase = None
-                self.keyer.stop()
-                self.cal = None
-                r = pr.result()
-                if not r['ok']:
-                    raise RuntimeError(r['why'])
+                r = None
+                # al secondo tentativo il ricevitore si sposta di 25 kHz: se la portante cadeva sul picco DC del
+                # Pluto (al centro, la sonda lo salta) adesso è lontana
+                for shift in (0.0, 25000.0):
+                    if shift:
+                        if not self.tunable():
+                            break
+                        target = int(round(prev_hw + shift))
+                        self.src.set_lo(target)
+                        moved = True
+                        t0 = time.time()
+                        while abs((self.hw_center or 0) - target) > 50 and time.time() - t0 < 6:
+                            time.sleep(0.05)
+                        time.sleep(0.6)
+                        log('TX calibrazione: portante non vista, riprovo col ricevitore spostato di 25 kHz')
+                    expect_rx = self.dx_abs - self.conv()               # dove deve arrivare, al ricevitore
+                    k = 1 + self.ppm() * 1e-6
+                    pr = txmod.TxProbe(self.fs, expect_rx / k - self.hw_center)
+                    self.cal = pr
+                    pr.phase = 'off'                                    # prima il fondo, chiave alzata
+                    time.sleep(1.2)
+                    pr.phase = None
+                    self.keyer.tune(4.0)
+                    time.sleep(1.0)                                     # salita, satellite (~0,27 s) e AGC
+                    pr.phase = 'on'
+                    time.sleep(2.2)
+                    pr.phase = None
+                    self.keyer.stop()
+                    self.cal = None
+                    r = pr.result()
+                    if r['ok']:
+                        break
+                    time.sleep(0.5)
+                if not r or not r['ok']:
+                    raise RuntimeError(r['why'] if r else 'TX non pronto')
                 t = self.tx_cfg()
                 t['corr'] = round(float(t.get('corr', 0.0)) - r['err_hz'], 1)
                 save_cfg(self.cfg)
@@ -2172,6 +2314,11 @@ class Hub:
                 self.post_json({'type': 'txcal', 'ok': False, 'why': str(e)})
             finally:
                 self.cal = None
+                if moved and prev_hw:
+                    try:
+                        self.src.set_lo(int(round(prev_hw)))
+                    except Exception:
+                        pass
                 self.cal_busy = False
                 self.post_json(self.cfg_msg())
         threading.Thread(target=run, daemon=True).start()
@@ -2847,6 +2994,19 @@ class Hub:
                     self.cfg['extio_rate'] = int(c['hz'])
                     save_cfg(self.cfg)
                     self.src.set_rate(int(c['hz']))
+                elif k == 'qo':
+                    a = c.get('a')
+                    if a == 'find':
+                        self.qo_find()
+                    elif a == 'apply':
+                        self.qo_apply()
+                    elif a == 'free':
+                        self.qo_free()
+                    elif a == 'rx':
+                        if not 9.70e9 < self.conv() < 9.80e9:
+                            self.set_conv(9750e6)
+                        self.go_band('QO')
+                        self.post_json(self.cfg_msg())
                 elif k == 'beacon_lock':
                     self.cfg['beacon_lock'] = bool(c.get('v'))
                     self.lk_ok, self.lk_buf, self.lk_n, self.lk_last = False, [], 0, None

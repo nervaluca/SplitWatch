@@ -150,6 +150,16 @@ _EN = [
     (r'Paddle: non riesco ad aprire (\S+)', r'Paddle: cannot open \1'),
     (r'Paddle pronto su (\S+)', r'Paddle ready on \1'),
     (r'Paddle in uso: macro non mandata', 'Paddle in use: macro not sent'),
+    # QO-100 in tre passi
+    (r"la ricerca larga dei beacon c'è con l'ADALM-Pluto: con gli altri ricevitori usa «Calibra…» sul beacon 10489,5",
+     'the wide beacon search works with the ADALM-Pluto: with other receivers use «Calibrate…» on the 10489.5 beacon'),
+    (r'prima il passo 1: convertitore QO-100 \(LNB 9750 MHz\)', 'step 1 first: QO-100 converter (LNB 9750 MHz)'),
+    (r'i beacon non cadono nella banda ricevuta: ripeti il passo 1', 'the beacons are not in the received band: repeat step 1'),
+    (r'beacon non trovati \(CW basso (-?\d+) dB, PSK (-?\d+) dB, CW alto (-?\d+) dB sopra il rumore\): controlla parabola, LNB e guadagno',
+     r'beacons not found (lower CW \1 dB, PSK \2 dB, upper CW \3 dB above noise): check dish, LNB and gain'),
+    (r'LNB corretto di ([+-][\d.]+) kHz: oscillatore ([\d.]+) MHz, aggancio al beacon acceso', r'LNB corrected by \1 kHz: oscillator \2 MHz, beacon lock on'),
+    (r"serve l'ADALM-Pluto", 'the ADALM-Pluto is needed'),
+    (r'la fetta CW non è nella banda ricevuta', 'the CW slice is not in the received band'),
     (r'Non trovo (.+)', r'Not found: \1'),
     (r'non risponde', 'does not respond'),
 ]

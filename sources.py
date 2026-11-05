@@ -1399,6 +1399,8 @@ class PlutoSource:
         self.pan_t = 0.0
         self.pan_win = None
         self.rfbw = 250000
+        self.acc = None                      # spettro medio di tutta la banda (procedura QO-100)
+        self.acc_left = 0
 
     # ---- protocollo
     def _line(self):
@@ -1546,6 +1548,11 @@ class PlutoSource:
                 return
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
             c = v.view(np.complex64)
+            if self.acc_left > 0:
+                try:
+                    self._acc(c)
+                except Exception:
+                    self.acc_left = 0
             if self.on_pan is not None and self.pan_span > 0 and time.time() - self.pan_t >= 0.08:
                 self.pan_t = time.time()
                 try:
@@ -1611,6 +1618,32 @@ class PlutoSource:
         med = float(np.median(db))
         out = np.clip(db - med + 80, 0, 255).astype(np.uint8)
         self.on_pan(out, (a - n // 2) * bw, m * bw)
+
+    def _acc(self, c):
+        n = self.PAN_N
+        if self.pan_win is None:
+            self.pan_win = np.hanning(n).astype(np.float32)
+        for i in range(min(4, len(c) // n)):
+            if self.acc_left <= 0:
+                return
+            self.acc += np.abs(np.fft.fft(c[i * n:(i + 1) * n] * self.pan_win)) ** 2
+            self.acc_left -= 1
+
+    def wide_spectrum(self, nfft=240, timeout=6.0):
+        """Spettro medio di tutti i 2,304 MHz (8192 punti, 281 Hz l'uno), centrato sull'oscillatore del Pluto.
+        Serve per trovare i beacon di QO-100 anche con l'LNB molto fuori. → (potenza, Hz per punto) o None"""
+        self.acc = np.zeros(self.PAN_N, np.float64)
+        self.acc_left = nfft
+        if self.rfbw < PLUTO_RATE * 0.8 and self.sock is not None:      # filtro analogico aperto per la misura
+            self._write_attr(self.phy, 'voltage0', 'rf_bandwidth', int(PLUTO_RATE * 0.9))
+        t0 = time.time()
+        while self.acc_left > 0 and time.time() - t0 < timeout:
+            time.sleep(0.05)
+        ok = self.acc_left <= 0
+        self.acc_left = 0
+        if self.sock is not None:
+            self._write_attr(self.phy, 'voltage0', 'rf_bandwidth', self.rfbw)
+        return (np.fft.fftshift(self.acc), PLUTO_RATE / self.PAN_N) if ok else None
 
     def set_pan(self, span, cf=0.0):
         """Waterfall largo: larghezza (0 = spento) e centro rispetto al Pluto; il filtro analogico si allarga quanto serve."""
