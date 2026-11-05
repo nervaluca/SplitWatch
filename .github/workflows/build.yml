@@ -1,4 +1,4 @@
-name: Compila FZRSkimmer.exe
+name: Compila FZRSDR.exe
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
 
       - name: Logo e icona
         run: |
-          python -c "import os;from PIL import Image,ImageDraw;src=next((f for f in ('logo.png','fzrskimmer.png') if os.path.exists(f)),None);assert src,'manca il logo';im=Image.open(src).convert('RGBA');w,h=im.size;s=min(w,h);im=im.crop(((w-s)//2,(h-s)//2,(w-s)//2+s,(h-s)//2+s));m=Image.new('L',im.size,0);ImageDraw.Draw(m).ellipse((int(s*.012),int(s*.012),int(s*.988),int(s*.988)),fill=255);im.putalpha(m);os.path.exists('logo.png') or im.resize((256,256)).save('logo.png');os.path.exists('logo.ico') or im.save('logo.ico',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]);print('logo ok')"
+          python -c "import os;from PIL import Image,ImageDraw;src=next((f for f in ('logo.png','fzrsdr.png') if os.path.exists(f)),None);assert src,'manca il logo';im=Image.open(src).convert('RGBA');w,h=im.size;s=min(w,h);im=im.crop(((w-s)//2,(h-s)//2,(w-s)//2+s,(h-s)//2+s));m=Image.new('L',im.size,0);ImageDraw.Draw(m).ellipse((int(s*.012),int(s*.012),int(s*.988),int(s*.988)),fill=255);im.putalpha(m);os.path.exists('logo.png') or im.resize((256,256)).save('logo.png');os.path.exists('logo.ico') or im.save('logo.ico',sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]);print('logo ok')"
 
       - name: Controllo 32 bit
         run: python -c "import struct,sys; b=struct.calcsize('P')*8; print(sys.version, b, 'bit'); assert b==32"
@@ -39,16 +39,16 @@ jobs:
       # tutti i file del programma ci sono e si caricano (un .py dimenticato fa fallire qui, con il nome)
       - name: Controllo dei moduli
         run: |
-          python -c "import splitwatch, dsp, sources, banco, ponti, rig, calib, i18n, licenza, rbn, recorder, rtty; print('moduli OK', splitwatch.VERSION)"
-          if ($LASTEXITCODE -ne 0) { if (Test-Path fzrskimmer_errore.txt) { Get-Content fzrskimmer_errore.txt }; Get-ChildItem *.py | Format-Table Name, Length, LastWriteTime -AutoSize | Out-String | Write-Host; exit 1 }
+          python -c "import splitwatch, dsp, sources, banco, ponti, rig, calib, i18n, licenza, rbn, recorder, rtty, tx, serial.tools.list_ports; print('moduli OK', splitwatch.VERSION)"
+          if ($LASTEXITCODE -ne 0) { if (Test-Path fzrsdr_errore.txt) { Get-Content fzrsdr_errore.txt }; Get-ChildItem *.py | Format-Table Name, Length, LastWriteTime -AutoSize | Out-String | Write-Host; exit 1 }
         shell: pwsh
 
       - name: Crea l'eseguibile
-        run: pyinstaller --onefile --noconsole --disable-windowed-traceback --name FZRSkimmer --icon logo.ico --add-data "index.html;." --add-data "logo.png;." splitwatch.py
+        run: pyinstaller --onefile --noconsole --disable-windowed-traceback --name FZRSDR --icon logo.ico --hidden-import serial.tools.list_ports_windows --add-data "index.html;." --add-data "logo.png;." splitwatch.py
 
       - name: Prova l'eseguibile (avvio e uscita)
         run: |
-          Start-Process -FilePath dist\FZRSkimmer.exe -ArgumentList '--no-browser','--sorgente','audio' -PassThru | Set-Variable p
+          Start-Process -FilePath dist\FZRSDR.exe -ArgumentList '--no-browser','--sorgente','audio' -PassThru | Set-Variable p
           # l'exe "a file unico" al primo avvio si scompatta e Windows Defender lo controlla: può volerci un po'
           $ok = $false
           for ($i = 0; $i -lt 120; $i++) {
@@ -57,10 +57,10 @@ jobs:
             if ($p.HasExited) { Write-Host "il programma si è chiuso (codice $($p.ExitCode))"; break }
           }
           Write-Host "attesa: $i s · processo ancora acceso: $(-not $p.HasExited)"
-          Get-Process FZRSkimmer -ErrorAction SilentlyContinue | Format-Table Id, CPU, WorkingSet -AutoSize | Out-String | Write-Host
+          Get-Process FZRSDR -ErrorAction SilentlyContinue | Format-Table Id, CPU, WorkingSet -AutoSize | Out-String | Write-Host
           $found = $false
-          foreach ($f in 'dist\fzrskimmer_errore.txt', 'fzrskimmer.log', 'dist\fzrskimmer.log', "$env:APPDATA\FZRSkimmer\fzrskimmer.log") { if (Test-Path $f) { $found = $true; Write-Host "--- $f"; Get-Content $f } }
-          if (-not $found) { Write-Host 'nessun fzrskimmer.log: il programma non è arrivato a scrivere (exe ancora in avvio?)' }
+          foreach ($f in 'dist\fzrsdr_errore.txt', 'fzrsdr.log', 'dist\fzrsdr.log', "$env:APPDATA\FZRSDR\fzrsdr.log") { if (Test-Path $f) { $found = $true; Write-Host "--- $f"; Get-Content $f } }
+          if (-not $found) { Write-Host 'nessun fzrsdr.log: il programma non è arrivato a scrivere (exe ancora in avvio?)' }
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
           if ($ok) { Write-Host 'interfaccia OK' } else { Write-Host 'interfaccia non raggiungibile'; exit 1 }
         shell: pwsh
@@ -85,23 +85,23 @@ jobs:
           Get-ChildItem dist\rtl | ForEach-Object { Write-Host $_.Name }
         shell: pwsh
 
-      - name: Prepara la cartella FZRSkimmer
+      - name: Prepara la cartella FZRSDR
         run: |
-          mkdir FZRSkimmer
-          copy dist\FZRSkimmer.exe FZRSkimmer\
-          if exist dist\rtl xcopy /E /I /Y dist\rtl FZRSkimmer\rtl
-          copy LEGGIMI.md FZRSkimmer\
-          if exist README_EN.md copy README_EN.md FZRSkimmer\
-          if exist prepara_cartella.bat copy prepara_cartella.bat FZRSkimmer\
-          copy logo.png FZRSkimmer\
+          mkdir FZRSDR
+          copy dist\FZRSDR.exe FZRSDR\
+          if exist dist\rtl xcopy /E /I /Y dist\rtl FZRSDR\rtl
+          copy LEGGIMI.md FZRSDR\
+          if exist README_EN.md copy README_EN.md FZRSDR\
+          if exist prepara_cartella.bat copy prepara_cartella.bat FZRSDR\
+          copy logo.png FZRSDR\
         shell: cmd
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FZRSkimmer
-          path: FZRSkimmer
+          name: FZRSDR
+          path: FZRSDR
 
-      # installazione per Windows (Inno Setup): FZRSkimmer_Setup_<versione>.exe
+      # installazione per Windows (Inno Setup): FZRSDR_Setup_<versione>.exe
       - name: Crea l'installazione
         run: |
           $v = python -c "import re;s=open('splitwatch.py',encoding='utf-8').read();print(re.search('^VERSION = .(.+?).$',s,re.M).group(1))"
@@ -114,13 +114,13 @@ jobs:
 
       - name: Prova l'installazione (silenziosa)
         run: |
-          $setup = Get-ChildItem Output\FZRSkimmer_Setup_*.exe | Select-Object -First 1
+          $setup = Get-ChildItem Output\FZRSDR_Setup_*.exe | Select-Object -First 1
           Start-Process -FilePath $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/CURRENTUSER','/NORESTART' -Wait
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\FZR Skimmer\FZRSkimmer.exe'
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\FZR SDR\FZRSDR.exe'
           if (Test-Path $exe) { Write-Host "installato: $exe" } else { Write-Host 'exe non installato'; exit 1 }
         shell: pwsh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FZRSkimmer_Setup
+          name: FZRSDR_Setup
           path: Output/*.exe
