@@ -64,7 +64,7 @@ from rbn import RBN
 from recorder import Recorder
 from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFile, find_extio_dlls,
                      list_audio_inputs, wav_info, RtlTcpSource, find_rtl_dongles, find_rtl_tcp, RTL_GAINS,
-                     PlutoSource, PLUTO_RANGE, SpyServerSource, KiwiSource)
+                     PlutoSource, PLUTO_RANGE, PLUTO_RATE, SpyServerSource, KiwiSource)
 import banco
 import tx as txmod
 import ponti
@@ -518,6 +518,8 @@ class Hub:
                 lo = 433540000.0
             self.src = PlutoSource(pc.get('host', '192.168.2.1'), lo, self.on_iq, self.on_status, self.on_rate,
                                    gain=pc.get('gain'))
+            self.src.on_pan = self.on_ppan
+            self.src.pan_span, self.src.pan_cf = self.pan_view()
             try:
                 self.src.start()
             except Exception:
@@ -1671,6 +1673,31 @@ class Hub:
         self._kwf_t = t
         self.post_bin(b'\x04' + struct.pack('<dd', float(f0), float(span)) + data.tobytes())
 
+    PAN_SPANS = (288000, 576000, 1152000, 1728000)
+
+    def pan_view(self):
+        """Waterfall largo del Pluto: (larghezza, centro rispetto al centro del Pluto). Con QO-100 la vista sta
+        sul transponder intero (10489,5–10490,0 MHz, beacon compresi), altrimenti sul centro."""
+        span = float(self.cfg.get('pluto', {}).get('pan', 576000))
+        if not span or not self.center:
+            return span, 0.0
+        cf = 0.0
+        if 9.70e9 < self.conv() < 9.80e9 and span < 1.5e6:
+            cf = 10489.750e6 - self.center
+            if abs(cf) + span / 2 > PLUTO_RATE * 0.43:          # transponder fuori portata: resto sul centro
+                cf = 0.0
+        return span, cf
+
+    def on_ppan(self, data, f0_rel, span):
+        """Riga del waterfall largo del Pluto (dal thread del ricevitore): come quello del Kiwi."""
+        src = self.src
+        if not isinstance(src, PlutoSource) or not self.center:
+            return
+        want = self.pan_view()
+        if abs(want[1] - src.pan_cf) > 5000 or want[0] != src.pan_span:
+            src.set_pan(*want)                                  # il centro è cambiato: sposto la vista
+        self.post_bin(b'\x04' + struct.pack('<dd', float(self.center + f0_rel), float(span)) + data.tobytes())
+
     def kiwi_msg(self):
         kc = self.cfg.get('kiwi', {})
         src = self.src if isinstance(self.src, KiwiSource) else None
@@ -2176,7 +2203,7 @@ class Hub:
 
     def pluto_msg(self):
         pc = self.cfg.get('pluto', {})
-        return {'host': pc.get('host', '192.168.2.1'), 'gain': pc.get('gain')}
+        return {'host': pc.get('host', '192.168.2.1'), 'gain': pc.get('gain'), 'pan': float(pc.get('pan', 576000))}
 
     def pluto_set(self, v):
         """Impostazioni del Pluto: guadagno (None = AGC del chip) e indirizzo."""
@@ -2186,6 +2213,10 @@ class Hub:
             pc['gain'] = None if v['gain'] in (None, '', 'auto') else max(0, min(71, int(v['gain'])))
             if isinstance(self.src, PlutoSource):
                 self.src.set_gain(pc['gain'])
+        if 'pan' in v:
+            pc['pan'] = 0.0 if not v['pan'] else float(min(self.PAN_SPANS, key=lambda x: abs(x - float(v['pan']))))
+            if isinstance(self.src, PlutoSource):
+                self.src.set_pan(*self.pan_view())
         restart = False
         if v.get('host'):
             pc['host'] = str(v['host']).strip()[:80]

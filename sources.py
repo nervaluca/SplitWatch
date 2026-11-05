@@ -1393,6 +1393,12 @@ class PlutoSource:
         self.nch = 0
         self.name = 'ADALM-Pluto'
         self.lo_err = None
+        self.on_pan = None                   # waterfall largo: on_pan(bins uint8, f0 dal centro Hz, larghezza Hz)
+        self.pan_span = 0.0                  # 0 = spento
+        self.pan_cf = 0.0                    # centro della vista rispetto al centro del Pluto (Hz)
+        self.pan_t = 0.0
+        self.pan_win = None
+        self.rfbw = 250000
 
     # ---- protocollo
     def _line(self):
@@ -1475,6 +1481,9 @@ class PlutoSource:
         p = self.phy
         self._write_attr(p, 'voltage0', 'sampling_frequency', PLUTO_RATE)
         self._write_attr(p, 'voltage0', 'rf_bandwidth', 250000)        # il filtro analogico più stretto possibile
+        self.rfbw = 250000
+        if self.pan_span:                                               # waterfall largo: filtro più largo
+            self.set_pan(self.pan_span, self.pan_cf)
         self._write_attr(p, 'voltage0', 'rf_port_select', 'A_BALANCED')
         self.set_lo(self.center, notify=False)
         self.set_gain(self.gain)
@@ -1536,7 +1545,14 @@ class PlutoSource:
             if raw is None:
                 return
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
-            y = self.dec(v.view(np.complex64))
+            c = v.view(np.complex64)
+            if self.on_pan is not None and self.pan_span > 0 and time.time() - self.pan_t >= 0.08:
+                self.pan_t = time.time()
+                try:
+                    self._pan(c)
+                except Exception:
+                    pass
+            y = self.dec(c)
             if len(y):
                 self.nsamp += len(y)
                 self.on_iq(y)
@@ -1566,6 +1582,46 @@ class PlutoSource:
         self.center = hz
         if notify:
             self.on_rate(self.fs, self.center)
+
+    PAN_N = 8192                    # FFT dello spettro largo: 281 Hz per riga a 2,304 MS/s
+
+    def _pan(self, c):
+        """Una riga del waterfall largo dai campioni a 2,304 MS/s (prima della decimazione)."""
+        n = self.PAN_N
+        if len(c) < n:
+            return
+        if self.pan_win is None:
+            self.pan_win = np.hanning(n).astype(np.float32)
+        segs = min(4, len(c) // n)
+        p = np.zeros(n, np.float32)
+        for i in range(segs):
+            p += np.abs(np.fft.fft(c[i * n:(i + 1) * n] * self.pan_win)) ** 2
+        p = np.fft.fftshift(p)
+        bw = PLUTO_RATE / n
+        lo_f, span = self.pan_cf - self.pan_span / 2, self.pan_span
+        a = int(round(lo_f / bw)) + n // 2
+        b = a + int(round(span / bw))
+        a, b = max(0, a), min(n, b)
+        if b - a < 16:
+            return
+        db = 10 * np.log10(p[a:b] + 1e-12)
+        k = max(1, (b - a + 2047) // 2048)                # al massimo 2048 righe: tengo il più forte
+        m = (len(db) // k) * k
+        db = db[:m].reshape(-1, k).max(axis=1)
+        med = float(np.median(db))
+        out = np.clip(db - med + 80, 0, 255).astype(np.uint8)
+        self.on_pan(out, (a - n // 2) * bw, m * bw)
+
+    def set_pan(self, span, cf=0.0):
+        """Waterfall largo: larghezza (0 = spento) e centro rispetto al Pluto; il filtro analogico si allarga quanto serve."""
+        lim = PLUTO_RATE * 0.43
+        span = max(0.0, min(float(span), 2 * lim))
+        cf = max(-(lim - span / 2), min(lim - span / 2, float(cf))) if span else 0.0
+        self.pan_span, self.pan_cf = span, cf
+        want = 250000 if not span else int(min(PLUTO_RATE * 0.9, max(250000, 2 * (abs(cf) + span / 2) * 1.05)))
+        if abs(want - self.rfbw) > 20000 and self.sock is not None:
+            self.rfbw = want
+            self._write_attr(self.phy, 'voltage0', 'rf_bandwidth', want)
 
     def set_gain(self, db):
         """None = AGC del chip (slow_attack), altrimenti guadagno fisso 0–71 dB."""
