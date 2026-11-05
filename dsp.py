@@ -1240,9 +1240,9 @@ class Engine:
             c = db[nb // 4: 3 * nb // 4]
             fl = float(np.partition(c, len(c) // 2)[len(c) // 2])   # rumore dalla metà centrale
             self.row_floor = fl if self.row_floor is None else self.row_floor * 0.8 + fl * 0.2
-        # 45 dB sopra il fondo (prima 32: i segnali forti diventavano tutti bianchi e larghi);
-        # curva che scurisce i bassi: le «spalle» dei segnali restano scure, le tracce sottili
-        q = np.clip((db - self.row_floor - 3.0) / 45.0, 0, 1) ** 1.3
+        # nero 4,5 dB sopra il fondo (il rumore resta scuro), poi 38 dB lineari: i segnali deboli si accendono
+        # (prima 45 dB con una curva che scuriva i bassi: un segnale 10 dB sopra il rumore restava quasi nero)
+        q = np.clip((db - self.row_floor - 4.5) / 38.0, 0, 1)
         self.out_rows.append((t, (q * 255).astype(np.uint8)))
 
     def _sfreq(self, k):

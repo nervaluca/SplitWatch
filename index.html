@@ -756,7 +756,7 @@ const LUT=new Uint8ClampedArray(256*3);
 function buildLUT(){
   const st=PALETTES[WFS.pal]||PALETTES.skimmer,c=WFS.con/100,l=WFS.lum/100;
   for(let v=0;v<256;v++){
-    let x=(v/255-0.5)*c+0.5+l;x=Math.max(0,Math.min(1,x));
+    let x=(v/255)*c+l;x=Math.max(0,Math.min(1,x));     // contrasto dal nero: il fondo resta scuro, i segnali salgono
     for(let i=1;i<st.length;i++){const[a,ca]=st[i-1],[b,cb]=st[i];if(x<=b){const k=(x-a)/(b-a||1);for(let j=0;j<3;j++)LUT[v*3+j]=ca[j]+(cb[j]-ca[j])*k;break}}
   }
 }
@@ -1805,11 +1805,13 @@ function kwRow(f0,span,b){if(!CFG||(CFG.src!=='kiwi'&&CFG.src!=='pluto'))return;
   if(f0!==KW.f0||span!==KW.span){g.fillStyle='#05080c';g.fillRect(0,0,w,h);KW.f0=f0;KW.span=span;
     $('#kwSpan').textContent=span>=1e6?(span/1e6).toFixed(2)+' MHz':Math.round(span/1000)+' kHz'}
   const st=Math.max(1,Math.round(dpr));g.drawImage(c,-st,0);
-  const sm=[];for(let i=3;i<nb;i+=4)sm.push(b[i]);sm.sort((a,c)=>a-c);const med=sm[sm.length>>1];
+  const px=new Float32Array(h);
+  for(let y=0;y<h;y++){const a=Math.floor((1-(y+1)/h)*nb),z=Math.max(a+1,Math.floor((1-y/h)*nb));let v=0;for(let i=Math.max(0,a);i<Math.min(nb,z);i++)if(b[i]>v)v=b[i];px[y]=v}
+  const so=Array.from(px).sort((a,c)=>a-c),med=so[so.length>>1];                  // fondo sui punti disegnati (il massimo di più punti alza il rumore)
   KW.floor=KW.floor==null?med:KW.floor*0.92+med*0.08;
   const im=g.createImageData(st,h),p=im.data;
-  for(let y=0;y<h;y++){const a=Math.floor((1-(y+1)/h)*nb),z=Math.max(a+1,Math.floor((1-y/h)*nb));let v=0;for(let i=Math.max(0,a);i<Math.min(nb,z);i++)if(b[i]>v)v=b[i];
-    const k=Math.max(0,Math.min(255,Math.round((v-KW.floor+3)*255/42)));for(let x=0;x<st;x++){const q=(y*st+x)*4;p[q]=LUT[k*3];p[q+1]=LUT[k*3+1];p[q+2]=LUT[k*3+2];p[q+3]=255}}
+  for(let y=0;y<h;y++){const k=Math.max(0,Math.min(255,Math.round((px[y]-KW.floor-2.5)*255/36)));     // nero appena sopra il rumore (già mediato su 4 FFT)
+    for(let x=0;x<st;x++){const q=(y*st+x)*4;p[q]=LUT[k*3];p[q+1]=LUT[k*3+1];p[q+2]=LUT[k*3+2];p[q+3]=255}}
   g.putImageData(im,w-st,0);kwOver()}
 const kwY=f=>(KW.f0+KW.span-f)*KW.h/KW.span;
 function kwOver(){const o=$('#kwo').getContext('2d'),w=KW.w,h=KW.h;o.clearRect(0,0,w,h);if(!KW.span||!CFG)return;
