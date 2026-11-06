@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.6'
+VERSION = '2.7'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1969,8 +1969,14 @@ class Hub:
         if not self.dx_abs:
             return None
         t = self.tx_cfg()
-        f = self.dx_abs - txmod.QO_SHIFT + float(t.get('corr', 0.0)) + self.xit()
+        f = self.tx_dx() - txmod.QO_SHIFT + float(t.get('corr', 0.0)) + self.xit()
         return f if txmod.up_ok(f) else None
+
+    def tx_dx(self):
+        """Dove trasmetto (frequenza di discesa): VFO A, oppure VFO B con SPLIT inserito (il DX ascolta «up»)."""
+        if self.is_ssb() and self.cfg.get('split', True):
+            return (self.dx_abs or 0) + float(self.cfg.get('rx2_off', 5000.0))
+        return self.dx_abs
 
     def xit(self):
         """Ritocco fine della trasmissione deciso da te (XIT, Hz): si somma alla correzione automatica, resta
@@ -2247,13 +2253,13 @@ class Hub:
             return
         if not self.fs or self.hw_center is None or not self.dx_abs:
             return
-        if self.echo is not None and self.echo.dx == self.dx_abs and \
+        if self.echo is not None and self.echo.dx == self.tx_dx() and \
                 getattr(self.echo, 'trim', None) == (self.xit(), float(self.tx_cfg().get('corr', 0.0))):
             return                                          # messaggi in coda: continuo la stessa misura
         k = 1 + self.ppm() * 1e-6
-        ec = txmod.EchoTrack(self.fs, (self.dx_abs + self.xit() - self.conv()) / k - self.hw_center,
+        ec = txmod.EchoTrack(self.fs, (self.tx_dx() + self.xit() - self.conv()) / k - self.hw_center,
                              key_log=self.tx.key_log if self.tx is not None else None)
-        ec.dx = self.dx_abs
+        ec.dx = self.tx_dx()
         ec.trim = (self.xit(), float(self.tx_cfg().get('corr', 0.0)))   # se li tocchi a metà, la misura non vale
         self.echo = ec
         threading.Timer(0.35, lambda: setattr(ec, 'on', True)).start()
@@ -2268,7 +2274,7 @@ class Hub:
             if self.echo is ec:
                 self.echo = None
             r = ec.result()
-            if r is None or self.dx_abs != ec.dx or (self.xit(), float(self.tx_cfg().get('corr', 0.0))) != ec.trim:
+            if r is None or self.tx_dx() != ec.dx or (self.xit(), float(self.tx_cfg().get('corr', 0.0))) != ec.trim:
                 return
             err, snr = r
             if abs(err) < 3:
@@ -2399,6 +2405,7 @@ class Hub:
             self.on_status(f'Sincro TX/RX: il clic è {err/1000:+.1f} kHz dalla riga, troppo lontano dalla tua eco')
             return
         err -= self.xit()                                       # col tuo XIT l'eco deve stare lì, non sulla riga
+        err -= self.tx_dx() - self.dx_abs                       # in SPLIT si trasmette sul VFO B: l'eco va lì
         t = self.tx_cfg()
         t['corr'] = round(max(-50000.0, min(50000.0, float(t.get('corr', 0.0)) - err)), 1)
         save_cfg(self.cfg)
@@ -2412,7 +2419,7 @@ class Hub:
             self.post_json({'type': 'txcal', 'ok': False, 'why': 'TX non pronto'})
             return
         up = self.tx_up()
-        up0 = (self.dx_abs or 0) - txmod.QO_SHIFT + self.xit()          # con la correzione azzerata
+        up0 = (self.tx_dx() or 0) - txmod.QO_SHIFT + self.xit()         # con la correzione azzerata
         if up is None and not txmod.up_ok(up0):
             self.post_json({'type': 'txcal', 'ok': False, 'why': 'metti il VFO A in una zona libera del transponder'})
             return
@@ -2431,7 +2438,7 @@ class Hub:
                     if self.tx_up() is None:
                         continue                                # fuori dal transponder con questa correzione
                     k = 1 + self.ppm() * 1e-6
-                    expect_rx = self.dx_abs + self.xit() - self.conv()
+                    expect_rx = self.tx_dx() + self.xit() - self.conv()
                     ec = txmod.EchoTrack(self.fs, expect_rx / k - self.hw_center,
                                          key_log=self.tx.key_log if self.tx is not None else None, span=40000.0)
                     ec.on = True
