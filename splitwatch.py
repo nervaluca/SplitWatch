@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.1'
+VERSION = '2.2'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -354,6 +354,7 @@ class Hub:
         self.mic_busy = False
         global TX_HUB
         TX_HUB = self
+        threading.Thread(target=self.tx_follow, daemon=True).start()   # in TX la salita segue il VFO A
         self.lk_buf, self.lk_n, self.lk_ok, self.lk_last = [], 0, False, None   # aggancio al beacon
         self.cal_busy = False
         self.sm_last = 0.0
@@ -2056,6 +2057,46 @@ class Hub:
         except Exception:
             pass
         return None
+
+    def tx_follow(self):
+        """Mentre si trasmette (SSB, macro CW, portante, paddle) la salita segue il VFO A: prima restava dove
+        era partita e si spostava solo il segno sul waterfall. Fuori dal transponder o sopra un beacon: stop."""
+        last = None
+        while True:
+            time.sleep(0.05)
+            try:
+                tx = self.tx
+                if tx is None or self.cal_busy:
+                    last = None
+                    continue
+                ssb = self.ssbtx is not None and self.ssbtx.alive
+                cw = (self.keyer is not None and self.keyer.busy) or \
+                     (self.paddle is not None and self.paddle.busy and self.paddle.tx is not None)
+                if not (ssb or cw):
+                    last = None
+                    continue
+                up = self.tx_up()
+                if last is None:
+                    last = up or 0.0                        # al via la frequenza l'ha già messa chi trasmette
+                    continue
+                if up == last:
+                    continue
+                last = up
+                if up is None:
+                    if ssb:
+                        self.tx_ptt(False)
+                    if self.keyer is not None and self.keyer.busy:
+                        self.keyer.stop()
+                    self.on_status('TX fermato: VFO A fuori dal transponder o vicino a un beacon')
+                    last = None
+                    continue
+                if ssb:
+                    tx.set_freq_off(up, txmod.SSB_OFF)
+                else:
+                    tx.set_freq(up)
+            except Exception as e:
+                log(f'TX: frequenza non aggiornata ({e})')
+                last = None
 
     def tx_ptt(self, on):
         """PTT della SSB: microfono → Pluto."""
