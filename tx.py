@@ -89,6 +89,7 @@ class PlutoTx:
         self.inv = False              # I/Q invertiti: il segnale uscirebbe sotto l'oscillatore
         self.down = False
         self.enabled = False
+        self.key_log = []             # (ora, giù/su) di ogni manipolazione: serve a riconoscere la mia eco
 
     # ---- protocollo iiod (come la ricezione)
     def _int(self):
@@ -218,6 +219,9 @@ class PlutoTx:
         """Chiave giù / su, con la rampa (ogni passo è una scrittura: ~1 ms)."""
         if down == self.down or self.sock is None:
             return
+        self.key_log.append((time.perf_counter(), bool(down)))   # per riconoscere la mia eco
+        if len(self.key_log) > 4000:
+            del self.key_log[:2000]
         steps = list(RAMP) + [0.0] if down else [0.0] + list(reversed(RAMP))
         for s in (steps[1:] if not down else steps):
             self._write(self.phy, 'voltage0', 'hardwaregain', round(max(OFF_DB, self.level + s) * 4) / 4)
@@ -918,22 +922,126 @@ class SsbTx:
 
 class EchoTrack:
     """Segue la propria eco: mentre si trasmette in CW raccoglie la discesa attorno a dove deve arrivare il
-    segnale e, a fine messaggio, misura di quanti Hz è spostato (deriva del quarzo del Pluto che si scalda,
-    LNB senza aggancio…). Si accorge solo di spostamenti entro ±400 Hz e con un segnale ben sopra il rumore."""
+    segnale e, a fine messaggio, misura di quanti Hz è spostato (deriva del quarzo del Pluto che si scalda…).
 
-    def __init__(self, fs, expect_off):
+    La propria eco si riconosce dalla manipolazione: il Pluto annota quando il tasto va giù e su (key_log), e
+    qui si cerca il segnale che si accende e si spegne con quel ritmo, con un ritardo fra 0,1 e 1,2 s (satellite
+    e tempi di elaborazione). Prima prendeva il più forte entro ±400 Hz e in una fetta affollata agganciava
+    un'altra stazione, spostando il TX di 150 Hz a ogni messaggio. Se nessun segnale segue la manipolazione
+    non corregge niente."""
+
+    def __init__(self, fs, expect_off, key_log=None, clock=None):
         self.fs, self.e = float(fs), float(expect_off)
         self.d = max(1, int(self.fs // 2000))         # ~2 kHz di banda: bastano per ±400 Hz
         self.fs2 = self.fs / self.d
         self.ph = 0.0
         self.buf = []
+        self.blk = []                                 # (ora di arrivo, primo campione, quanti)
         self.n = 0
         self.on = False
+        self.key_log = key_log if key_log is not None else []
+        self.clock = clock or time.perf_counter
 
     def feed(self, iq):
         import numpy as np
         if not self.on:
             return
+        t = self.clock()
+        n = len(iq)
+        ph = self.ph + (-2 * np.pi * self.e / self.fs) * np.arange(n)
+        self.ph = float((ph[-1] - 2 * np.pi * self.e / self.fs) % (2 * np.pi)) if n else self.ph
+        y = iq * np.exp(1j * ph).astype(np.complex64)
+        m = n // self.d
+        if m:
+            self.buf.append(y[:m * self.d].reshape(m, self.d).mean(1))
+            self.blk.append((t, self.n, m))
+            self.n += m
+
+    def _times(self, s):
+        """Ora (dell'orologio del programma) del campione decimato s: il blocco arriva subito dopo il suo ultimo."""
+        import numpy as np
+        b = np.array(self.blk, float)
+        i = np.clip(np.searchsorted(b[:, 1], s, side='right') - 1, 0, len(b) - 1)
+        return b[i, 0] - (b[i, 1] + b[i, 2] - s) / self.fs2
+
+    def _keyed(self, ev_t, ev_d, t):
+        import numpy as np
+        i = np.searchsorted(ev_t, t, side='right') - 1
+        return np.where(i >= 0, ev_d[np.clip(i, 0, len(ev_d) - 1)], 0.0)
+
+    def result(self):
+        import numpy as np
+        if self.n < self.fs2 * 1.0 or not self.blk:
+            return None
+        x = np.concatenate(self.buf)
+        ev = sorted(self.key_log)
+        if len(ev) < 4:
+            return None
+        ev_t = np.array([e[0] for e in ev])
+        ev_d = np.array([1.0 if e[1] else 0.0 for e in ev])
+        # spettrogramma: 10 ms per riga, ~16 Hz per colonna
+        hop, nf = max(1, int(round(self.fs2 * 0.01))), 128
+        nfr = (len(x) - nf) // hop
+        if nfr < 80:
+            return None
+        idx = np.arange(nf)[None, :] + hop * np.arange(nfr)[:, None]
+        S = np.abs(np.fft.fft(x[idx] * np.hanning(nf).astype(np.float32), axis=1)) ** 2
+        f = np.fft.fftfreq(nf, 1 / self.fs2)
+        sel = np.abs(f) <= 420
+        P = 10 * np.log10(S[:, sel] + 1e-20)
+        tf = self._times(hop * np.arange(nfr) + nf / 2)
+        # quale colonna si accende col mio tasto, e con che ritardo
+        lags = np.arange(-0.05, 1.50, 0.01)                # satellite ~0,27 s + elaborazione (il banco di prova: quasi 0)
+        K = np.array([self._keyed(ev_t, ev_d, tf - L) for L in lags])
+        ks = K.std(axis=1)
+        ok = ks > 0.15
+        if not ok.any():
+            return None
+        Kz = (K[ok] - K[ok].mean(1, keepdims=True)) / ks[ok, None]
+        Pz = (P - P.mean(0)) / (P.std(0) + 1e-9)
+        C = Kz @ Pz / nfr
+        li, bi = np.unravel_index(int(np.argmax(C)), C.shape)
+        corr = float(C[li, bi])
+        if corr < 0.45:
+            return None                                   # nessun segnale segue la mia manipolazione
+        lag = float(lags[ok][li])
+        # frequenza fine: solo i campioni in cui la mia eco c'è, FFT lunga attorno alla colonna trovata
+        keyed = self._keyed(ev_t, ev_d, self._times(np.arange(len(x))) - lag) > 0.5
+        xo = (x * keyed).astype(np.complex64)
+        N = 1 << int(np.ceil(np.log2(len(xo) * 4)))
+        sp = np.abs(np.fft.fft(xo, N)) ** 2
+        ff = np.fft.fftfreq(N, 1 / self.fs2)
+        f0 = float(f[sel][bi])
+        win = np.abs(ff - f0) <= 25
+        j = np.nonzero(win)[0][np.argmax(sp[win])]
+        a, b, c = np.log(sp[j - 1] + 1e-30), np.log(sp[j] + 1e-30), np.log(sp[(j + 1) % N] + 1e-30)
+        den = a - 2 * b + c
+        dd = 0.5 * (a - c) / den if den != 0 else 0.0
+        on = S[:, sel][K[ok][li] > 0.5].mean(0) if (K[ok][li] > 0.5).any() else S[:, sel].mean(0)
+        snr = 10 * np.log10(on[bi] / (np.median(on) + 1e-30))
+        if snr < 10:
+            return None
+        self.lag, self.corr = lag, corr
+        return float(ff[j] + dd * self.fs2 / N), float(snr)
+
+
+class ToneSnap:
+    """Clic su una traccia CW: trova la portante della stazione entro ±80 Hz dal clic, al Hz.
+
+    Ascolta fino a 2,5 s (la stazione può essere a tasto alzato) e tiene il massimo di ogni riga dello spettro:
+    così conta quando il tasto è giù. Con il TX calibrato si trasmette esattamente sopra la stazione."""
+
+    def __init__(self, fs, expect_off, span=80.0):
+        self.fs, self.e, self.span = float(fs), float(expect_off), float(span)
+        self.d = max(1, int(self.fs // 800))
+        self.fs2 = self.fs / self.d
+        self.ph = 0.0
+        self.buf = []
+        self.n = 0
+        self.tried = 0
+
+    def feed(self, iq):
+        import numpy as np
         n = len(iq)
         ph = self.ph + (-2 * np.pi * self.e / self.fs) * np.arange(n)
         self.ph = float((ph[-1] - 2 * np.pi * self.e / self.fs) % (2 * np.pi)) if n else self.ph
@@ -944,20 +1052,27 @@ class EchoTrack:
             self.n += m
 
     def result(self):
+        """(scarto in Hz dal clic, dB sul rumore) o None se ancora non c'è niente di chiaro."""
         import numpy as np
-        if self.n < self.fs2 * 1.0:
+        if self.n < self.fs2 * 0.6:
             return None
         x = np.concatenate(self.buf)
-        N = 1 << int(np.ceil(np.log2(len(x) * 4)))
-        sp = np.abs(np.fft.fft(x * np.hanning(len(x)), N)) ** 2
+        seg = int(self.fs2 * 0.25)
+        N = 4096
+        w = np.hanning(seg).astype(np.float32)
+        mh = None
+        for i in range(0, len(x) - seg + 1, seg // 2):
+            p = np.abs(np.fft.fft(x[i:i + seg] * w, N)) ** 2
+            mh = p if mh is None else np.maximum(mh, p)
         f = np.fft.fftfreq(N, 1 / self.fs2)
-        win = np.abs(f) <= 400
+        win = np.abs(f) <= self.span
         idx = np.nonzero(win)[0]
-        k = idx[np.argmax(sp[idx])]
-        snr = 10 * np.log10(sp[k] / (np.median(sp[idx]) + 1e-30))
-        if snr < 18:
+        k = idx[np.argmax(mh[idx])]
+        noise = float(np.median(mh[np.abs(f) <= self.fs2 * 0.45]))
+        snr = 10 * np.log10(mh[k] / (noise + 1e-30))
+        if snr < 12:
             return None
-        a, b, c = np.log(sp[k - 1] + 1e-30), np.log(sp[k] + 1e-30), np.log(sp[(k + 1) % N] + 1e-30)
+        a, b, c = np.log(mh[k - 1] + 1e-30), np.log(mh[k] + 1e-30), np.log(mh[(k + 1) % N] + 1e-30)
         den = a - 2 * b + c
         dd = 0.5 * (a - c) / den if den != 0 else 0.0
         return float(f[k] + dd * self.fs2 / N), float(snr)

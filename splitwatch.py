@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.2'
+VERSION = '2.4'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -350,6 +350,7 @@ class Hub:
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
         self.pad_port, self.pad_err, self.pad_try, self.pad_sent = '', '', 0.0, ''
         self.ports_cache = (0.0, [])
+        self.snap = None                       # clic su una traccia CW: VFO A sulla portante della stazione
         self.mic_raw = None                    # ultima prova voce (8 kHz, senza guadagno)
         self.mic_busy = False
         global TX_HUB
@@ -633,6 +634,13 @@ class Hub:
             return
         if time.time() < getattr(self, 'lk_hold', 0):          # dopo una correzione: i dati vecchi in coda non contano
             return
+        # mentre trasmetto (e subito dopo) niente misure: in full duplex la mia eco è il segnale più forte e la
+        # misura del beacon può uscire sbagliata. L'LNB deriva piano: qualche secondo di pausa non conta.
+        if self.cal_busy or time.time() < getattr(self, 'tx_quiet', 0) or \
+                (self.keyer is not None and self.keyer.busy) or (self.ssbtx is not None and self.ssbtx.alive) or \
+                (self.paddle is not None and self.paddle.busy):
+            self.lk_buf, self.lk_n = [], 0
+            return
         self.lk_buf.append(blk)
         self.lk_n += len(blk)
         if self.lk_n < 0.5 * self.fs:
@@ -660,15 +668,31 @@ class Hub:
         k = idx[np.argmax(sp[idx])]
         snr = 10 * math.log10(sp[k] / (float(np.median(sp[idx])) + 1e-30))
         if snr < (18 if self.lk_ok else 22):                    # il rumore da solo arriva a ~10 dB
+            self.lk_miss = getattr(self, 'lk_miss', 0) + 1
+            if self.lk_ok and self.lk_miss < 4:                 # un attimo senza beacon (manipolato, QSB): tengo l'aggancio
+                return
             self.lk_ok = False
+            self.lk_pend = None
             self._lock_msg(False, None, 'beacon non trovato')
             return
+        self.lk_miss = 0
         a, bb, c = (math.log(sp[(k - 1) % nf] + 1e-30), math.log(sp[k] + 1e-30), math.log(sp[(k + 1) % nf] + 1e-30))
         den = a - 2 * bb + c
         d = 0.5 * (a - c) / den if den != 0 else 0.0
         delta = (f[k] + d * fs2 / nf) / 2                       # il beacon appare spostato di delta
+        # un salto grande si applica solo se la misura dopo lo conferma (entro 30 Hz): una misura sbagliata
+        # non sposta più tutta la ricezione; agganciato, al massimo 25 Hz ogni mezzo secondo (l'LNB deriva piano)
+        big = abs(delta) > (150.0 if self.lk_ok else 50.0)
+        pend = getattr(self, 'lk_pend', None)
+        if big and (pend is None or abs(pend - delta) > 30.0):
+            self.lk_pend = delta
+            self._lock_msg(self.lk_ok, delta, b)
+            return
+        self.lk_pend = None
+        corr = max(-25.0, min(25.0, delta)) if (self.lk_ok and not big) else delta
+        if abs(corr) >= 20:
+            log(f'Aggancio beacon: corretto {corr:+.0f} Hz (misurato {delta:+.0f} Hz, {snr:.0f} dB)')
         self.lk_ok = True
-        corr = delta
         if abs(corr) > 2.0 and self.hw_center is not None and self.tunable():
             # si risintonizza il ricevitore per compensare l'LNB (e si aggiorna la sua stima): il centro mostrato,
             # il DX, i filtri e la decodifica non si toccano, quindi niente buchi nell'audio
@@ -1288,6 +1312,9 @@ class Hub:
                 ec = self.echo
                 if ec is not None:
                     ec.feed(blk)
+                sn = self.snap
+                if sn is not None:
+                    self.snap_step(sn, blk)
                 if m is not None:
                     m.feed(blk)
                 elif self.cfg.get('beacon_lock') and self.src_kind != 'file':
@@ -1904,8 +1931,14 @@ class Hub:
         """Frequenza di salita per il VFO A (None se fuori dal transponder o vicino a un beacon)."""
         if not self.dx_abs:
             return None
-        f = self.dx_abs - txmod.QO_SHIFT + float(self.tx_cfg().get('corr', 0.0))
+        t = self.tx_cfg()
+        f = self.dx_abs - txmod.QO_SHIFT + float(t.get('corr', 0.0)) + self.xit()
         return f if txmod.up_ok(f) else None
+
+    def xit(self):
+        """Ritocco fine della trasmissione deciso da te (XIT, Hz): si somma alla correzione automatica, resta
+        cambiando frequenza, e Calibra TX / Sincro / Segui la mia eco lo rispettano (non lo annullano)."""
+        return float(self.tx_cfg().get('xit', 0.0))
 
     def tx_ensure(self):
         """Apre o chiude il TX secondo le impostazioni (chiamato ogni 3 s e a ogni cambio)."""
@@ -2058,6 +2091,35 @@ class Hub:
             pass
         return None
 
+    def snap_start(self, hz):
+        """Clic sul waterfall in CW: il VFO A va sulla portante della stazione (entro ±80 Hz), al Hz."""
+        if self.modo() in ('ssb', 'rtty', 'ft8', 'fm', 'am') or not self.fs or self.hw_center is None:
+            self.snap = None
+            return
+        k = 1 + self.ppm() * 1e-6
+        sn = txmod.ToneSnap(self.fs, (hz - self.conv()) / k - self.hw_center)
+        sn.hz, sn.k, sn.t0 = hz, k, time.time()
+        self.snap = sn
+
+    def snap_step(self, sn, blk):
+        sn.feed(blk)
+        if sn.n < sn.fs2 * (0.8 + 0.6 * sn.tried):
+            return
+        sn.tried += 1
+        r = sn.result()
+        if r is None:
+            if sn.n > sn.fs2 * 2.5:
+                self.snap = None                                # nessuna portante chiara: resta dove ho cliccato
+            return
+        self.snap = None
+        if self.dx_abs != sn.hz:
+            return                                              # nel frattempo ti sei spostato
+        err, snr = r
+        new = round(sn.hz + err * sn.k)
+        if abs(new - sn.hz) >= 1:
+            self.cmd_q.put(('dx', float(new)))
+        log(f'VFO A sulla stazione: {new/1e3:.3f} kHz ({err * sn.k:+.0f} Hz dal clic, {snr:.0f} dB)')
+
     def tx_follow(self):
         """Mentre si trasmette (SSB, macro CW, portante, paddle) la salita segue il VFO A: prima restava dove
         era partita e si spostava solo il segno sul waterfall. Fuori dal transponder o sopra un beacon: stop."""
@@ -2148,11 +2210,14 @@ class Hub:
             return
         if not self.fs or self.hw_center is None or not self.dx_abs:
             return
-        if self.echo is not None and self.echo.dx == self.dx_abs:
+        if self.echo is not None and self.echo.dx == self.dx_abs and \
+                getattr(self.echo, 'trim', None) == (self.xit(), float(self.tx_cfg().get('corr', 0.0))):
             return                                          # messaggi in coda: continuo la stessa misura
         k = 1 + self.ppm() * 1e-6
-        ec = txmod.EchoTrack(self.fs, (self.dx_abs - self.conv()) / k - self.hw_center)
+        ec = txmod.EchoTrack(self.fs, (self.dx_abs + self.xit() - self.conv()) / k - self.hw_center,
+                             key_log=self.tx.key_log if self.tx is not None else None)
         ec.dx = self.dx_abs
+        ec.trim = (self.xit(), float(self.tx_cfg().get('corr', 0.0)))   # se li tocchi a metà, la misura non vale
         self.echo = ec
         threading.Timer(0.35, lambda: setattr(ec, 'on', True)).start()
 
@@ -2166,7 +2231,7 @@ class Hub:
             if self.echo is ec:
                 self.echo = None
             r = ec.result()
-            if r is None or self.dx_abs != ec.dx:
+            if r is None or self.dx_abs != ec.dx or (self.xit(), float(self.tx_cfg().get('corr', 0.0))) != ec.trim:
                 return
             err, snr = r
             if abs(err) < 3:
@@ -2175,7 +2240,8 @@ class Hub:
             step = max(-150.0, min(150.0, 0.9 * err))          # al massimo 150 Hz per volta: una misura sbagliata non fa danni
             t['corr'] = round(float(t.get('corr', 0.0)) - step, 1)
             save_cfg(self.cfg)
-            log(f'TX: la mia eco era {err:+.1f} Hz fuori ({snr:.0f} dB), correzione {t["corr"]:+.1f} Hz')
+            log(f'TX: la mia eco era {err:+.1f} Hz fuori ({snr:.0f} dB, somiglianza col tasto {getattr(ec, "corr", 0):.2f}, '
+                f'ritardo {getattr(ec, "lag", 0):.2f} s), correzione {t["corr"]:+.1f} Hz')
             self.on_status(f'TX allineato sulla mia eco: {-step:+.0f} Hz')
             self.post_json(self.cfg_msg())
         threading.Timer(0.45, fin).start()                     # la coda dell'eco arriva ~0,3 s dopo
@@ -2185,6 +2251,8 @@ class Hub:
             self.echo_start()
         elif not on:
             self.echo_end()
+        if not on:
+            self.tx_quiet = time.time() + 1.5                  # l'aggancio al beacon riprende dopo la coda dell'eco
         full = bool(self.tx_cfg().get('full', True))
         if on:
             if not full:
@@ -2209,7 +2277,7 @@ class Hub:
         up = self.tx_up() if self.tx_avail() else None
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
-                'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'macros': t.get('macros', []),
+                'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'xit': float(t.get('xit', 0.0)), 'macros': t.get('macros', []),
                 'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)), 'proc': float(t.get('proc', 10)), 'eq': list(t.get('eq', [0] * 5)), 'mictest': self.mic_raw is not None,
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
@@ -2239,6 +2307,10 @@ class Hub:
                 self.tx.set_inv(t['inv'])
         if 'corr' in v:
             t['corr'] = 0.0 if v['corr'] == 'reset' else max(-50000.0, min(50000.0, float(v['corr'])))
+        if 'xit' in v:
+            t['xit'] = round(max(-500.0, min(500.0, float(v['xit']))), 1)
+        if 'xit_step' in v:
+            t['xit'] = round(max(-500.0, min(500.0, float(t.get('xit', 0.0)) + float(v['xit_step']))), 1)
         if 'mic' in v:
             t['mic'] = str(v['mic'] or '')[:200]
         if 'micgain' in v:
@@ -2289,6 +2361,7 @@ class Hub:
         if abs(err) > 20000:
             self.on_status(f'Sincro TX/RX: il clic è {err/1000:+.1f} kHz dalla riga, troppo lontano dalla tua eco')
             return
+        err -= self.xit()                                       # col tuo XIT l'eco deve stare lì, non sulla riga
         t = self.tx_cfg()
         t['corr'] = round(max(-50000.0, min(50000.0, float(t.get('corr', 0.0)) - err)), 1)
         save_cfg(self.cfg)
@@ -2326,7 +2399,7 @@ class Hub:
                             time.sleep(0.05)
                         time.sleep(0.6)
                         log('TX calibrazione: portante non vista, riprovo col ricevitore spostato di 25 kHz')
-                    expect_rx = self.dx_abs - self.conv()               # dove deve arrivare, al ricevitore
+                    expect_rx = self.dx_abs + self.xit() - self.conv()  # dove deve arrivare, al ricevitore (col tuo XIT)
                     k = 1 + self.ppm() * 1e-6
                     pr = txmod.TxProbe(self.fs, expect_rx / k - self.hw_center)
                     self.cal = pr
@@ -2771,6 +2844,8 @@ class Hub:
                             self.src.set_lo(hz)
                     else:
                         self.cmd_q.put(('dx', hz))
+                        if c.get('snap'):
+                            self.snap_start(hz)
                 elif k == 'up':
                     self.cmd_q.put(('up', c['lo'], c['hi']))
                 elif k == 'bw':
