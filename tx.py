@@ -930,9 +930,10 @@ class EchoTrack:
     un'altra stazione, spostando il TX di 150 Hz a ogni messaggio. Se nessun segnale segue la manipolazione
     non corregge niente."""
 
-    def __init__(self, fs, expect_off, key_log=None, clock=None):
+    def __init__(self, fs, expect_off, key_log=None, clock=None, span=420.0):
         self.fs, self.e = float(fs), float(expect_off)
-        self.d = max(1, int(self.fs // 2000))         # ~2 kHz di banda: bastano per ±400 Hz
+        self.span = float(span)                       # ±420 Hz per l'eco; ±40 kHz per Calibra TX
+        self.d = max(1, int(self.fs // max(2000.0, 2.4 * self.span)))
         self.fs2 = self.fs / self.d
         self.ph = 0.0
         self.buf = []
@@ -979,15 +980,16 @@ class EchoTrack:
             return None
         ev_t = np.array([e[0] for e in ev])
         ev_d = np.array([1.0 if e[1] else 0.0 for e in ev])
-        # spettrogramma: 10 ms per riga, ~16 Hz per colonna
-        hop, nf = max(1, int(round(self.fs2 * 0.01))), 128
+        # spettrogramma: 10 ms per riga; ~16 Hz per colonna per l'eco, ~50 Hz per Calibra TX (±40 kHz)
+        hop = max(1, int(round(self.fs2 * 0.01)))
+        nf = 1 << max(7, int(np.ceil(np.log2(self.fs2 / (16.0 if self.span < 2000 else 50.0)))))
         nfr = (len(x) - nf) // hop
         if nfr < 80:
             return None
         idx = np.arange(nf)[None, :] + hop * np.arange(nfr)[:, None]
         S = np.abs(np.fft.fft(x[idx] * np.hanning(nf).astype(np.float32), axis=1)) ** 2
         f = np.fft.fftfreq(nf, 1 / self.fs2)
-        sel = np.abs(f) <= 420
+        sel = np.abs(f) <= self.span
         P = 10 * np.log10(S[:, sel] + 1e-20)
         tf = self._times(hop * np.arange(nfr) + nf / 2)
         # quale colonna si accende col mio tasto, e con che ritardo
@@ -1012,7 +1014,7 @@ class EchoTrack:
         sp = np.abs(np.fft.fft(xo, N)) ** 2
         ff = np.fft.fftfreq(N, 1 / self.fs2)
         f0 = float(f[sel][bi])
-        win = np.abs(ff - f0) <= 25
+        win = np.abs(ff - f0) <= 1.6 * self.fs2 / nf
         j = np.nonzero(win)[0][np.argmax(sp[win])]
         a, b, c = np.log(sp[j - 1] + 1e-30), np.log(sp[j] + 1e-30), np.log(sp[(j + 1) % N] + 1e-30)
         den = a - 2 * b + c

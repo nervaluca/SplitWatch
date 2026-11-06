@@ -151,6 +151,7 @@ _EN = [
     (r'Paddle pronto su (\S+)', r'Paddle ready on \1'),
     (r'Paddle in uso: macro non mandata', 'Paddle in use: macro not sent'),
     # QO-100 in tre passi
+    (r"non vedo la mia portante sulla discesa: alza PWR o controlla l'amplificatore", 'I cannot see my carrier on the downlink: raise PWR or check the amplifier'),
     (r'TX fermato: VFO A fuori dal transponder o vicino a un beacon', 'TX stopped: VFO A outside the transponder or near a beacon'),
     (r"la ricerca larga dei beacon c'è con l'ADALM-Pluto: con gli altri ricevitori usa «Calibra…» sul beacon 10489,5",
      'the wide beacon search works with the ADALM-Pluto: with other receivers use «Calibrate…» on the 10489.5 beacon'),
