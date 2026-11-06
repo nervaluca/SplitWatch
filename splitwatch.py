@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.5'
+VERSION = '2.6'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -2412,40 +2412,52 @@ class Hub:
             self.post_json({'type': 'txcal', 'ok': False, 'why': 'TX non pronto'})
             return
         up = self.tx_up()
-        if up is None:
+        up0 = (self.dx_abs or 0) - txmod.QO_SHIFT + self.xit()          # con la correzione azzerata
+        if up is None and not txmod.up_ok(up0):
             self.post_json({'type': 'txcal', 'ok': False, 'why': 'metti il VFO A in una zona libera del transponder'})
             return
         self.cal_busy = True
 
         def run():
+            t = self.tx_cfg()
+            old = float(t.get('corr', 0.0))
             try:
                 # «VVV VVV VVV»: la mia portante si riconosce dal ritmo (come Segui la mia eco), entro ±40 kHz.
-                # Le stazioni che manipolano nella fetta non seguono il mio tasto: prima disturbavano il confronto
-                # tasto giù / tasto su e la portante non si trovava.
-                k = 1 + self.ppm() * 1e-6
-                expect_rx = self.dx_abs + self.xit() - self.conv()
-                ec = txmod.EchoTrack(self.fs, expect_rx / k - self.hw_center,
-                                     key_log=self.tx.key_log if self.tx is not None else None, span=40000.0)
-                ec.on = True
-                self.cal = ec
-                old_wpm = self.keyer.wpm
-                self.keyer.wpm = 18
-                self.keyer.send('VVV VVV VVV')
-                t0 = time.time()
-                time.sleep(0.5)
-                while self.keyer.busy and time.time() - t0 < 15:
-                    time.sleep(0.05)
-                self.keyer.wpm = old_wpm
-                time.sleep(0.8)                                 # coda dell'eco (satellite ~0,27 s + elaborazione)
-                ec.on = False
-                self.cal = None
-                r = ec.result()
+                # Le stazioni che manipolano nella fetta non seguono il mio tasto. Se con la correzione attuale non
+                # la trovo (correzione sballata), riprovo partendo da zero.
+                r = ec = None
+                for start in ([old, 0.0] if abs(old) > 200 else [old]):
+                    t['corr'] = start
+                    if self.tx_up() is None:
+                        continue                                # fuori dal transponder con questa correzione
+                    k = 1 + self.ppm() * 1e-6
+                    expect_rx = self.dx_abs + self.xit() - self.conv()
+                    ec = txmod.EchoTrack(self.fs, expect_rx / k - self.hw_center,
+                                         key_log=self.tx.key_log if self.tx is not None else None, span=40000.0)
+                    ec.on = True
+                    self.cal = ec
+                    old_wpm = self.keyer.wpm
+                    self.keyer.wpm = 18
+                    self.keyer.send('VVV VVV VVV')
+                    t0 = time.time()
+                    time.sleep(0.5)
+                    while self.keyer.busy and time.time() - t0 < 15:
+                        time.sleep(0.05)
+                    self.keyer.wpm = old_wpm
+                    time.sleep(0.8)                             # coda dell'eco (satellite ~0,27 s + elaborazione)
+                    ec.on = False
+                    self.cal = None
+                    r = ec.result()
+                    if r is not None:
+                        break
+                    if start != 0.0 and abs(old) > 200:
+                        log(f'TX calibrazione: portante non vista con correzione {old:+.0f} Hz, riprovo da zero')
                 if r is None:
+                    t['corr'] = old
                     raise RuntimeError('non vedo la mia portante sulla discesa: alza PWR o controlla l\'amplificatore')
                 err, snr = r
                 err *= k
-                t = self.tx_cfg()
-                t['corr'] = round(float(t.get('corr', 0.0)) - err, 1)
+                t['corr'] = round(t['corr'] - err, 1)
                 save_cfg(self.cfg)
                 log(f'TX calibrato: errore {err:+.1f} Hz ({snr:.0f} dB, somiglianza col tasto {getattr(ec, "corr", 0):.2f}), '
                     f'correzione {t["corr"]:+.1f} Hz')
