@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.7'
+VERSION = '2.8'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1958,7 +1958,44 @@ class Hub:
         t.setdefault('svol', 0.5)
         t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
                                 'QRZ? DE {CALL}', 'R R TU'])
+        t.setdefault('rmacros', ['CQ CQ CQ DE {CALL} {CALL} {CALL} PSE K', '{CALL} {CALL}', 'TU 599 599 {CALL}',
+                                 'TU 73 DE {CALL} SK', 'QRZ? DE {CALL}', 'RR TU 73'])
         return t
+
+    def mac_key(self):
+        """Macro del CW o del RTTY (serie separate)."""
+        return 'rmacros' if self.modo() == 'rtty' else 'macros'
+
+    def rtty_send(self, text, macro=False):
+        """RTTY generato dal programma: mark sul VFO A (sul VFO B con SPLIT), space 170 Hz sotto. Se sta già
+        trasmettendo il testo va in coda (scrivi mentre esce)."""
+        text = self.tx_text(text).upper()
+        if macro:
+            text = text.strip() + '\n'
+        else:
+            text = text.strip() + ' '
+        st = self.ssbtx
+        if st is not None and st.alive and st.gen is not None and not st.gen.ending:
+            st.gen.send(text)
+            return
+        if st is not None and st.alive:
+            self.on_status('TX RTTY: aspetta la fine della trasmissione')
+            return
+        if not self.tx or not self.keyer:
+            self.on_status('TX non pronto: accendi ⏻ TX')
+            return
+        up = self.tx_up()
+        if up is None or not txmod.up_ok(up - txmod.RTTY_SHIFT - 100):
+            self.on_status('TX RTTY: VFO fuori dal transponder o troppo vicino a un beacon')
+            return
+        self.keyer.stop()
+        gen = txmod.RttyGen(on_prog=lambda a, b: self.post_json({'type': 'tx', 'busy': True, 'sent': a, 'rest': b}))
+        gen.send('\n' + text)
+        st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
+        self.ssbtx = st
+        self.on_tx_ptt(True)
+        st.start(up, gen=gen)
+        log(f'TX RTTY: mark {up/1e6:.6f} MHz, space 170 Hz sotto')
 
     def tx_avail(self):
         """TX solo con il Pluto dietro l'LNB di QO-100."""
@@ -2192,11 +2229,11 @@ class Hub:
                         self.tx_ptt(False)
                     if self.keyer is not None and self.keyer.busy:
                         self.keyer.stop()
-                    self.on_status('TX fermato: VFO A fuori dal transponder o vicino a un beacon')
+                    self.on_status('TX fermato: VFO fuori dal transponder o vicino a un beacon')
                     last = None
                     continue
                 if ssb:
-                    tx.set_freq_off(up, txmod.SSB_OFF)
+                    tx.set_freq_off(up - self.ssbtx.audio_off, txmod.SSB_OFF)   # RTTY: portante 1500 Hz sotto il mark
                 else:
                     tx.set_freq(up)
             except Exception as e:
@@ -2320,8 +2357,8 @@ class Hub:
         up = self.tx_up() if self.tx_avail() else None
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
-                'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'xit': float(t.get('xit', 0.0)), 'macros': t.get('macros', []),
-                'up': up, 'busy': bool(self.keyer and self.keyer.busy), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
+                'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'xit': float(t.get('xit', 0.0)), 'macros': t.get(self.mac_key(), []), 'rtty': self.modo() == 'rtty',
+                'up': up, 'busy': bool(self.keyer and self.keyer.busy or self.ssbtx and self.ssbtx.alive and self.ssbtx.gen is not None), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)), 'proc': float(t.get('proc', 10)), 'eq': list(t.get('eq', [0] * 5)), 'mictest': self.mic_raw is not None,
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
                 'pad': t.get('pad', ''), 'pmode': t.get('pmode', 'b'), 'pswap': bool(t.get('pswap')),
@@ -2387,7 +2424,7 @@ class Hub:
             self.paddle.swap = bool(t['pswap'])
             self.paddle.wpm = int(t.get('wpm', 24))
         if isinstance(v.get('macros'), list):
-            t['macros'] = [str(x)[:120] for x in v['macros'][:8]]
+            t[self.mac_key()] = [str(x)[:120] for x in v['macros'][:8]]
         save_cfg(self.cfg)
         self.tx_ensure()
         self.post_json(self.cfg_msg())
@@ -3181,6 +3218,13 @@ class Hub:
                     self.tx_set(c['v'])
                 elif k in ('tx_send', 'tx_macro') and self.paddle is not None and self.paddle.busy:
                     self.on_status('Paddle in uso: macro non mandata')
+                elif k == 'tx_send' and self.modo() == 'rtty':
+                    self.rtty_send(c.get('text', ''))
+                elif k == 'tx_macro' and self.modo() == 'rtty':
+                    ms = self.tx_cfg().get('rmacros', [])
+                    i = int(c.get('i', -1))
+                    if 0 <= i < len(ms):
+                        self.rtty_send(ms[i], macro=True)
                 elif k == 'tx_send' and self.keyer:
                     self.keyer.send(self.tx_text(c.get('text', '')))
                 elif k == 'tx_macro' and self.keyer:

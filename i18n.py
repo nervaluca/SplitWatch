@@ -153,6 +153,11 @@ _EN = [
     # QO-100 in tre passi
     (r"non vedo la mia portante sulla discesa: alza PWR o controlla l'amplificatore", 'I cannot see my carrier on the downlink: raise PWR or check the amplifier'),
     (r'TX fermato: VFO A fuori dal transponder o vicino a un beacon', 'TX stopped: VFO A outside the transponder or near a beacon'),
+    (r'TX fermato: VFO fuori dal transponder o vicino a un beacon', 'TX stopped: VFO outside the transponder or near a beacon'),
+    (r'TX RTTY: VFO fuori dal transponder o troppo vicino a un beacon', 'TX RTTY: VFO outside the transponder or too close to a beacon'),
+    (r'TX RTTY: aspetta la fine della trasmissione', 'TX RTTY: wait for the current transmission to end'),
+    (r'TX RTTY: 5 minuti di PTT, spento per sicurezza', 'TX RTTY: 5 minutes of PTT, switched off for safety'),
+    (r'TX RTTY: mark ([\d.]+) MHz, space 170 Hz sotto', r'TX RTTY: mark \1 MHz, space 170 Hz below'),
     (r"la ricerca larga dei beacon c'è con l'ADALM-Pluto: con gli altri ricevitori usa «Calibra…» sul beacon 10489,5",
      'the wide beacon search works with the ADALM-Pluto: with other receivers use «Calibrate…» on the 10489.5 beacon'),
     (r'prima il passo 1: convertitore QO-100 \(LNB 9750 MHz\)', 'step 1 first: QO-100 converter (LNB 9750 MHz)'),
