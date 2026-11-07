@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.9.1'
+VERSION = '2.9.2'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1958,8 +1958,13 @@ class Hub:
         t.setdefault('svol', 0.5)
         t.setdefault('macros', ['CQ CQ DE {CALL} {CALL} K', '{CALL}', '5NN TU', 'TU 73 DE {CALL} <SK>',
                                 'QRZ? DE {CALL}', 'R R TU'])
-        t.setdefault('rmacros', ['CQ CQ CQ DE {CALL} {CALL} {CALL} PSE K', '{CALL} {CALL}', 'TU 599 599 {CALL}',
-                                 'TU 73 DE {CALL} SK', 'QRZ? DE {CALL}', 'RR TU 73'])
+        old = ['CQ CQ CQ DE {CALL} {CALL} {CALL} PSE K', '{CALL} {CALL}', 'TU 599 599 {CALL}',
+                                 'TU 73 DE {CALL} SK', 'QRZ? DE {CALL}', 'RR TU 73']
+        if t.get('rmacros') == old:                    # serie della 2.8 mai modificata: passa a quella col {DX}
+            t.pop('rmacros')
+        t.setdefault('rmacros', ['CQ CQ CQ DE {CALL} {CALL} {CALL} PSE K', '{DX} DE {CALL} {CALL} K',
+                                 '{DX} TU 599 599 {CALL}', '{DX} TU 73 DE {CALL} SK', 'QRZ? DE {CALL}',
+                                 '{DX} RR TU 73'])
         return t
 
     def mac_key(self):
@@ -2349,9 +2354,19 @@ class Hub:
     def on_tx_progress(self, sent, rest):
         self.post_json({'type': 'tx', 'busy': bool(self.keyer and self.keyer.busy), 'sent': sent[-40:], 'rest': rest[:80]})
 
+    dx_call = ''
+
     def tx_text(self, text):
+        """{CALL} = il mio nominativo, {DX} (o {HIS}) = il corrispondente, preso col clic sul suo nominativo."""
         call = self.rbn_call() or ''
-        return re.sub(r'\{(MY)?CALL\}', call, str(text), flags=re.I)
+        text = re.sub(r'\{(DX|HIS)\}', self.dx_call, str(text), flags=re.I)
+        return re.sub(r'\{(MY)?CALL\}', call, text, flags=re.I)
+
+    def need_dx(self, text):
+        if re.search(r'\{(DX|HIS)\}', str(text), flags=re.I) and not self.dx_call:
+            self.on_status('Macro con {DX}: manca il nominativo del corrispondente (clic sul suo nominativo nella riga RX)')
+            return True
+        return False
 
     def tx_msg(self):
         t = self.tx_cfg()
@@ -2359,7 +2374,7 @@ class Hub:
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
                 'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'xit': float(t.get('xit', 0.0)), 'macros': t.get(self.mac_key(), []), 'rtty': self.modo() == 'rtty',
-                'up': up, 'busy': bool(self.keyer and self.keyer.busy or self.ssbtx and self.ssbtx.alive and self.ssbtx.gen is not None), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '',
+                'up': up, 'busy': bool(self.keyer and self.keyer.busy or self.ssbtx and self.ssbtx.alive and self.ssbtx.gen is not None), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '', 'dxcall': self.dx_call,
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)), 'proc': float(t.get('proc', 10)), 'eq': list(t.get('eq', [0] * 5)), 'mictest': self.mic_raw is not None,
                 'mics': self.mic_list() if self.tx_avail() else [], 'ptt': bool(self.ssbtx and self.ssbtx.alive),
                 'pad': t.get('pad', ''), 'pmode': t.get('pmode', 'b'), 'pswap': bool(t.get('pswap')),
@@ -3221,6 +3236,9 @@ class Hub:
                     self.tx_set(c['v'])
                 elif k in ('tx_send', 'tx_macro') and self.paddle is not None and self.paddle.busy:
                     self.on_status('Paddle in uso: macro non mandata')
+                elif k == 'tx_dxcall':
+                    self.dx_call = re.sub(r'[^A-Z0-9/]', '', str(c.get('call', '')).upper())[:16]
+                    self.post_json({'type': 'tx', 'dxcall': self.dx_call})
                 elif k == 'rtty_skim':
                     self.cfg['rtty_skim'] = bool(c.get('on'))
                     save_cfg(self.cfg)
@@ -3234,14 +3252,14 @@ class Hub:
                 elif k == 'tx_macro' and self.modo() == 'rtty':
                     ms = self.tx_cfg().get('rmacros', [])
                     i = int(c.get('i', -1))
-                    if 0 <= i < len(ms):
+                    if 0 <= i < len(ms) and not self.need_dx(ms[i]):
                         self.rtty_send(ms[i], macro=True)
                 elif k == 'tx_send' and self.keyer:
                     self.keyer.send(self.tx_text(c.get('text', '')))
                 elif k == 'tx_macro' and self.keyer:
                     ms = self.tx_cfg().get('macros', [])
                     i = int(c.get('i', -1))
-                    if 0 <= i < len(ms):
+                    if 0 <= i < len(ms) and not self.need_dx(ms[i]):
                         self.keyer.send(self.tx_text(ms[i]))
                 elif k == 'tx_stop':
                     if self.keyer:
