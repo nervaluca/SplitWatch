@@ -88,6 +88,15 @@ class RttySkimmer:
         self.t_detect = 0.0
         self.dx_off = None
         self.min_snr = 2.0                # mark o space almeno 2x il rumore (6 dB)
+        self.scan = True                  # False: niente ricerca su tutta la banda, solo il canale del VFO A
+
+    def set_scan(self, on):
+        """Skimmer spento (QSO normali): resta solo il canale sul VFO A, niente ricerca né ring da 3 s."""
+        self.scan = bool(on)
+        if not self.scan:
+            for k in [k for k, c in self.chans.items() if not c.dx]:
+                del self.chans[k]
+            self.ring.clear()
 
     # ------------------------------------------------------------ utilità
     def _col(self, A, f):
@@ -206,6 +215,12 @@ class RttySkimmer:
             k = math.exp(-m * dt / 1.5)
             self.avg = (self.avg * k + mean * (1 - k)).astype(np.float32)
         tend = tA + m * dt
+        if not self.scan:
+            out = []
+            for c in list(self.chans.values()):
+                if c.dx:
+                    out += self._chan(c, A, nf, tA + np.arange(m) * dt, tend)
+            return out
         for row in A:
             self.ring.append(row)
         if tend - self.t_detect > 0.5:

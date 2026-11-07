@@ -11,6 +11,7 @@ import re
 import socket
 import sys
 import threading
+from collections import deque
 import time
 import queue
 
@@ -685,6 +686,11 @@ class SsbMod:
         y = np.convolve(z, self.hc, mode='valid')
         self.tc = z[-200:]
         y = self.ec(y, self.vp.proc)
+        return self.up(y)
+
+    def up(self, y):
+        """Banda base complessa a 8 kHz (frequenze audio della USB) → campioni per il Pluto."""
+        import numpy as np
         y = self.i1(y)
         idx = (self.ri + np.arange(len(y))) % 24
         self.ri = (self.ri + len(y)) % 24
@@ -800,11 +806,18 @@ class SsbTx:
         self.alive = False
         self.th = None
 
-    def start(self, f_up, mic=None, gain_db=0.0, proc_db=10.0, eq=None):
+    audio_off = 0.0          # Hz fra la portante (soppressa) e la frequenza sulla scala: 0 in SSB
+    gen = None
+
+    def start(self, f_up, mic=None, gain_db=0.0, proc_db=10.0, eq=None, gen=None):
+        """gen: generatore di audio al posto del microfono (RTTY). f_up = frequenza sulla scala: con gen la
+        portante va a f_up − gen.mark, così il mark cade esattamente lì."""
         if self.alive:
             return
         self.alive = True
         self.mod = None
+        self.gen = gen
+        self.audio_off = float(gen.mark) if gen is not None else 0.0
         self.th = threading.Thread(target=self._run, args=(f_up, mic, gain_db, proc_db, eq), daemon=True)
         self.th.start()
 
@@ -824,9 +837,12 @@ class SsbTx:
         self.mod = mod
         s = ms = None
         f = None
+        gen = self.gen
+        what = 'RTTY' if gen is not None else 'SSB'
         try:
-            ms, mq = open_mic(mic)
-            tx.set_freq_off(f_up, SSB_OFF)
+            if gen is None:
+                ms, mq = open_mic(mic)
+            tx.set_freq_off(f_up - self.audio_off, SSB_OFF)
             tx.lo_on(True)
             s = socket.create_connection((tx.host, tx.PORT), timeout=5)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -854,6 +870,17 @@ class SsbTx:
             lastlev = 0.0
             st = {'zeri': 0, 'tagli': 0, 'wmax': 0.0, 'mod': 0.0, 'nb': 0, 't': time.perf_counter()}
             while self.alive and time.perf_counter() - t0 < SSB_MAX_S:
+                if gen is not None:
+                    if gen.done:
+                        break
+                    data = mod.up(gen.read(need))
+                    s.sendall(f'WRITEBUF {tx.dds} {len(data)}\r\n'.encode('ascii') + data)
+                    if rint() < 0:
+                        raise RuntimeError('errore scrivendo i campioni')
+                    if not keyed:
+                        tx.key(True)
+                        keyed = True
+                    continue
                 while len(buf) < need:
                     try:
                         buf = np.concatenate([buf, mq.get(timeout=0.05)])
@@ -886,11 +913,13 @@ class SsbTx:
                     lastlev = now
                     self.on_level(mod.vp.level, mod.vp.comp_db)
             if time.perf_counter() - t0 >= SSB_MAX_S:
-                self.on_status('TX SSB: 5 minuti di PTT, spento per sicurezza')
+                self.on_status(f'TX {what}: 5 minuti di PTT, spento per sicurezza')
         except Exception as e:
-            self.on_status(f'TX SSB: {e}')
+            self.on_status(f'TX {what}: {e}')
         finally:
             self.alive = False
+            if gen is not None and gen.done:
+                time.sleep(0.15)                               # il Pluto ha ancora 8 buffer in coda: falli uscire
             try:
                 tx.key(False)
             except Exception:
@@ -918,6 +947,130 @@ class SsbTx:
                 pass
             if self.on_end:
                 self.on_end()
+
+
+
+RTTY_BAUD = 8000.0 / 176          # 45,45 baud: 176 campioni audio per bit
+RTTY_SHIFT = 170.0
+RTTY_MARK = 1500.0                # tono del mark nella USB (lo space 170 Hz sotto): la portante va 1500 Hz sotto
+_BD_L = {'E': 1, 'A': 3, ' ': 4, 'S': 5, 'I': 6, 'U': 7, 'D': 9, 'R': 10, 'J': 11, 'N': 12, 'F': 13, 'C': 14,
+         'K': 15, 'T': 16, 'Z': 17, 'L': 18, 'W': 19, 'H': 20, 'Y': 21, 'P': 22, 'Q': 23, 'O': 24, 'B': 25,
+         'G': 26, 'M': 28, 'X': 29, 'V': 30}
+# cifre: tabella US-TTY (MMTTY, N1MM, il nostro skimmer)
+_BD_F = {'3': 1, '-': 3, '8': 6, '7': 7, '$': 9, '4': 10, "'": 11, ',': 12, '!': 13, ':': 14, '(': 15,
+         '5': 16, '"': 17, ')': 18, '2': 19, '#': 20, '6': 21, '0': 22, '1': 23, '9': 24, '?': 25, '&': 26,
+         '.': 28, '/': 29, ';': 30, '=': 30}
+BD_LTRS, BD_FIGS, BD_CR, BD_LF = 31, 27, 8, 2
+
+
+def baudot(text):
+    """Testo → [(codice, carattere mostrato)]. LTRS/FIGS messi da soli; dopo lo spazio si torna alle lettere
+    (USOS, come fanno quasi tutti i decodificatori). Caratteri che il Baudot non ha: saltati."""
+    out, sh = [], 'L'
+    for ch in text.upper():
+        if ch == '\n':
+            out += [(BD_CR, ''), (BD_LF, '\n')]
+            continue
+        if ch == ' ':
+            out.append((4, ' '))
+            sh = 'L'
+            continue
+        if ch in _BD_L:
+            if sh != 'L':
+                out.append((BD_LTRS, ''))
+                sh = 'L'
+            out.append((_BD_L[ch], ch))
+        elif ch in _BD_F:
+            if sh != 'F':
+                out.append((BD_FIGS, ''))
+                sh = 'F'
+            out.append((_BD_F[ch], ch))
+    return out
+
+
+class RttyGen:
+    """Audio RTTY generato qui (non dal microfono): 45,45 baud, shift 170 Hz, 1 start, 5 dati, 1,5 stop,
+    fase continua e passaggi mark/space ammorbiditi (spettro stretto, niente click).
+
+    send() mette il testo in coda (anche mentre trasmette); all'inizio e alla fine qualche LTRS ("diddle") per
+    far agganciare chi riceve. Quando la coda è vuota e la coda finale è uscita, done = True e il PTT si spegne."""
+
+    def __init__(self, mark=RTTY_MARK, shift=RTTY_SHIFT, fs=8000.0, on_prog=None, pre=8, post=2):
+        import numpy as np
+        self.mark, self.shift, self.fs = float(mark), float(shift), float(fs)
+        self.on_prog = on_prog
+        self.post = post
+        self.q = deque()                         # (codice, carattere mostrato)
+        self.lock = threading.Lock()
+        self.sbuf = np.zeros(0, np.float32)      # frequenze istantanee (Hz) già pronte
+        self.fsm = np.full(23, self.mark, np.float32)   # coda del filtro che ammorbidisce i passaggi
+        self.w = np.hanning(25)[1:-1].astype(np.float32)
+        self.w /= self.w.sum()
+        self.ph = 0.0
+        self.done = False
+        self.ending = False
+        self.sent, self.idle = '', 0
+        self.tail = 0
+        for _ in range(pre):
+            self.q.append((BD_LTRS, ''))
+
+    def send(self, text):
+        with self.lock:
+            self.q.extend(baudot(str(text)))
+            self.ending = False
+            self.tail = 0
+            self._prog()
+
+    def rest(self):
+        return ''.join(c for _, c in self.q)
+
+    def _prog(self):
+        k = (self.sent[-40:], self.rest())
+        if self.on_prog and k != getattr(self, '_last', None):
+            self._last = k
+            try:
+                self.on_prog(*k)
+            except Exception:
+                pass
+
+    def _char(self, code):
+        """Un carattere: start (space), 5 bit (dal meno significativo, 1 = mark), 1,5 stop (mark)."""
+        import numpy as np
+        n = int(round(self.fs / RTTY_BAUD))
+        bits = [0] + [(code >> i) & 1 for i in range(5)]
+        f = np.concatenate([np.full(n, self.mark if b else self.mark - self.shift, np.float32) for b in bits] +
+                           [np.full(n + n // 2, self.mark, np.float32)])
+        return f
+
+    def _more(self):
+        import numpy as np
+        with self.lock:
+            if self.q:
+                code, ch = self.q.popleft()
+                self.sent += ch
+                self._prog()
+            elif self.tail < self.post:
+                code = BD_LTRS                   # coda: un paio di LTRS, poi fine (se non arriva altro)
+                self.tail += 1
+            else:
+                self.ending = True
+                return np.full(int(self.fs * 0.02), self.mark, np.float32)
+        return self._char(code)
+
+    def read(self, n):
+        import numpy as np
+        while len(self.sbuf) < n and not self.ending:
+            self.sbuf = np.concatenate([self.sbuf, self._more()])
+        if len(self.sbuf) < n:
+            self.sbuf = np.concatenate([self.sbuf, np.full(n - len(self.sbuf), self.mark, np.float32)])
+            self.done = True                     # questo è l'ultimo pezzo
+        f, self.sbuf = self.sbuf[:n], self.sbuf[n:]
+        z = np.concatenate([self.fsm, f])
+        fs = np.convolve(z, self.w, mode='valid')[:n]
+        self.fsm = z[-len(self.fsm):]
+        ph = self.ph + np.cumsum(2 * np.pi * fs / self.fs)
+        self.ph = float(ph[-1] % (2 * np.pi))
+        return (0.95 * np.exp(1j * ph)).astype(np.complex64)
 
 
 class EchoTrack:

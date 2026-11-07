@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.8'
+VERSION = '2.9'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -2823,6 +2823,8 @@ class Hub:
         e.set_rx(on, m, self.sb_eff(), self.dx_abs - self.center + float(self.cfg.get('rx2_off', 5000.0)),
                  float(self.cfg.get('filtro', 500)), w)
         e.set_sql(float(self.cfg.get('sql', 0)))
+        if getattr(e, 'rtty', None) is not None:
+            e.rtty.set_scan(bool(self.cfg.get('rtty_skim', False)))
 
     def cfg_msg(self):
         e = self.engine
@@ -2842,7 +2844,7 @@ class Hub:
                 'extio_path': self.cfg.get('extio_path'), 'extio_list': self.extio_list(),
                 'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
-                'passo': int(self.cfg.get('passo', 500)), 'split': bool(self.cfg.get('split', True)),
+                'passo': int(self.cfg.get('passo', 500)), 'split': bool(self.cfg.get('split', True)), 'rtty_skim': bool(self.cfg.get('rtty_skim', False)),
                 'agc': self.cfg.get('agc', 'slow'), 'rfgain': float(self.cfg.get('rfgain', 60)),
                 'nb': int(self.cfg.get('nb', 0)), 'nr': int(self.cfg.get('nr', 0)), 'notch': bool(self.cfg.get('notch', False)),
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
@@ -3218,6 +3220,14 @@ class Hub:
                     self.tx_set(c['v'])
                 elif k in ('tx_send', 'tx_macro') and self.paddle is not None and self.paddle.busy:
                     self.on_status('Paddle in uso: macro non mandata')
+                elif k == 'rtty_skim':
+                    self.cfg['rtty_skim'] = bool(c.get('on'))
+                    save_cfg(self.cfg)
+                    e = self.engine
+                    if e is not None and getattr(e, 'rtty', None) is not None:
+                        e.rtty.set_scan(self.cfg['rtty_skim'])
+                    self.on_status('Skimmer RTTY acceso: tutti i segnali della banda' if self.cfg['rtty_skim']
+                                   else 'Skimmer RTTY spento: decodifico solo il VFO A')
                 elif k == 'tx_send' and self.modo() == 'rtty':
                     self.rtty_send(c.get('text', ''))
                 elif k == 'tx_macro' and self.modo() == 'rtty':
