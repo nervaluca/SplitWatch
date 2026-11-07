@@ -33,6 +33,9 @@ PrivilegesRequiredOverridesAllowed=commandline dialog
 OutputDir=Output
 OutputBaseFilename=FZRSDR_Setup_{#MyAppVersion}
 SetupIconFile=logo.ico
+; immagini della procedura guidata (logo FZR SDR): una per ogni scala dello schermo, Inno sceglie la migliore
+WizardImageFile=wizard_100.bmp,wizard_150.bmp,wizard_200.bmp
+WizardSmallImageFile=wizard_small_100.bmp,wizard_small_150.bmp,wizard_small_200.bmp
 UninstallDisplayIcon={app}\{#MyAppExe}
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
 Compression=lzma2/max
