@@ -62,6 +62,8 @@ en.Avvia=Start FZR SDR
 en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR).%n%nWith an RTL-SDR dongle it is not needed: pick «RTL-SDR (dongle)» at the bottom of FZR SDR.%n%nIf you use the Perseus, install its software or copy perseususb.dll and the perseus*.sbs files into the program folder; then from the Start menu: «Copy the Perseus files».%n%nThey are not needed for ExtIO, radio audio or recordings.
 
 [InstallDelete]
+; librerie della versione precedente (dalla 2.9.3 il programma è una cartella: FZRSDR.exe + _internal)
+Type: filesandordirs; Name: "{app}\_internal"
 ; il programma si chiamava FZR Skimmer: via l'exe e i collegamenti col nome vecchio
 Type: files; Name: "{app}\FZRSkimmer.exe"
 Type: files; Name: "{autodesktop}\FZR Skimmer.lnk"
@@ -79,7 +81,7 @@ Type: filesandordirs; Name: "{commonprograms}\FZR Skimmer"
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "dist\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\FZRSDR\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "LEGGIMI.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README_EN.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "prepara_cartella.bat"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
