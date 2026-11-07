@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.9.3'
+VERSION = '2.9.5'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -129,6 +129,59 @@ CFG_PATH = os.path.join(DATA_DIR, 'fzrsdr.json')
 OLD_CFG_PATH = os.path.join(app_dir(), 'splitwatch.json')     # impostazioni della vecchia versione Split Watch
 SKIM_CFG_PATH = os.path.join(DATA_DIR, 'fzrskimmer.json')     # impostazioni di FZR Skimmer (fino alla 1.83)
 LOG_PATH = os.path.join(DATA_DIR, 'fzrsdr.log')
+
+
+def _recupera_vecchie_impostazioni():
+    """Se qui non ci sono impostazioni (installazione nuova in un'altra cartella, o per tutti gli utenti),
+    le prende dall'installazione precedente: FZR Skimmer o FZR SDR, solo per me o per tutti, o %APPDATA%.
+    Copia, non sposta: l'originale resta dov'era. Prende la più recente; licenza solo se qui manca."""
+    import shutil
+    if any(os.path.exists(os.path.join(DATA_DIR, f)) for f in ('fzrsdr.json', 'fzrskimmer.json')):
+        return None
+    env = os.environ
+    roots = [os.path.join(env.get('LOCALAPPDATA', ''), 'Programs'), env.get('ProgramFiles(x86)', ''),
+             env.get('ProgramFiles', ''), env.get('ProgramW6432', '')]
+    cand = [os.path.join(r, n) for r in roots if r for n in ('FZR Skimmer', 'FZR SDR', 'FZRSkimmer', 'FZRSDR')]
+    if env.get('APPDATA'):
+        cand += [os.path.join(env['APPDATA'], n) for n in ('FZRSDR', 'FZRSkimmer')]
+    best = None
+    for d in cand:
+        if os.path.normcase(os.path.abspath(d)) == os.path.normcase(os.path.abspath(DATA_DIR)):
+            continue
+        for f in ('fzrsdr.json', 'fzrskimmer.json'):
+            q = os.path.join(d, f)
+            try:
+                t = os.path.getmtime(q)
+            except OSError:
+                continue
+            if best is None or t > best[0]:
+                best = (t, d, q)
+    if best is None:
+        return None
+    _, d, q = best
+    fatti = []
+    try:
+        with open(q, encoding='utf-8') as f:
+            json.load(f)                                   # solo se è un file buono
+        shutil.copy2(q, CFG_PATH)
+        fatti.append('impostazioni')
+    except Exception:
+        return None
+    for f in ('licenza.json', 'calib.json'):
+        a, b = os.path.join(d, f), os.path.join(DATA_DIR, f)
+        if os.path.exists(a) and not os.path.exists(b):
+            try:
+                shutil.copy2(a, b)
+                fatti.append(f.split('.')[0])
+            except Exception:
+                pass
+    return f'Recuperate dall\'installazione precedente ({d}): ' + ', '.join(fatti)
+
+
+try:
+    RECUPERO = _recupera_vecchie_impostazioni()
+except Exception:
+    RECUPERO = None
 
 
 if sys.stdout is None:                      # eseguibile senza finestra nera
@@ -3387,6 +3440,8 @@ class Hub:
         self.rbn_apply()
         self.rig_apply()
         log(f'Impostazioni in {CFG_PATH}')
+        if RECUPERO:
+            log(RECUPERO)
         log('Licenza: ' + (f"{self.lic['testo']} ({self.lic['origine']})" if self.lic else 'non registrato, prova di 30 minuti'))
         log(f'{APP} {VERSION} · Python {sys.version.split()[0]} {struct.calcsize("P")*8} bit · numpy {np.__version__}')
         self.first_run_source()

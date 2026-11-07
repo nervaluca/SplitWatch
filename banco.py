@@ -17,7 +17,8 @@ def _ch(nome, mhz, modo, gruppo, **x):
 
 # frequenze standard (IARU Regione 1, piani di canale ufficiali): niente ripetitori o aeroporti locali
 _R2, _R6, _R70, _R23, _R10 = 'Radioamatori 2 m', 'Radioamatori 6 m', 'Radioamatori 70 cm', 'Radioamatori 23 cm', 'Radioamatori 10 m'
-# canali CB (CEPT, 40 canali): il 23 sta fra il 25 e il 26
+# canali CB (CEPT, 40 canali): tolti dai preset nella versione 5 del banco (FZR SDR 2.9.5); restano qui
+# solo per toglierli dai banchi di prima
 _CB = [26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075, 27.085, 27.105, 27.115,
        27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205, 27.215, 27.225, 27.255, 27.235, 27.245, 27.265,
        27.275, 27.285, 27.295, 27.305, 27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405]
@@ -43,7 +44,6 @@ PRESET = (
      _ch('Chiamata FM 10 m', 29.600, 'fm', _R10)]
     + [_ch(f'R{i} (uscita)', 145.600 + 0.025 * i, 'fm', 'Ripetitori 2 m') for i in range(8)]
     + [_ch(f'R{i}x (uscita, 12,5 kHz)', 145.6125 + 0.025 * i, 'fm', 'Ripetitori 2 m', fm_bw=10000) for i in range(8)]
-    + [_ch(f'CB canale {i + 1}', f, 'am', 'CB 27 MHz', am_bw=8000) for i, f in enumerate(_CB)]
     + [_ch(f'PMR446 canale {i + 1}', 446.00625 + 0.0125 * i, 'fm', 'PMR446', fm_bw=10000) for i in range(16)]
     + [_ch(f'LPD canale {i + 1}', 433.075 + 0.025 * i, 'fm', 'LPD 433', fm_bw=12000) for i in range(69)]
     + [_ch('Emergenza aeronautica', 121.500, 'am', 'Aeronautica (AM)', am_bw=8000),
@@ -101,7 +101,16 @@ _OLD = {(145500000, 'fm'), (433500000, 'fm'), (144800000, 'fm'), (145800000, 'fm
         (121500000, 'am'), (123450000, 'am'), (156800000, 'fm'), (156300000, 'fm')} | \
        {(round((145.600 + 0.025 * i) * 1e6), 'fm') for i in range(8)} | \
        {(round((446.00625 + 0.0125 * i) * 1e6), 'fm') for i in range(16)}
-VERSIONE = 4
+VERSIONE = 5
+_CB_KEYS = {(round(f * 1e6), 'am') for f in _CB}
+
+
+def _togli_cb(cfg):
+    """Versione 5: via i canali CB preimpostati. Solo quelli lasciati come erano (gruppo e nome del preset):
+    una memoria CB salvata o rinominata da te resta."""
+    cfg['banco'] = [m for m in cfg['banco'] if not ((m.get('hz'), m.get('modo')) in _CB_KEYS
+                                                    and m.get('gruppo') == 'CB 27 MHz'
+                                                    and str(m.get('nome', '')).startswith('CB canale '))]
 
 
 def _aggiorna(cfg):
@@ -111,9 +120,10 @@ def _aggiorna(cfg):
     ver = int(cfg.get('banco_ver', 1))
     if ver >= 2:                                   # dalla versione 2: solo i preset arrivati dopo
         have = {(m['hz'], m['modo']) for m in b}
-        for p in (_V3 if ver < 3 else []) + _V4:
+        for p in (_V3 if ver < 3 else []) + (_V4 if ver < 4 else []):
             if (p['hz'], p['modo']) not in have:
                 b.append({'id': _new_id(cfg), **p, 'x': dict(p['x'])})
+        _togli_cb(cfg)
         cfg['banco_ver'] = VERSIONE
         return
     # banco della 1.40: i preset vecchi passano nei gruppi nuovi per banda
@@ -129,6 +139,7 @@ def _aggiorna(cfg):
         k = (p['hz'], p['modo'])
         if k not in _OLD and k not in have:
             b.append({'id': _new_id(cfg), **p, 'x': dict(p['x'])})
+    _togli_cb(cfg)
     cfg['banco_ver'] = VERSIONE
 
 

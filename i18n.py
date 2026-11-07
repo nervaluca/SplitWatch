@@ -161,6 +161,7 @@ _EN = [
     (r'TX RTTY: richiesta \(testo\) «(.*)»', r'TX RTTY: request (text) «\1»'),
     (r'Macro con \{DX\}: manca il nominativo del corrispondente \(clic sul suo nominativo nella riga RX\)',
      'Macro with {DX}: the other station\'s call is missing (click its call in the RX line)'),
+    (r"Recuperate dall'installazione precedente \((.*)\): (.*)", r'Recovered from the previous installation (\1): \2'),
     (r'TX RTTY: aspetta la fine della trasmissione', 'TX RTTY: wait for the current transmission to end'),
     (r'TX RTTY: 5 minuti di PTT, spento per sicurezza', 'TX RTTY: 5 minutes of PTT, switched off for safety'),
     (r'TX RTTY: mark ([\d.]+) MHz, space 170 Hz sotto', r'TX RTTY: mark \1 MHz, space 170 Hz below'),
