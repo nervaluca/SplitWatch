@@ -63,6 +63,14 @@ en.NoPerseus=perseususb.dll was not found (CW Skimmer, Perseus software or HDSDR
 Type: files; Name: "{app}\FZRSkimmer.exe"
 Type: files; Name: "{autodesktop}\FZR Skimmer.lnk"
 Type: filesandordirs; Name: "{autoprograms}\FZR Skimmer"
+; anche se la versione vecchia era installata nell'altro modo (solo per me / per tutti gli utenti):
+; altrimenti resta un FZR Skimmer 1.83 avviabile da una sua icona
+Type: files; Name: "{localappdata}\Programs\FZR Skimmer\FZRSkimmer.exe"
+Type: files; Name: "{commonpf32}\FZR Skimmer\FZRSkimmer.exe"
+Type: files; Name: "{userdesktop}\FZR Skimmer.lnk"
+Type: files; Name: "{commondesktop}\FZR Skimmer.lnk"
+Type: filesandordirs; Name: "{userprograms}\FZR Skimmer"
+Type: filesandordirs; Name: "{commonprograms}\FZR Skimmer"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

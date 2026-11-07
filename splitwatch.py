@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.9'
+VERSION = '2.9.1'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1970,6 +1970,7 @@ class Hub:
         """RTTY generato dal programma: mark sul VFO A (sul VFO B con SPLIT), space 170 Hz sotto. Se sta già
         trasmettendo il testo va in coda (scrivi mentre esce)."""
         text = self.tx_text(text).upper()
+        log(f'TX RTTY: richiesta ({"macro" if macro else "testo"}) «{text.strip()[:40]}»')
         if macro:
             text = text.strip() + '\n'
         else:

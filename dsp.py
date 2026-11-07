@@ -822,9 +822,24 @@ class Engine:
             m = min(step, nfr - done)
             idx = ar[None, :] + self.hop * (done + np.arange(m))[:, None]
             # ricevitore puro (non RTTY): niente decodifica, basta il waterfall
-            light = not self.decode_on and getattr(self, 'rtty', None) is None
+            rl = getattr(self, 'rtty', None)
+            light = not self.decode_on and rl is None
+            # RTTY senza skimmer: solo i bin di mark e space del VFO A (DFT mirata), niente FFT di tutta la banda
+            ks = rl.cols() if (rl is not None and not rl.scan and not self.decode_on) else None
+            if (ks is None) != (getattr(self, 'lite_ks', None) is None):
+                self.nf = None                          # cambio fra skimmer e solo VFO A: rumore da rifare
+            self.lite_ks = ks
             Fw = None if light else self.buf[idx] * self.win
-            A = None if light else np.abs(np.fft.fft(Fw, axis=1)).astype(np.float32)
+            if ks is not None:
+                key = tuple(ks)
+                if getattr(self, '_lite_w', (None,))[0] != key:
+                    self._lite_w = (key, np.exp(-2j * np.pi * np.arange(self.nfft)[:, None] * np.array(ks)[None, :]
+                                                / self.nfft).astype(np.complex64))
+                A = np.zeros((m, self.nfft), np.float32)
+                if ks:
+                    A[:, ks] = np.abs(Fw @ self._lite_w[1])
+            else:
+                A = None if light else np.abs(np.fft.fft(Fw, axis=1)).astype(np.float32)
             # righe del waterfall: una ogni ROW_EVERY frame, finestra lunga
             ri = [i for i in range(m) if (self.frame_no + i) % ROW_EVERY == 0]
             rows = None
@@ -1055,6 +1070,21 @@ class Engine:
         tA = self._ftime(self.frame_no)
         if A is None:                                   # solo waterfall
             self._rows(rows, tA, fr_dt)
+            self.frame_no += m
+            return
+        ks = getattr(self, 'lite_ks', None)
+        if ks is not None:                              # RTTY sul solo VFO A: rumore e decodifica solo su quei bin
+            if self.nf is None or len(self.nf) != self.nfft:
+                self.nf = np.ones(self.nfft, np.float32)
+            if ks:
+                sub = A[:, ks]
+                p25 = np.partition(sub, m // 4, axis=0)[m // 4]
+                old = self.nf[ks]
+                fresh = old == 1.0
+                upd = np.where(p25 < old, old * 0.8 + p25 * 0.2, old * 0.985 + p25 * 0.015)
+                self.nf[ks] = np.where(fresh, np.percentile(sub, 30, axis=0) + 1e-9, upd).astype(np.float32)
+            self._rows(rows, tA, fr_dt)
+            self.out_words += self.rtty.process(A, self.nf, tA, fr_dt)
             self.frame_no += m
             return
         if self.nf is None:

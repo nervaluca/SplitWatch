@@ -90,6 +90,16 @@ class RttySkimmer:
         self.min_snr = 2.0                # mark o space almeno 2x il rumore (6 dB)
         self.scan = True                  # False: niente ricerca su tutta la banda, solo il canale del VFO A
 
+    def cols(self):
+        """Bin dello STFT che servono col solo canale del VFO A (mark e space, due bin ciascuno)."""
+        ks = set()
+        for c in self.chans.values():
+            if c.dx:
+                for f in (c.f, c.f - SHIFT):
+                    k0 = int(math.floor((f / self.binhz) % self.nfft)) % self.nfft
+                    ks.update((k0, (k0 + 1) % self.nfft))
+        return sorted(ks)
+
     def set_scan(self, on):
         """Skimmer spento (QSO normali): resta solo il canale sul VFO A, niente ricerca né ring da 3 s."""
         self.scan = bool(on)

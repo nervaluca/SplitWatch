@@ -157,6 +157,8 @@ _EN = [
     (r'TX RTTY: VFO fuori dal transponder o troppo vicino a un beacon', 'TX RTTY: VFO outside the transponder or too close to a beacon'),
     (r'Skimmer RTTY acceso: tutti i segnali della banda', 'RTTY skimmer on: every signal in the band'),
     (r'Skimmer RTTY spento: decodifico solo il VFO A', 'RTTY skimmer off: decoding VFO A only'),
+    (r'TX RTTY: richiesta \(macro\) «(.*)»', r'TX RTTY: request (macro) «\1»'),
+    (r'TX RTTY: richiesta \(testo\) «(.*)»', r'TX RTTY: request (text) «\1»'),
     (r'TX RTTY: aspetta la fine della trasmissione', 'TX RTTY: wait for the current transmission to end'),
     (r'TX RTTY: 5 minuti di PTT, spento per sicurezza', 'TX RTTY: 5 minutes of PTT, switched off for safety'),
     (r'TX RTTY: mark ([\d.]+) MHz, space 170 Hz sotto', r'TX RTTY: mark \1 MHz, space 170 Hz below'),
