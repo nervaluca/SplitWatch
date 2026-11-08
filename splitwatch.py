@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '3.0'
+VERSION = '3.0.1'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -2420,6 +2420,74 @@ class Hub:
         log(f'Ponte WSJT-X acceso: RX → {d["out"] or "—"}, TX ← {d["in"] or "—"}')
         self.on_status('Ponte WSJT-X acceso')
 
+    WSJTX_NAME = 'FZRSDR'                  # istanza dedicata: impostazioni sue, quelle solite di WSJT-X non si toccano
+
+    def wsjtx_find(self):
+        """wsjtx.exe (o jtdx.exe): quello scelto nelle impostazioni, altrimenti le cartelle solite."""
+        p = str(self.digi_cfg().get('exe', '') or '').strip().strip('"')
+        if p and os.path.isfile(p):
+            return p
+        env = os.environ
+        roots = ['C:\\WSJT', env.get('ProgramFiles', ''), env.get('ProgramFiles(x86)', ''), env.get('ProgramW6432', ''),
+                 os.path.join(env.get('LOCALAPPDATA', ''), 'Programs'), 'C:\\']
+        cand = []
+        for r in roots:
+            if not r:
+                continue
+            cand += [os.path.join(r, 'wsjtx', 'bin', 'wsjtx.exe'), os.path.join(r, 'WSJT-X', 'bin', 'wsjtx.exe'),
+                     os.path.join(r, 'wsjtx-improved', 'bin', 'wsjtx.exe'),
+                     os.path.join(r, 'JTDX64', 'bin', 'jtdx.exe'), os.path.join(r, 'JTDX', 'bin', 'jtdx.exe')]
+        for c in cand:
+            if os.path.isfile(c):
+                return c
+        return None
+
+    def wsjtx_start(self):
+        import subprocess
+        exe = self.wsjtx_find()
+        if not exe:
+            self.on_status('WSJT-X non trovato: scrivi dove sta wsjtx.exe (o jtdx.exe) nella finestra WSJT-X')
+            return
+        try:
+            flags = 0x00000008 | 0x00000200 if os.name == 'nt' else 0      # DETACHED_PROCESS | NEW_PROCESS_GROUP
+            subprocess.Popen([exe, f'--rig-name={self.WSJTX_NAME}'], cwd=os.path.dirname(exe), creationflags=flags,
+                             close_fds=True)
+            log(f'WSJT-X dedicato avviato: {exe} --rig-name={self.WSJTX_NAME}')
+            self.on_status(f'WSJT-X avviato come istanza «{self.WSJTX_NAME}» (impostazioni separate da quelle solite)')
+        except Exception as e:
+            self.on_status(f'WSJT-X: {e}')
+
+    def digi_auto(self):
+        """Sceglie da solo i cavi virtuali: RX → «CABLE Input» (o CABLE-A), TX ← «Hi-Fi Cable Output» (o CABLE-B)."""
+        outs, ins = self.out_list(), self.mic_list()
+
+        def pick(lst, pats):
+            for pat in pats:
+                for n in lst:
+                    if pat in n.lower() and 'mme' in n.lower():
+                        return n
+                for n in lst:
+                    if pat in n.lower():
+                        return n
+            return ''
+        o = pick(outs, ['cable-a input', 'cable input'])
+        i = pick(ins, ['cable-b output', 'hi-fi cable output', 'cable output' if 'cable-a' not in o.lower() and 'cable input' not in o.lower() else '§'])
+        d = self.digi_cfg()
+        if o:
+            d['out'] = o
+        if i:
+            d['in'] = i
+        if o and i:
+            d['on'] = True
+        save_cfg(self.cfg)
+        self.digi_key = ('?',)
+        self.digi_sync()
+        if o and i:
+            self.on_status(f'Cavi scelti: RX → {o}, TX ← {i}')
+        else:
+            self.on_status('Cavi virtuali non trovati: installa VB-CABLE e Hi-Fi Cable (o VB-CABLE A+B), poi riprova')
+        self.post_json(self.cfg_msg())
+
     def digi_vox(self, on, pre):
         """WSJT-X ha cominciato a mandare audio: trasmetto col Pluto (USB, portante sulla sintonia)."""
         b = self.digi
@@ -3416,15 +3484,20 @@ class Hub:
                 elif k == 'digi':
                     d = self.digi_cfg()
                     v = c.get('v', {})
-                    for kk in ('on', 'out', 'in', 'gain'):
+                    for kk in ('on', 'out', 'in', 'gain', 'exe'):
                         if kk in v:
                             d[kk] = bool(v[kk]) if kk == 'on' else float(v[kk]) if kk == 'gain' else str(v[kk])
                     save_cfg(self.cfg)
                     self.digi_key = ('?',)                  # forza il riavvio con i dispositivi nuovi
                     self.digi_sync()
                     self.post_json(self.cfg_msg())
+                elif k == 'wsjtx_start':
+                    self.wsjtx_start()
+                elif k == 'digi_auto':
+                    self.digi_auto()
                 elif k == 'digi_list':
-                    self.post_json({'type': 'digi_list', 'outs': self.out_list(), 'ins': self.mic_list()})
+                    self.post_json({'type': 'digi_list', 'outs': self.out_list(), 'ins': self.mic_list(),
+                                    'exe': self.wsjtx_find() or ''})
                 elif k == 'rtty_skim':
                     self.cfg['rtty_skim'] = bool(c.get('on'))
                     save_cfg(self.cfg)
