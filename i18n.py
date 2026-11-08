@@ -121,6 +121,7 @@ _EN = [
     (r'il Pluto non apre il flusso TX', 'the Pluto does not open the TX stream'),
     (r'errore (-?\d+) scrivendo i campioni', r'error \1 writing the samples'),
     (r'errore scrivendo i campioni', 'error writing the samples'),
+    (r'Controlla Windows → Impostazioni → Privacy → Microfono \(accesso consentito alle app desktop\) e che il microfono non sia usato da un altro programma in modo esclusivo', 'Check Windows → Settings → Privacy → Microphone (access allowed for desktop apps) and that no other program uses the microphone exclusively'),
     (r'microfono non disponibile', 'microphone not available'),
     (r'il microfono non manda audio', 'the microphone sends no audio'),
     (r'frequenza di salita fuori dal transponder o vicino a un beacon: non trasmetto',

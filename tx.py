@@ -731,19 +731,55 @@ def open_mic(dev):
             pass
     dv = None if dev in (None, '') else dev
     last = None
-    for rate in (48000, 44100, 16000, 8000):
-        try:
-            if rate != 8000:
-                dec['h'] = _kaiser_lp(63, 3300.0, float(rate)).astype(np.float32)
-                dec['tail'] = np.zeros(62, np.float32)
-            st['rate'] = rate
-            s = sd.InputStream(device=dv, channels=1, samplerate=rate, blocksize=int(rate * 0.01),
-                               dtype='float32', callback=cb)
-            s.start()
-            return s, q
-        except Exception as e:
-            last = e
-    raise RuntimeError(f'microfono non disponibile ({last})')
+    for d in _mic_candidates(dv):
+        for rate in (48000, 44100, 16000, 8000):
+            try:
+                if rate != 8000:
+                    dec['h'] = _kaiser_lp(63, 3300.0, float(rate)).astype(np.float32)
+                    dec['tail'] = np.zeros(62, np.float32)
+                st['rate'] = rate
+                s = sd.InputStream(device=d, channels=1, samplerate=rate, blocksize=int(rate * 0.01),
+                                   dtype='float32', callback=cb)
+                s.start()
+                return s, q
+            except Exception as e:
+                last = e
+    raise RuntimeError(f'microfono non disponibile ({last}). Controlla Windows → Impostazioni → Privacy → '
+                       f'Microfono (accesso consentito alle app desktop) e che il microfono non sia usato da un '
+                       f'altro programma in modo esclusivo')
+
+
+def _mic_candidates(dv):
+    """Il dispositivo scelto, poi lo stesso microfono con gli altri driver di Windows (MME a volte dà
+    «MME error 1», DirectSound o WASAPI no), infine il predefinito."""
+    import sounddevice as sd
+    out = [dv]
+    try:
+        devs, apis = sd.query_devices(), sd.query_hostapis()
+        if dv is None:
+            i = sd.default.device[0]
+            dv = i if isinstance(i, int) and i >= 0 else None
+        if dv is not None:
+            name = devs[dv]['name'].lower()
+            for j, d in enumerate(devs):
+                if j == dv or d.get('max_input_channels', 0) <= 0:
+                    continue
+                api = apis[d['hostapi']]['name']
+                if 'WDM-KS' in api:
+                    continue
+                n2 = d['name'].lower()
+                if n2.startswith(name) or name.startswith(n2):          # MME taglia i nomi a 31 lettere
+                    out.append(j)
+        if out[-1] is not None:
+            out.append(None)
+    except Exception:
+        pass
+    seen, res = set(), []
+    for d in out:
+        if d not in seen:
+            seen.add(d)
+            res.append(d)
+    return res
 
 
 def mic_record(dev, secs=5.0):
