@@ -178,6 +178,8 @@ _EN = [
     (r'Cavi scelti: RX → (.*), TX ← (.*)', r'Cables chosen: RX → \1, TX ← \2'),
     (r'Cavi virtuali non trovati: installa VB-CABLE e Hi-Fi Cable \(o VB-CABLE A\+B\), poi riprova', 'Virtual cables not found: install VB-CABLE and Hi-Fi Cable (or VB-CABLE A+B), then try again'),
     (r'WSJT-X: (.*)', r'WSJT-X: \1'),
+    (r'Ponte WSJT-X: RX e TX sullo stesso cavo\. Per trasmettere serve un secondo cavo \(Hi-Fi Cable o VB-CABLE A\+B\): per ora solo ricezione', 'WSJT-X bridge: RX and TX on the same cable. To transmit you need a second cable (Hi-Fi Cable or VB-CABLE A+B): receive only for now'),
+    (r'Ponte WSJT-X: stesso cavo per RX e TX, TX escluso', 'WSJT-X bridge: same cable for RX and TX, TX disabled'),
     (r'Ponte WSJT-X: (.*)', r'WSJT-X bridge: \1'),
     (r'TX RTTY: aspetta la fine della trasmissione', 'TX RTTY: wait for the current transmission to end'),
     (r'TX RTTY: 5 minuti di PTT, spento per sicurezza', 'TX RTTY: 5 minutes of PTT, switched off for safety'),

@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '3.0.3'
+VERSION = '3.0.4'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -2412,7 +2412,16 @@ class Hub:
             if od is None:
                 self.on_status(f'Ponte WSJT-X: uscita «{d["out"]}» non trovata')
         idv = None
-        if d['in']:
+        base = lambda n: re.sub(r'\b(input|output)\b|\((mme|windows[^)]*)\)|[^a-z0-9]', '', str(n).lower())
+        bi, bo = base(d['in']), base(d['out'])
+        # i nomi MME sono tagliati a 31 lettere: «…Virtual C» e «…Virtual» sono lo stesso cavo
+        if d['in'] and d['out'] and (bi.startswith(bo) or bo.startswith(bi)):
+            # stesso cavo nei due versi: l'audio RX tornerebbe indietro, il VOX lo prenderebbe per WSJT-X e
+            # FZR SDR trasmetterebbe la ricezione. Tengo solo l'RX.
+            self.on_status('Ponte WSJT-X: RX e TX sullo stesso cavo. Per trasmettere serve un secondo cavo '
+                           '(Hi-Fi Cable o VB-CABLE A+B): per ora solo ricezione')
+            log('Ponte WSJT-X: stesso cavo per RX e TX, TX escluso')
+        elif d['in']:
             idv = self.mic_dev(d['in'])
             if idv is None:
                 self.on_status(f'Ponte WSJT-X: ingresso «{d["in"]}» non trovato')

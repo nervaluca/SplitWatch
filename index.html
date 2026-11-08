@@ -1892,7 +1892,8 @@ function digiUI(){if(!CFG)return;const d=CFG.digi||{};const H=DGHf(d)[LANG==='en
 function dgBar(db){if(db==null)return '<span style="color:#7d8c9c">silenzio</span>';const n=Math.max(0,Math.min(10,Math.round((db+60)/6)));return `<span style="color:${db>-3?'#ff7b72':'#58d98b'}">${'▮'.repeat(n)}</span><span style="color:#2a3a50">${'▮'.repeat(10-n)}</span> ${db.toFixed(0)} dB`}
 function digiSt(m){if($('#digiBox').hidden)return;const e=$('#dgLv');
   if(!m.run){e.innerHTML=m.why==='mode'?L('fermo: passa al modo <b>DIGI</b>','stopped: switch to <b>DIGI</b> mode'):L('ponte spento','bridge off');return}
-  e.innerHTML=`RX → WSJT-X: ${m.out?dgBar(m.rx_db):L('nessuna uscita','no output')}<br>TX ← WSJT-X: ${m.inp?dgBar(m.tx_db):L('nessun ingresso','no input')}${m.tx?' · <b style="color:#ff7b72">TX</b>':''}`}
+  const d=(CFG&&CFG.digi)||{},bs=n=>String(n||'').toLowerCase().replace(/\b(input|output)\b|\((mme|windows[^)]*)\)|[^a-z0-9]/g,''),bi=bs(d.in),bo=bs(d.out),same=d.in&&d.out&&(bi.startsWith(bo)||bo.startsWith(bi));
+  e.innerHTML=`RX → WSJT-X: ${m.out?dgBar(m.rx_db):L('nessuna uscita','no output')}<br>TX ← WSJT-X: ${m.inp?dgBar(m.tx_db):same?'<span style="color:#ff7b72">'+L('stesso cavo dell\'RX: serve un secondo cavo','same cable as RX: a second cable is needed')+'</span>':L('nessun ingresso','no input')}${m.tx?' · <b style="color:#ff7b72">TX</b>':''}`}
 const digiOpen=()=>{$('#digiBox').hidden=false;send({cmd:'digi_list'});digiUI()};$('#bDigi').onclick=digiOpen;$('#bDigi2').onclick=digiOpen;
 $('#digiClose').onclick=()=>{$('#digiBox').hidden=true};
 const dgSet=v=>send({cmd:'digi',v});
