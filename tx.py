@@ -950,6 +950,144 @@ class SsbTx:
 
 
 
+class DigiTx:
+    """Audio di WSJT-X/JTDX (FT8, FT4…) verso il Pluto: arriva da un cavo audio virtuale, a 8 kHz, e va in
+    trasmissione così com'è (niente processore, EQ o tosatore: un tono FT8 deve restare pulito).
+    Fa da generatore per SsbTx (come RttyGen): la portante sta sulla frequenza di sintonia, il tono di WSJT-X
+    (es. 1500 Hz) esce 1500 Hz sopra, come in USB-D. Finisce dopo 0,4 s di silenzio (fine del messaggio)."""
+
+    mark = 0.0
+
+    def __init__(self, q, pre=(), gain=1.0, thr=0.004, hang=0.4):
+        import numpy as np
+        self.q, self.gain, self.thr, self.hang = q, float(gain), float(thr), float(hang)
+        self.h = _ssb_bp()
+        self.tail = np.zeros(len(self.h) - 1, np.complex64)
+        self.buf = np.concatenate([np.zeros(0, np.float32)] + list(pre))
+        self.quiet = 0.0
+        self.done = False
+        self.ending = False
+
+    def read(self, n):
+        import numpy as np
+        while len(self.buf) < n and not self.done:
+            try:
+                x = self.q.get(timeout=0.2)
+            except queue.Empty:
+                x = np.zeros(n, np.float32)              # WSJT-X ha smesso: conta come silenzio
+            self.buf = np.concatenate([self.buf, x])
+        a, self.buf = self.buf[:n], self.buf[n:]
+        if len(a) < n:
+            a = np.concatenate([a, np.zeros(n - len(a), np.float32)])
+        lvl = float(np.sqrt(np.mean(a * a))) if len(a) else 0.0
+        self.quiet = self.quiet + n / 8000.0 if lvl < self.thr else 0.0
+        if self.quiet >= self.hang:
+            self.done = True
+        z = np.concatenate([self.tail, (a * self.gain).astype(np.complex64)])
+        y = np.convolve(z, self.h, mode='valid') * 2.0     # banda laterale superiore (il filtro ha guadagno ½)
+        self.tail = z[-(len(self.h) - 1):]
+        return y.astype(np.complex64)
+
+
+class DigiBridge:
+    """Ponte con WSJT-X/JTDX in modo DIGI.
+
+    RX: l'audio del VFO A va su un'uscita audio (il cavo virtuale che WSJT-X usa come ingresso), a 48 kHz.
+    TX: l'audio che WSJT-X manda su un altro cavo virtuale fa scattare il VOX: on_vox(True, pre) quando c'è
+    segnale; da lì l'audio lo legge DigiTx. In WSJT-X: PTT «VOX», audio d'ingresso e d'uscita sui due cavi."""
+
+    def __init__(self, out_dev, in_dev, on_vox, on_status, thr=0.004):
+        self.out_dev, self.in_dev = out_dev, in_dev
+        self.on_vox, self.on_status, self.thr = on_vox, on_status, float(thr)
+        self.alive = False
+        self.oq = queue.Queue(maxsize=60)
+        self.ost = None
+        self.ist = None
+        self.iq = None
+        self.tx_busy = False                      # mentre DigiTx legge la coda, il VOX non la tocca
+        self.level = 0.0
+        self.ores = {'ph': 0.0, 'last': 0.0}
+
+    def start(self):
+        import numpy as np
+        import sounddevice as sd
+        self.alive = True
+        self.buf = np.zeros(0, np.float32)
+        if self.out_dev is not None:                     # None = spento; 'default' = uscita predefinita
+            def cb(outdata, frames, t, status):
+                need = frames
+                while len(self.buf) < need:
+                    try:
+                        self.buf = np.concatenate([self.buf, self.oq.get_nowait()])
+                    except queue.Empty:
+                        break
+                a = self.buf[:need]
+                self.buf = self.buf[need:]
+                if len(a) < need:
+                    a = np.concatenate([a, np.zeros(need - len(a), np.float32)])
+                outdata[:, 0] = a
+            dv = None if self.out_dev == 'default' else self.out_dev
+            self.ost = sd.OutputStream(samplerate=48000, channels=1, dtype='float32', device=dv, callback=cb,
+                                       blocksize=1024, latency='low')
+            self.ost.start()
+        if self.in_dev is not None:
+            self.ist, self.iq = open_mic(None if self.in_dev == 'default' else self.in_dev)
+            threading.Thread(target=self._vox, daemon=True).start()
+
+    def push_rx(self, a, rate):
+        """Audio del VFO A (float −1…1, mono) verso WSJT-X, portato a 48 kHz."""
+        import numpy as np
+        if not self.alive or self.ost is None or not len(a):
+            return
+        step = rate / 48000.0
+        x = np.concatenate([[self.ores['last']], a]).astype(np.float32)
+        pos = self.ores['ph'] + np.arange(0, len(x) - 1 - self.ores['ph'], step)
+        y = np.interp(pos, np.arange(len(x)), x).astype(np.float32)
+        self.ores['ph'] = float(pos[-1] + step - (len(x) - 1)) if len(pos) else self.ores['ph'] - (len(x) - 1)
+        self.ores['last'] = float(a[-1])
+        try:
+            self.oq.put_nowait(y)
+        except queue.Full:
+            pass                                        # WSJT-X non legge: butto (meglio che ritardare)
+
+    def _vox(self):
+        import numpy as np
+        hist = []
+        while self.alive:
+            if self.tx_busy:
+                time.sleep(0.05)
+                continue
+            try:
+                x = self.iq.get(timeout=0.3)
+            except queue.Empty:
+                continue
+            lvl = float(np.sqrt(np.mean(x * x))) if len(x) else 0.0
+            self.level = lvl
+            hist = (hist + [x])[-4:]
+            if lvl >= self.thr:
+                self.tx_busy = True
+                try:
+                    self.on_vox(True, list(hist))
+                except Exception as e:
+                    self.on_status(f'Ponte WSJT-X: {e}')
+                    self.tx_busy = False
+                hist = []
+
+    def tx_ended(self):
+        self.tx_busy = False
+
+    def stop(self):
+        self.alive = False
+        for st in (self.ost, self.ist):
+            try:
+                if st is not None:
+                    st.stop()
+                    st.close()
+            except Exception:
+                pass
+        self.ost = self.ist = None
+
+
 RTTY_BAUD = 8000.0 / 176          # 45,45 baud: 176 campioni audio per bit
 RTTY_SHIFT = 170.0
 RTTY_MARK = 1500.0                # tono del mark nella USB (lo space 170 Hz sotto): la portante va 1500 Hz sotto

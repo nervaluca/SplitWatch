@@ -941,6 +941,23 @@ class PerseusDirect:
 
 
 # ---------------------------------------------------------------------------- scheda audio
+def list_audio_outputs():
+    """Uscite audio disponibili: [(indice, nome)] (per mandare l'audio a WSJT-X su un cavo virtuale)."""
+    try:
+        import sounddevice as sd
+        out = []
+        hostapis = sd.query_hostapis()
+        for i, d in enumerate(sd.query_devices()):
+            if d.get('max_output_channels', 0) > 0:
+                api = hostapis[d['hostapi']]['name'] if d.get('hostapi') is not None else ''
+                if 'WDM-KS' in api:
+                    continue
+                out.append((i, f"{d['name']} ({api})"))
+        return out
+    except Exception:
+        return []
+
+
 def list_audio_inputs():
     """Ingressi audio disponibili: [(indice, nome, canali)]."""
     try:

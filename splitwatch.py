@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.9.9'
+VERSION = '3.0'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -399,6 +399,9 @@ class Hub:
         self.tx_err = ''
         self.tx_connecting = False
         self.ssbtx = None                      # PTT in SSB (flusso dal microfono)
+        self.digi = None                       # ponte con WSJT-X/JTDX (modo DIGI)
+        self.digi_key = None
+        self.digi_t = 0.0
         self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
         self.tx_lvl_t = 0.0
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
@@ -1438,6 +1441,12 @@ class Hub:
             if now - self.sm_last >= 0.12 and self.engine is not None:
                 self.sm_last = now
                 self.send_smeter()
+                if now - getattr(self, 'digi_chk', 0) > 1.0:
+                    self.digi_chk = now
+                    try:
+                        self.digi_sync()
+                    except Exception as e:
+                        log(f'Ponte WSJT-X: {e}')
             if now - last_send >= 0.05 and self.engine is not None:
                 last_send = now
                 if pend_rows:
@@ -1449,6 +1458,9 @@ class Hub:
                         a = np.zeros_like(a)                 # semiduplex: in TX non si ascolta
                     st = self.engine is not None and self.engine.ssb
                     self.post_bin((b'\x03' if st else b'\x02') + struct.pack('<d', 0.0) + a.tobytes())
+                    if self.digi is not None:
+                        x = (a[0::2] if st else a).astype(np.float32) / 25500.0   # VFO A
+                        self.digi.push_rx(x, self.engine.arate)
                     pend_audio = []
                 if pend_words or pend_listen:
                     band = self.rbn_band
@@ -2341,6 +2353,99 @@ class Hub:
     def on_ssb_end(self):
         self.on_tx_ptt(False)
         self.post_json({'type': 'tx', 'ptt': False, 'busy': False})
+        if self.digi is not None:
+            self.digi.tx_ended()
+
+    # ------------------------------------------------------------------ ponte con WSJT-X (FT8, FT4…)
+    def digi_cfg(self):
+        d = self.cfg.setdefault('digi', {})
+        d.setdefault('on', False)
+        d.setdefault('out', '')            # uscita audio verso WSJT-X (cavo virtuale); '' = nessuna
+        d.setdefault('in', '')             # ingresso audio da WSJT-X (altro cavo virtuale); '' = niente TX
+        d.setdefault('gain', 0.0)          # dB sull'audio TX di WSJT-X
+        return d
+
+    def out_dev(self, label):
+        try:
+            from sources import list_audio_outputs
+            for i, n in list_audio_outputs():
+                if n == label:
+                    return i
+        except Exception:
+            pass
+        return None
+
+    def out_list(self):
+        try:
+            from sources import list_audio_outputs
+            return [n for _, n in list_audio_outputs()]
+        except Exception:
+            return []
+
+    def digi_sync(self):
+        """Accende o spegne il ponte secondo il modo (DIGI) e le impostazioni. Chiamato spesso: costa poco."""
+        d = self.digi_cfg()
+        want = bool(d['on']) and self.modo() == 'ft8' and (d['out'] or d['in'])
+        key = (d['out'], d['in']) if want else None
+        if key == self.digi_key and (self.digi is None) == (key is None):
+            return
+        if self.digi is not None:
+            if self.ssbtx is not None and self.ssbtx.alive and isinstance(self.ssbtx.gen, txmod.DigiTx):
+                self.ssbtx.stop()
+            self.digi.stop()
+            self.digi = None
+            log('Ponte WSJT-X spento')
+        self.digi_key = key
+        if key is None:
+            return
+        od = None
+        if d['out']:
+            od = self.out_dev(d['out'])
+            if od is None:
+                self.on_status(f'Ponte WSJT-X: uscita «{d["out"]}» non trovata')
+        idv = None
+        if d['in']:
+            idv = self.mic_dev(d['in'])
+            if idv is None:
+                self.on_status(f'Ponte WSJT-X: ingresso «{d["in"]}» non trovato')
+        b = txmod.DigiBridge(od, idv, self.digi_vox, self.on_status)
+        try:
+            b.start()
+        except Exception as e:
+            self.on_status(f'Ponte WSJT-X: {e}')
+            log(f'Ponte WSJT-X: {e}')
+            b.stop()
+            return
+        self.digi = b
+        log(f'Ponte WSJT-X acceso: RX → {d["out"] or "—"}, TX ← {d["in"] or "—"}')
+        self.on_status('Ponte WSJT-X acceso')
+
+    def digi_vox(self, on, pre):
+        """WSJT-X ha cominciato a mandare audio: trasmetto col Pluto (USB, portante sulla sintonia)."""
+        b = self.digi
+        if b is None:
+            return
+        st = self.ssbtx
+        if st is not None and st.alive:
+            b.tx_ended()
+            return
+        if not self.tx or not self.keyer:
+            if time.time() - self.digi_t > 20:
+                self.digi_t = time.time()
+                self.on_status('Ponte WSJT-X: WSJT-X trasmette ma il TX è spento (⏻ TX)')
+            b.tx_ended()
+            return
+        up = self.tx_up()
+        if up is None or not txmod.up_ok(up + 3000) or not txmod.up_ok(up):
+            self.on_status('Ponte WSJT-X: frequenza fuori dal transponder o vicino a un beacon')
+            b.tx_ended()
+            return
+        g = txmod.DigiTx(b.iq, pre, gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20))
+        st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
+        self.ssbtx = st
+        self.on_tx_ptt(True)
+        st.start(up, gen=g)
+        log(f'TX DIGI (WSJT-X): sintonia {up/1e6:.6f} MHz')
 
     def on_tx_level(self, mic_db, comp_db):
         self.post_json({'type': 'tx', 'ptt': True, 'busy': True, 'mic': round(mic_db, 1), 'comp': round(comp_db, 1)})
@@ -2929,6 +3034,7 @@ class Hub:
                 'ppm': self.ppm(), 'ppm_on': self.src_kind in self.PPM_KINDS, 'cal_list': calib.STATIONS,
                 'rx2_off': float(self.cfg.get('rx2_off', 5000.0)), 'sb': self.cfg.get('sb', 'auto'), 'sb_eff': self.sb_eff(),
                 'passo': int(self.cfg.get('passo', 500)), 'split': bool(self.cfg.get('split', True)), 'rtty_skim': bool(self.cfg.get('rtty_skim', False)),
+                'digi': dict(self.digi_cfg(), run=self.digi is not None),
                 'agc': self.cfg.get('agc', 'slow'), 'rfgain': float(self.cfg.get('rfgain', 60)),
                 'nb': int(self.cfg.get('nb', 0)), 'nr': int(self.cfg.get('nr', 0)), 'notch': bool(self.cfg.get('notch', False)),
                 'ssb_bw': int(self.cfg.get('ssb_bw', 2700)), 'att': int(self.cfg.get('att', 0)),
@@ -3307,6 +3413,18 @@ class Hub:
                 elif k == 'tx_dxcall':
                     self.dx_call = re.sub(r'[^A-Z0-9/]', '', str(c.get('call', '')).upper())[:16]
                     self.post_json({'type': 'tx', 'dxcall': self.dx_call})
+                elif k == 'digi':
+                    d = self.digi_cfg()
+                    v = c.get('v', {})
+                    for kk in ('on', 'out', 'in', 'gain'):
+                        if kk in v:
+                            d[kk] = bool(v[kk]) if kk == 'on' else float(v[kk]) if kk == 'gain' else str(v[kk])
+                    save_cfg(self.cfg)
+                    self.digi_key = ('?',)                  # forza il riavvio con i dispositivi nuovi
+                    self.digi_sync()
+                    self.post_json(self.cfg_msg())
+                elif k == 'digi_list':
+                    self.post_json({'type': 'digi_list', 'outs': self.out_list(), 'ins': self.mic_list()})
                 elif k == 'rtty_skim':
                     self.cfg['rtty_skim'] = bool(c.get('on'))
                     save_cfg(self.cfg)
