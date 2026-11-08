@@ -1005,7 +1005,11 @@ class DigiBridge:
         self.ist = None
         self.iq = None
         self.tx_busy = False                      # mentre DigiTx legge la coda, il VOX non la tocca
-        self.level = 0.0
+        self.level = 0.0                          # livello dell'audio che arriva da WSJT-X (RMS)
+        self.rx_level = 0.0                       # livello dell'audio che mando a WSJT-X (RMS)
+        self.rx_n = 0                             # campioni mandati a WSJT-X
+        self.under = 0                            # uscita rimasta senza audio
+        self.err = ''
         self.ores = {'ph': 0.0, 'last': 0.0}
 
     def start(self):
@@ -1025,6 +1029,8 @@ class DigiBridge:
                 self.buf = self.buf[need:]
                 if len(a) < need:
                     a = np.concatenate([a, np.zeros(need - len(a), np.float32)])
+                if status:
+                    self.under += 1
                 outdata[:, 0] = a
             dv = None if self.out_dev == 'default' else self.out_dev
             self.ost = sd.OutputStream(samplerate=48000, channels=1, dtype='float32', device=dv, callback=cb,
@@ -1045,6 +1051,8 @@ class DigiBridge:
         y = np.interp(pos, np.arange(len(x)), x).astype(np.float32)
         self.ores['ph'] = float(pos[-1] + step - (len(x) - 1)) if len(pos) else self.ores['ph'] - (len(x) - 1)
         self.ores['last'] = float(a[-1])
+        self.rx_level = 0.8 * self.rx_level + 0.2 * float(np.sqrt(np.mean(y * y))) if len(y) else self.rx_level
+        self.rx_n += len(y)
         try:
             self.oq.put_nowait(y)
         except queue.Full:

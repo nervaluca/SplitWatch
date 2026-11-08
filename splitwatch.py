@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '3.0.1'
+VERSION = '3.0.3'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -1441,10 +1441,11 @@ class Hub:
             if now - self.sm_last >= 0.12 and self.engine is not None:
                 self.sm_last = now
                 self.send_smeter()
-                if now - getattr(self, 'digi_chk', 0) > 1.0:
+                if now - getattr(self, 'digi_chk', 0) > 0.5:
                     self.digi_chk = now
                     try:
                         self.digi_sync()
+                        self.digi_meter()
                     except Exception as e:
                         log(f'Ponte WSJT-X: {e}')
             if now - last_send >= 0.05 and self.engine is not None:
@@ -2382,8 +2383,15 @@ class Hub:
         except Exception:
             return []
 
+    _digi_lock = threading.Lock()
+
     def digi_sync(self):
-        """Accende o spegne il ponte secondo il modo (DIGI) e le impostazioni. Chiamato spesso: costa poco."""
+        """Accende o spegne il ponte secondo il modo (DIGI) e le impostazioni. Chiamato spesso: costa poco.
+        Lo chiamano due thread (pagina e ciclo principale): il lucchetto evita due ponti aperti insieme."""
+        with self._digi_lock:
+            self._digi_sync()
+
+    def _digi_sync(self):
         d = self.digi_cfg()
         want = bool(d['on']) and self.modo() == 'ft8' and (d['out'] or d['in'])
         key = (d['out'], d['in']) if want else None
@@ -2487,6 +2495,22 @@ class Hub:
         else:
             self.on_status('Cavi virtuali non trovati: installa VB-CABLE e Hi-Fi Cable (o VB-CABLE A+B), poi riprova')
         self.post_json(self.cfg_msg())
+
+    def digi_meter(self):
+        """Livelli del ponte per la finestra WSJT-X: si vede subito se l'audio va e viene."""
+        import math
+        b = self.digi
+        db = lambda x: round(20 * math.log10(x), 1) if math.isfinite(x) and x > 1e-6 else None
+        if b is None:
+            d = self.digi_cfg()
+            why = ''
+            if d.get('on') and self.modo() != 'ft8':
+                why = 'mode'
+            self.post_json({'type': 'digi_st', 'run': False, 'why': why})
+            return
+        tx = self.ssbtx is not None and self.ssbtx.alive and isinstance(self.ssbtx.gen, txmod.DigiTx)
+        self.post_json({'type': 'digi_st', 'run': True, 'out': b.ost is not None, 'inp': b.ist is not None,
+                        'rx_db': db(b.rx_level), 'tx_db': db(b.level), 'rx_n': b.rx_n, 'under': b.under, 'tx': tx})
 
     def digi_vox(self, on, pre):
         """WSJT-X ha cominciato a mandare audio: trasmetto col Pluto (USB, portante sulla sintonia)."""
@@ -3484,11 +3508,13 @@ class Hub:
                 elif k == 'digi':
                     d = self.digi_cfg()
                     v = c.get('v', {})
+                    dev_old = (d.get('out'), d.get('in'))
                     for kk in ('on', 'out', 'in', 'gain', 'exe'):
                         if kk in v:
                             d[kk] = bool(v[kk]) if kk == 'on' else float(v[kk]) if kk == 'gain' else str(v[kk])
                     save_cfg(self.cfg)
-                    self.digi_key = ('?',)                  # forza il riavvio con i dispositivi nuovi
+                    if (d.get('out'), d.get('in')) != dev_old:
+                        self.digi_key = ('?',)              # dispositivi cambiati: riavvio il ponte
                     self.digi_sync()
                     self.post_json(self.cfg_msg())
                 elif k == 'wsjtx_start':
