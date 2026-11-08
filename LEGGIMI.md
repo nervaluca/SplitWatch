@@ -153,7 +153,7 @@ e tutti i modi (anche HF).
 - **＋ Salva qui**: salva la frequenza di RX1 con modo e impostazioni attuali (nome e gruppo).
 - **✎** modifica (nome, gruppo, frequenza, modo), **🗑** cancella (secondo clic per confermare); **Cerca** e filtro per gruppo.
 - Già pronte (170, divise per gruppo): radioamatori 10 m, 6 m, 2 m, 70 cm, 23 cm (chiamate CW, SSB, FM, FT8,
-  APRS, ISS voce/APRS/ripetitore), ripetitori 2 m R0–R7 e R0x–R7x, PMR446 1–16, LPD 1–69,
+  APRS, ISS voce/APRS/ripetitore), ripetitori 2 m R0–R7 e R0x–R7x, PMR446 1–16, onde corte (beacon NCDXF, FT8 160–10 m, emergenza IARU, QRP, SSTV, segnali orari, VOLMET), LPD 1–69,
   aeronautica (121,5 · 123,45 · 243,0), nautica (canali 16, 6, 9, 13, 70 e AIS). **Preset** rimette quelle cancellate.
   Dalla 1.40 il banco si aggiorna da solo: arrivano le nuove, le tue non si toccano.
 - Una memoria fuori portata del ricevitore in uso (es. 145,5 MHz col Perseus) non viene richiamata: lo dice la riga di stato.

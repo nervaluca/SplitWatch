@@ -95,13 +95,49 @@ _V4 = [_ch('Beacon basso (CW)', 10489.500, 'rxcw', _QO),
        _ch('Beacon centrale (PSK 400)', 10489.750, 'ssb', _QO),
        _ch('Beacon alto (CW)', 10490.000, 'rxcw', _QO)]
 PRESET = PRESET + _V4
+
+# versione 6 (FZR SDR 2.9.6): onde corte. Fonti: piano di banda IARU Regione 1, frequenze di emergenza IARU R1,
+# NCDXF/IARU International Beacon Project, piano del transponder NB di QO-100 (AMSAT-DL)
+_L, _U = {'sb': 'lsb'}, {'sb': 'usb'}
+_BAND = {1.8: '160 m', 3.5: '80 m', 5.3: '60 m', 7: '40 m', 10.1: '30 m', 14: '20 m', 18: '17 m', 21: '15 m',
+         24.8: '12 m', 28: '10 m'}
+
+
+def _b(mhz):
+    return [v for k, v in _BAND.items() if mhz >= k][-1]
+
+
+_V6 = (
+    [_ch(f'Beacon NCDXF {_b(f)}', f, 'rxcw', 'Beacon NCDXF/IARU (CW)')
+     for f in (14.100, 18.110, 21.150, 24.930, 28.200)]
+    + [_ch(f'FT8 {_b(f)}', f, 'ft8', 'FT8 onde corte')
+       for f in (1.840, 3.573, 5.357, 7.074, 10.136, 14.074, 18.100, 21.074, 24.915, 28.074)]
+    + [_ch(f'Emergenza {_b(f)}', f, 'ssb', 'Emergenza IARU (SSB)', **(_L if f < 10 else _U))
+       for f in (3.760, 7.110, 14.300, 18.160, 21.360)]
+    + [_ch('Emergenza QO-100', 10489.860, 'ssb', 'QO-100 (con LNB)', **_U)]
+    + [_ch(f'QRP CW {_b(f)}', f, 'rxcw', 'QRP (CW e SSB)')
+       for f in (3.560, 7.030, 10.116, 14.060, 18.086, 21.060, 24.906, 28.060)]
+    + [_ch(f'QRP SSB {_b(f)}', f, 'ssb', 'QRP (CW e SSB)', **(_L if f < 10 else _U))
+       for f in (3.690, 7.090, 14.285, 18.130, 21.285, 24.950, 28.360)]
+    + [_ch(f'SSTV {_b(f)}', f, 'ssb', 'SSTV (ascolto)', **(_L if f < 10 else _U))
+       for f in (3.735, 7.165, 14.230, 21.340, 28.680)]
+    + [_ch(n, f, 'am', 'Segnali orari (AM)', am_bw=6000) for n, f in (
+        ('DCF77 Germania (portante)', 0.0775), ('CHU Canada', 3.330), ('RWM Russia', 4.996), ('CHU Canada', 7.850),
+        ('RWM Russia', 9.996), ('WWV USA', 10.000), ('CHU Canada', 14.670), ('RWM Russia', 14.996),
+        ('WWV USA', 15.000))]
+    + [_ch(f'Shannon VOLMET {k}', f, 'ssb', 'Meteo per aerei (VOLMET HF)', **_U) for k, f in (
+        ('(notte)', 3.413), ('', 5.505), ('', 8.957), ('(giorno)', 13.264))]
+)
+for _m in _V6:
+    _m['nome'] = _m['nome'].strip()
+PRESET = PRESET + _V6
 # preset della prima versione (1.40): servono per l'aggiornamento del banco
 _OLD = {(145500000, 'fm'), (433500000, 'fm'), (144800000, 'fm'), (145800000, 'fm'), (144300000, 'ssb'),
         (432200000, 'ssb'), (144174000, 'ft8'), (50313000, 'ft8'), (51510000, 'fm'), (29600000, 'fm'),
         (121500000, 'am'), (123450000, 'am'), (156800000, 'fm'), (156300000, 'fm')} | \
        {(round((145.600 + 0.025 * i) * 1e6), 'fm') for i in range(8)} | \
        {(round((446.00625 + 0.0125 * i) * 1e6), 'fm') for i in range(16)}
-VERSIONE = 5
+VERSIONE = 6
 _CB_KEYS = {(round(f * 1e6), 'am') for f in _CB}
 
 
@@ -120,7 +156,7 @@ def _aggiorna(cfg):
     ver = int(cfg.get('banco_ver', 1))
     if ver >= 2:                                   # dalla versione 2: solo i preset arrivati dopo
         have = {(m['hz'], m['modo']) for m in b}
-        for p in (_V3 if ver < 3 else []) + (_V4 if ver < 4 else []):
+        for p in (_V3 if ver < 3 else []) + (_V4 if ver < 4 else []) + (_V6 if ver < 6 else []):
             if (p['hz'], p['modo']) not in have:
                 b.append({'id': _new_id(cfg), **p, 'x': dict(p['x'])})
         _togli_cb(cfg)

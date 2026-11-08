@@ -1,0 +1,1477 @@
+<!-- wp:paragraph -->
+<p><strong>FZR SDR</strong> è uno <strong>skimmer CW</strong> e un <strong>ricevitore SDR</strong> per i <strong>pile-up in split</strong>, i <strong>contest</strong> e l'ascolto di tutti i giorni, dalle onde corte alle microonde. Funziona con il <strong>Perseus</strong>, le chiavette <strong>RTL-SDR</strong>, l'<strong>ADALM-Pluto</strong>, i ricevitori con plugin <strong>ExtIO</strong> (SDRplay, Airspy HF+…), gli <strong>SpyServer</strong> e i <strong>KiwiSDR</strong> in rete e qualsiasi radio tramite la <strong>scheda audio</strong>; con un LNB anche <strong>QO-100</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"sizeSlug":"large","align":"center"} -->
+<figure class="wp-block-image aligncenter size-large"><img src="fzrsdr-novita-2.9.png" alt="FZR SDR 2.9: novità"/></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading {"level":2,"anchor":"novita"} -->
+<h2 class="wp-block-heading" id="novita">Novità della versione 2.9</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>RTTY trasmesso dal programma</strong> (2.8): su QO-100 col Pluto, senza MMTTY; mark sul VFO A, macro RTTY, scrivi mentre trasmette.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Prendi il call col clic</strong> (2.9.2): clic sul nominativo nella riga RX → casella «Suo call» → <code>{DX}</code> nelle macro, in RTTY e in CW.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Skimmer RTTY acceso o spento</strong> (2.9): spento decodifica solo il VFO A ed è leggero come l'SSB.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>XIT</strong> (2.6): ritocco fine della tua trasmissione al Hz, che resta cambiando frequenza.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>TX e RX allineati sul serio</strong> (2.4–2.7): Calibra TX e Segui la mia eco riconoscono la tua eco dal ritmo del tasto, aggancio beacon più robusto, clic su una stazione CW = VFO A sulla sua portante al Hz.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>SPLIT in trasmissione</strong> (2.7): in SSB e RTTY con SPLIT trasmetti sul VFO B; la salita segue il VFO anche mentre trasmetti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Installer col logo FZR SDR</strong>: e toglie il vecchio FZRSkimmer.exe in tutti i modi di installazione.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>QO-100 in tre passi</strong> (2.1), <strong>FZR SDR</strong> nuovo nome, <strong>prova di 30 minuti</strong>, waterfall più contrastato e waterfall largo del Pluto.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p><strong>FZR SDR si chiamava FZR Skimmer</strong> fino alla versione 1.83. Aggiornando, impostazioni, memorie, licenza e registrazioni restano dove sono; la stessa chiave di registrazione continua a valere.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:paragraph -->
+<p>Il waterfall scorre libero su tutta la banda ricevuta, con lo spettro accanto. Nei modi <strong>Skimmer</strong> accanto a ogni segnale compare il testo CW decodificato, con nominativi e 5NN evidenziati; in <strong>DXpedition</strong> l'audio resta fermo sul DX e dopo ogni suo rapporto il programma segna dove ha risposto la stazione lavorata, cioè dove il DX sta ascoltando. Nei modi <strong>Ricevitore</strong> (CW, SSB, RTTY con lo skimmer FZRTTY, DIGI, FM e AM) ci sono due VFO in stereo, VFO A sul DX e VFO B per trovare chi risponde, con S-meter, NB, NR e NOTCH, un banco di memorie e il comando della radio via CAT.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: schermata principale di FZR SDR]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"indice"} -->
+<h2 class="wp-block-heading" id="indice">Indice</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><a href="#requisiti">Cosa serve</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#download">Download</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#installazione">Installazione</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#registrazione">Registrazione e prova gratuita</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#ricevitori">Ricevitori</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#cat">Radio (CAT) con Hamlib</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#calibrazione">Calibrazione della frequenza</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#schermata">La schermata</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#normale">Modo Normale</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#dxpedition">Modo DXpedition</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#contest">Modo Contest</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#ssb">Modo SSB</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#rx">Ricevitore CW, RTTY, DIGI</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#fzrtty">RTTY: FZRTTY</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#vhf">Chiavetta RTL-SDR, VHF/UHF, FM e AM</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#memorie">Banco di memorie</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#nominativi">Nominativi e decodifica</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#rbn">Reverse Beacon Network</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#registrare">Registrare e riascoltare</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#tastiera">Mouse e tastiera</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#tablet">Uso dal tablet</a></li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><a href="#problemi">Problemi e soluzioni</a></li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:separator -->
+<hr class="wp-block-separator has-alpha-channel-opacity"/>
+<!-- /wp:separator -->
+
+<!-- wp:heading {"level":2,"anchor":"requisiti"} -->
+<h2 class="wp-block-heading" id="requisiti">Cosa serve</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>PC con <strong>Windows 10 o 11</strong> (FZR SDR è a 32 bit, gira anche sui Windows a 64 bit).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Microsoft Edge</strong> (c'è già in Windows) oppure Google Chrome: servono solo a disegnare la finestra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Un ricevitore: <strong>Perseus</strong> (il modo migliore), oppure una radio collegata alla scheda audio, oppure un ricevitore IQ (SoftRock e simili), oppure un ricevitore con plugin ExtIO per HDSDR (<strong>SDRplay RSP</strong>, <strong>Airspy HF+</strong> e altri), oppure una <strong>chiavetta RTL-SDR</strong> per VHF/UHF (vedi <a href="#vhf">Chiavetta RTL-SDR</a>).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per il Perseus: i file <code>perseususb.dll</code> e <code>perseus*.sbs</code>, che ha già chi usa CW Skimmer o il software del Perseus (<strong>prepara_cartella.bat</strong> li copia da lì). Altrimenti sono tutti nel pacchetto ufficiale <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a (Microtelecom)</a>; il driver USB del Perseus è nel pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">driver Perseus 2026a1</a>. Per aiuto: <a href="https://groups.io/g/Perseus-SDR" target="_blank" rel="noopener">gruppo utenti Perseus</a>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Facoltativo: un collegamento Internet per il Reverse Beacon Network.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"download"} -->
+<h2 class="wp-block-heading" id="download">Download: file e programmi aggiuntivi</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Oltre a FZR SDR servono, a seconda del ricevitore e delle funzioni, alcuni file che non si possono distribuire con il programma. Tutti i link portano ai siti ufficiali.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Cosa</th><th>Serve per</th><th>Dove</th></tr></thead><tbody><tr><td><strong>Driver USB del Perseus</strong></td><td>Perseus, se Windows non lo riconosce (senza CW Skimmer né software Perseus)</td><td><a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">Microtelecom · PerseusDriversUpdate</a></td></tr><tr><td><strong>perseususb.dll e file .sbs</strong></td><td>Perseus (il setup li copia da CW Skimmer o dal software Perseus, se ci sono)</td><td><a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">Microtelecom · ExtIO_perseus</a></td></tr><tr><td><strong>CW Skimmer</strong></td><td>facoltativo: chi lo ha già ha anche i file del Perseus</td><td><a href="https://dxatlas.com/CwSkimmer/" target="_blank" rel="noopener">dxatlas.com/CwSkimmer</a></td></tr><tr><td><strong>Zadig (driver WinUSB)</strong></td><td>chiavetta RTL-SDR: si installa una volta, come per SDR#</td><td><a href="https://zadig.akeo.ie/" target="_blank" rel="noopener">zadig.akeo.ie</a></td></tr><tr><td><strong>Driver PlutoSDR (Analog Devices)</strong></td><td>ADALM-Pluto collegato con la USB</td><td><a href="https://wiki.analog.com/university/tools/pluto/drivers/windows" target="_blank" rel="noopener">wiki.analog.com · Pluto drivers</a></td></tr><tr><td><strong>rtl_tcp e driver RTL-SDR Blog</strong></td><td>chiavetta RTL-SDR (già nella cartella <code>rtl</code> del programma; da qui se manca)</td><td><a href="https://github.com/rtlsdrblog/rtl-sdr-blog/releases" target="_blank" rel="noopener">github.com/rtlsdrblog/rtl-sdr-blog</a></td></tr><tr><td><strong>Microsoft Visual C++ Redistributable</strong></td><td>solo se rtl_tcp.exe non parte (manca VCRUNTIME o MSVCP)</td><td><a href="https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist" target="_blank" rel="noopener">Microsoft · VC++ Redistributable</a></td></tr><tr><td><strong>Hamlib (rigctld)</strong></td><td>comando della radio (CAT): la versione più recente per Windows</td><td><a href="https://github.com/Hamlib/Hamlib/releases" target="_blank" rel="noopener">github.com/Hamlib/Hamlib</a></td></tr><tr><td><strong>SDRplay API e plugin ExtIO</strong></td><td>ricevitori SDRplay RSP (ExtIO)</td><td><a href="https://www.sdrplay.com/windows.html" target="_blank" rel="noopener">sdrplay.com · Windows</a></td></tr><tr><td><strong>Plugin ExtIO Airspy HF+</strong></td><td>Airspy HF+ e Discovery (ExtIO)</td><td><a href="https://airspy.com/download/" target="_blank" rel="noopener">airspy.com/download</a></td></tr><tr><td><strong>HDSDR</strong></td><td>facoltativo: i plugin ExtIO sono gli stessi</td><td><a href="https://hdsdr.de/" target="_blank" rel="noopener">hdsdr.de</a></td></tr><tr><td><strong>MASTER.SCP</strong></td><td>elenco dei nominativi da contest (Super Check Partial): va nella cartella del programma</td><td><a href="https://www.supercheckpartial.com/" target="_blank" rel="noopener">supercheckpartial.com</a></td></tr><tr><td><strong>Elenco ponti di IK2ANE</strong></td><td>ripetitori italiani da importare nel banco di memorie (file pontixls.xls)</td><td><a href="https://www.ik2ane.it/ham.htm" target="_blank" rel="noopener">ik2ane.it</a></td></tr><tr><td><strong>VB-Cable</strong></td><td>cavo audio virtuale: audio di FZR SDR verso WSJT-X o altri programmi</td><td><a href="https://vb-audio.com/Cable/" target="_blank" rel="noopener">vb-audio.com/Cable</a></td></tr><tr><td><strong>WSJT-X</strong></td><td>decodifica FT8/FT4 con l’audio del modo DIGI</td><td><a href="https://wsjtx.sourceforge.io/" target="_blank" rel="noopener">wsjtx.sourceforge.io</a></td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2,"anchor":"installazione"} -->
+<h2 class="wp-block-heading" id="installazione">Installazione</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Con l'installazione (consigliato)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scarica <strong>FZRSDR_Setup</strong> e avvia <code>FZRSDR_Setup_2.9.2.exe</code>. Non servono permessi di amministratore: il programma va in <code>%LOCALAPPDATA%\Programs\FZR SDR</code> (se scegli «per tutti gli utenti» va in Program Files e allora impostazioni, registro e licenza stanno in <code>%APPDATA%\FZRSDR</code>).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il setup copia da solo <code>perseususb.dll</code> e i file <code>.sbs</code> del Perseus da CW Skimmer, dal software Perseus o da HDSDR, e l'elenco nominativi (MASTER.SCP di N1MM o MASTER.DTA di CW Skimmer). Se il software del Perseus lo installi dopo: menu Start → FZR SDR → <strong>Copia i file del Perseus</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Mette l'icona sul desktop e nel menu Start; si disinstalla da Impostazioni → App.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Dov'è la cartella</strong>: è nascosta in AppData. Premi Win+R, scrivi <code>%LOCALAPPDATA%\Programs\FZR SDR</code> e Invio: lì ci sono <code>fzrsdr.json</code>, <code>fzrsdr.log</code>, la cartella <code>rtl</code> e le registrazioni. Oppure menu Start → tasto destro su FZR SDR → <em>Apri percorso file</em>. Se hai installato «per tutti gli utenti», il programma è in <code>C:\Program Files\FZR SDR</code> e impostazioni, log e registrazioni in <code>%APPDATA%\FZRSDR</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per aggiornare basta avviare il setup nuovo: chiude FZR SDR e non tocca impostazioni, memorie, licenza e registrazioni.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Chi aveva FZR Skimmer</strong>: il setup aggiorna l'installazione vecchia <strong>nella sua cartella</strong>, che resta <code>Programs\FZR Skimmer</code> (lì ci sono licenza e impostazioni), e cancella <code>FZRSkimmer.exe</code> e le icone «FZR Skimmer». Avvia sempre <strong>FZR SDR</strong>: in alto, accanto al nome, c'è la versione. Se il log dice «FZR Skimmer 1.83» stai usando ancora l'exe vecchio: cancellalo e rifai il setup (non copiare a mano solo l'exe nuovo).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Chi usava lo zip: per tenere impostazioni e memorie copia <code>fzrsdr.json</code> dalla vecchia cartella in quella nuova, a programma chiuso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Windows può mostrare l'avviso SmartScreen (programma non firmato): <em>Ulteriori informazioni</em> → <em>Esegui comunque</em>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Con lo zip</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scarica lo zip <strong>FZRSDR</strong> e scompattalo dove vuoi, per esempio in <code>C:\FZRSDR</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Senza CW Skimmer né software Perseus</strong>: installa il driver USB dal <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FDrivers%2FPerseusDriversUpdate2026a1.zip" target="_blank" rel="noopener">pacchetto driver di Microtelecom</a> (se il Perseus non è già riconosciuto da Windows), poi scarica il pacchetto <a href="https://www.microtelecom.it/get-file?path=microtelecom%2FPerseus%2FSoftware%2FExtio%2FExtIO_perseus2v4a.zip" target="_blank" rel="noopener">ExtIO Perseus 2.4a</a> e copia <code>perseususb.dll</code> e tutti i file <code>perseus*.sbs</code> nella cartella di FZR SDR, accanto a FZRSDR.exe. Il passo successivo allora non serve.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Avvia una volta <strong>prepara_cartella.bat</strong>: copia nella cartella i file del Perseus prendendoli da CW Skimmer, HDSDR o dal software Perseus, e l'elenco nominativi <code>MASTER.SCP</code> da N1MM se c'è. Se non lo fai, FZR SDR cerca comunque quei file nelle cartelle di CW Skimmer.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Chiudi CW Skimmer, HDSDR e il software del Perseus</strong>: il Perseus lo può usare un solo programma per volta.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Avvia <strong>FZRSDR.exe</strong>: si apre la finestra del programma.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Per chiudere usa il pulsante <strong>Esci</strong> in alto a destra, oppure chiudi la finestra: in entrambi i casi il Perseus viene liberato e il programma termina.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:paragraph -->
+<p>Tutte le impostazioni (banda, DX, memorie, filtro, sensibilità, colori, ricevitore, modo) si salvano da sole nel file <code>fzrsdr.json</code> accanto all'exe. Il diario del programma è <code>fzrsdr.log</code>, nella stessa cartella: è il primo file da guardare se qualcosa non va.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"registrazione"} -->
+<h2 class="wp-block-heading" id="registrazione">Registrazione e prova gratuita</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR SDR usa <strong>la stessa registrazione di ADIF FZR</strong>: stesso nominativo, stessa chiave. Se ADIF FZR è già registrato sullo stesso PC, FZR SDR trova la licenza da solo e non chiede nulla.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Senza registrazione il ricevitore funziona <strong>30 minuti per ogni avvio</strong>, poi si ferma e compare la finestra di registrazione.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La <strong>riproduzione delle registrazioni</strong> è sempre libera.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pulsante <strong>Registra</strong> in alto: scrivi il nominativo e incolla la chiave che hai ricevuto. Non c'è attivazione automatica: la chiave va sempre incollata, anche se è la stessa di ADIF FZR.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Richiedi una chiave</strong> apre la pagina di richiesta su iw1fzr.it; oppure compila il modulo qui sotto. La registrazione è gratuita e la stessa chiave vale per ADIF FZR.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"ricevitori"} -->
+<h2 class="wp-block-heading" id="ricevitori">Ricevitori</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il ricevitore si sceglie in <strong>⚙ Impostazioni</strong> → <strong>Ricevitore</strong>, senza riavviare il programma.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Ricevitore</th><th>Quando usarlo</th><th>Cosa impostare</th></tr></thead><tbody><tr><td><strong>Perseus</strong></td><td>Il modo migliore: vedi e decodifichi fino a 96 kHz di banda (48 kHz bastano per quasi tutti i pile-up).</td><td><strong>Centro Perseus kHz</strong>, <strong>Campionamento</strong>. Se le stazioni appaiono specchiate, spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td><strong>Audio della radio</strong></td><td>Qualsiasi radio: l'uscita audio entra nella scheda audio del PC (per esempio USB Audio CODEC dell'IC-7600). Vedi solo la banda passante della radio, 2–3 kHz.</td><td><strong>Ingresso</strong>, <strong>Frequenza radio kHz</strong> (quella che mostra la radio), <strong>Offset</strong>: la nota CW, es. 600, se la radio mostra la frequenza del segnale come gli Icom in CW; 0 se mostra la portante.</td></tr><tr><td><strong>IQ da scheda audio</strong></td><td>Ricevitori che mandano I e Q sui canali sinistro e destro (SoftRock e simili).</td><td><strong>Ingresso</strong>, <strong>LO kHz</strong> (frequenza centrale), <strong>Campionamento</strong>.</td></tr><tr><td><strong>ExtIO (SDRplay, Airspy HF+…)</strong> <em>sperimentale</em></td><td>Qualsiasi ricevitore che abbia un plugin ExtIO <strong>a 32 bit</strong> per HDSDR: SDRplay RSP1A/RSPdx/RSPduo, Airspy HF+ / Discovery, FunCube e altri. Se il ricevitore funziona in HDSDR, funziona anche qui. Serve il driver del ricevitore installato (per SDRplay la SDRplay API).</td><td><strong>Plugin</strong>: il programma lo cerca nelle cartelle di HDSDR, SDRplay e Airspy e nella sua; altrimenti <strong>Sfoglia…</strong> e scegli il file <code>ExtIO_….dll</code>. <strong>Campionamento</strong>: l'elenco viene dal plugin, scegli 192 kHz o meno; se il ricevitore dà solo velocità alte (SDRplay a 2 MHz) il programma le riduce da solo sotto i 200 kHz (÷ n accanto al valore). <strong>Impostazioni ricevitore</strong> apre la finestra del plugin (guadagno, antenna, AGC). <strong>Centro kHz</strong>.</td></tr><tr><td><strong>RTL-SDR (chiavetta)</strong></td><td>VHF/UHF (24 MHz – 1,7 GHz), FM e AM; con il direct sampling anche le onde corte. Anche senza Perseus.</td><td>Driver WinUSB (Zadig). Vedi <a href="#vhf">Chiavetta RTL-SDR</a>.</td></tr><tr><td><strong>ADALM-Pluto</strong></td><td>VHF/UHF/SHF via USB o in rete (con il firmware sbloccato da 46,9 MHz a 6 GHz); QO-100 con LNB.</td><td>Driver PlutoSDR per la USB. Vedi <a href="#vhf">ADALM-Pluto</a>.</td></tr><tr><td><strong>SpyServer (in rete)</strong></td><td>Airspy HF+, Airspy R2/Mini o chiavetta RTL-SDR di qualcun altro, via Internet.</td><td>Solo l'indirizzo. Vedi <a href="#vhf">SpyServer</a>.</td></tr><tr><td><strong>KiwiSDR (in rete)</strong></td><td>Un KiwiSDR (0–30 MHz) di qualcun altro, via Internet: una fetta di ±5 kHz.</td><td>Solo l'indirizzo. Vedi <a href="#vhf">KiwiSDR</a>.</td></tr><tr><td><strong>Registrazione (WAV)</strong></td><td>Riascoltare una registrazione IQ.</td><td>Vedi <a href="#registrare">Registrare e riascoltare</a>.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p>Se il ricevitore non parte, premi <strong>Riavvia ricevitore</strong>: chiude e riapre il Perseus senza chiudere il programma (un paio di secondi di silenzio; le impostazioni restano). Il programma riprova già da solo 3 volte all'avvio.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"cat"} -->
+<h2 class="wp-block-heading" id="cat">Radio (CAT) con Hamlib</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR SDR comanda la radio (IC-7600 e tutte le radio supportate da Hamlib) <strong>in parallelo al Perseus</strong>: la radio e il waterfall si seguono a vicenda. Lo fa tramite <strong>rigctld</strong>, il programmino di Hamlib che usano anche WSJT-X e molti logger.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Installa Hamlib per Windows dalla <a href="https://github.com/Hamlib/Hamlib/releases" target="_blank" rel="noopener">pagina ufficiale</a> (file <code>hamlib-w32-….exe</code> o <code>-w64</code>, va bene l'uno o l'altro). FZR SDR trova <code>rigctld.exe</code> da solo nelle cartelle di Hamlib, WSJT-X e JTDX; altrimenti <strong>Sfoglia…</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In <strong>⚙ Impostazioni</strong> → <strong>Rete e radio</strong> premi <strong>Radio…</strong>: scegli il <strong>modello</strong> (scrivi «7600» per trovare <em>3063 · Icom IC-7600</em>), la <strong>porta COM</strong> e la <strong>velocità</strong> (IC-7600: CI-V via USB, 19200), poi <strong>Collega la radio</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se un altro programma ha già aperto rigctld, scegli <em>Collegati a un rigctld già aperto</em> e indica computer e porta (di solito 4532): così la radio la usate in due.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La spunta <strong>Radio (CAT)</strong> (in <strong>⚙ Impostazioni</strong> → Rete e radio) accende e spegne il collegamento; accanto c'è la frequenza letta dalla radio, il modo e il TX in split.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Cosa fa</th><th>Come</th></tr></thead><tbody><tr><td>La radio segue FZR SDR</td><td>DX (Ctrl+clic, rotellina, frequenza scritta), pulsanti di banda, modo: CW, oppure USB/LSB in SSB.</td></tr><tr><td>FZR SDR segue la radio</td><td>Giri la manopola: il DX (o l'RX) si sposta; se esci dalla banda ricevuta il Perseus si risintonizza. Con <em>Audio della radio</em> la frequenza si legge da sola, niente più a mano.</td></tr><tr><td>Split in SSB</td><td>Il TX della radio segue <strong>VFO B</strong>: giri la rotellina, trovi chi risponde, e il TX è già lì. Pulsante <strong>TX = VFO B</strong> o tasto <strong>T</strong>.</td></tr><tr><td>Split in DXpedition</td><td><strong>TX → ascolto</strong> o tasto <strong>T</strong>: TX sull'ultimo ascolto rilevato.</td></tr><tr><td>Split dove vuoi</td><td>Tasto destro sul waterfall → <strong>TX qui (split)</strong>.</td></tr><tr><td>Sul waterfall</td><td>La linea rossa tratteggiata è il TX della radio, con lo scostamento dal DX.</td></tr><tr><td>Quando trasmetti</td><td>L'audio del tuo segnale tace e la ricezione riparte appena smetti, in circa 20 ms: niente sordità dopo il TX in isofrequenza. Lo capisce dal PTT della radio (letto 10 volte al secondo) e, anche senza CAT, dal tuo segnale che satura la banda; durante il TX l'AGC resta fermo al livello di prima.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Cambiando banda o passando CW ↔ SSB lo split si spegne, per non trasmettere su una frequenza vecchia. All'avvio, se la radio è già su una banda HF la segue FZR SDR, altrimenti è la radio ad andare sul DX. Le tre opzioni (la radio segue, FZR segue, TX segue VFO B) si tolgono nella finestra <strong>Radio…</strong>.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"calibrazione"} -->
+<h2 class="wp-block-heading" id="calibrazione">Calibrazione della frequenza</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Se il ricevitore legge un po' spostato rispetto alla frequenza vera (il Perseus a volte di qualche decina di Hz), si corregge con <strong>Correzione ppm</strong>, in <strong>⚙ Impostazioni</strong> → <strong>Frequenza</strong>. L'errore viene dal quarzo del ricevitore ed è proporzionale alla frequenza: per questo si scrive in <strong>ppm</strong> (parti per milione) e una sola correzione vale per tutte le bande. 1 ppm sono 7 Hz a 7 MHz, 14 Hz a 14 MHz, 28 Hz a 28 MHz.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Il modo comodo è il pulsante <strong>Calibra…</strong>, che fa un test su una <strong>stazione campione</strong>:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Scegli una stazione che in quel momento senti bene: RWM 4996 / 9996 / 14996 kHz, WWV e BPM 5 / 10 / 15 MHz, CHU 3330 / 7850 / 14670 kHz. Dall'Italia di solito vanno bene RWM e le portanti a 10 o 15 MHz.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Premi <strong>Misura</strong>: il programma si sintonizza sulla stazione (la portante finisce nell'audio DX, la senti), la misura per 6 secondi con la precisione di un centesimo di Hz e torna dov'eri, con lo stesso DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Compaiono l'<strong>errore attuale</strong> in Hz, la <strong>forza del segnale</strong>, la <strong>stabilità</strong> e la correzione misurata in ppm.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se va bene premi <strong>Applica la correzione</strong>. Non viene applicata da sola: decidi tu.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per controllo, misura una seconda stazione su un'altra frequenza: deve dire <em>«Il ricevitore è già preciso»</em>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Messaggio</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Segnale troppo debole</td><td>Prova un'altra stazione o un'altra frequenza della stessa (cambia con l'ora del giorno).</td></tr><tr><td>Misura instabile</td><td>Riprova: fading forte o due stazioni sulla stessa frequenza (WWV e BPM sono entrambe su 5, 10, 15 MHz).</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Con un segnale di cui sai la frequenza (chiavetta RTL-SDR)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>La chiavetta in VHF/UHF non riceve le stazioni campione. Nella finestra <strong>Calibra…</strong>, sotto l'elenco, scrivi la frequenza esatta di un segnale che conosci e che senti forte: l'uscita di un <strong>ponte</strong> mentre trasmette (es. <code>145.6</code> o <code>145600</code>) o un <strong>beacon</strong>. Poi <strong>Misura</strong> e <strong>Applica la correzione</strong>, come sopra. Con la chiavetta la ricerca arriva a ±150 ppm e salta il picco fisso che c'è al centro del waterfall.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Le chiavette senza TCXO (per esempio quelle con tuner E4000) possono sbagliare di 50–100 ppm: 10 kHz a 145 MHz sono circa 69 ppm. In FM il segnale cade fuori dal filtro e <strong>vedi la portante ma non senti niente</strong>: calibra e le memorie tornano in centro. Le chiavette con TCXO (RTL-SDR Blog, Nooelec SMArt) sbagliano di 1–2 ppm.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>La correzione è memorizzata per ciascun ricevitore: Perseus, ExtIO, IQ da scheda audio e chiavetta RTL-SDR hanno ognuno la sua (una sola per tutte le chiavette: se le cambi, ricalibra o rimettila a 0). <strong>Azzera</strong> la toglie. Con la scheda IQ, che non si sintonizza da sola, prima porta la stazione campione dentro la banda ricevuta. Il quarzo cambia un po' con la temperatura: meglio calibrare a ricevitore acceso da una mezz'ora.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"schermata"} -->
+<h2 class="wp-block-heading" id="schermata">La schermata</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: la schermata con le parti numerate]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>In alto</strong>: zona di banda visibile, ultimo ascolto rilevato, stato della registrazione, pulsante <strong>EN/IT</strong> per la lingua (italiano o inglese, resta memorizzata) e pulsante <strong>Esci</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Modo</strong> (DXpedition / Contest) e <strong>Banda</strong>: i pulsanti 160…10 (compresi i 60 m) richiamano centro e DX memorizzati per quella banda; <strong>Salva memoria</strong> memorizza quelli attuali.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Pannello radio</strong>: VFO A (e VFO B) con frequenza, S-meter, mute e volume, poi Audio e Ricevitore (AGC, filtro…): vedi sotto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Comandi del waterfall</strong> (colori, luce e contrasto ora sono in ⚙ Impostazioni → Aspetto): <strong>▲/▼ 5 kHz</strong>, <strong>Torna al DX</strong>, <strong>Larghezza</strong> della vista (da 1,5 kHz a tutta la banda), <strong>Sensibilità</strong>, <strong>Colori/Luce/Contrasto</strong>, <strong>Scorrimento</strong> (5, 10 o 20 secondi di storia).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Waterfall</strong> a sinistra: il tempo scorre da sinistra verso destra (a destra i segnali appena arrivati), la frequenza è in verticale con la scala a destra. La fascia verde è la banda passante dell'RX sul DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Testo decodificato</strong> a destra, all'altezza di ogni segnale. 5NN/599/TU su fondo arancio; nominativi sicuri in bianco su fondo blu; nominativi corretti dal programma con il <strong>?</strong>, sottolineati a tratti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Riga DX</strong> sotto il waterfall: tutto quello che trasmette il DX, di seguito.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>In basso</strong>: <strong>DX kHz</strong>, Zona UP, <strong>Centro kHz</strong>, il pulsante <strong>⚙ Impostazioni</strong> e la riga di stato con le «pillole» 📡 RBN, 🎛️ radio e 🔒 aggancio beacon (verdi se va, gialle se c'è un problema).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Pannello ⚙ Impostazioni</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Le impostazioni che si toccano poco stanno in un pannello a destra, a schede; si apre con <strong>⚙ Impostazioni</strong> in basso, si chiude con Esc o ✕ e ricorda l'ultima scheda aperta.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Ricevitore</strong>: quale ricevitore (Perseus, audio della radio, IQ, ExtIO, chiavetta RTL-SDR, ADALM-Pluto, SpyServer, KiwiSDR) e le sue impostazioni, <strong>Riavvia ricevitore</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Frequenza</strong>: convertitore e LO, aggancio beacon, correzione ppm, <strong>Calibra…</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Rete e radio</strong>: RBN con il nominativo, Radio (CAT), <strong>Radio…</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Aspetto</strong>: colori del waterfall, luce e contrasto, colore del display; <strong>Lancetta</strong> (S-meter a lancetta, stile ambra), <strong>☀️ Chiaro</strong> (tema chiaro per il giorno: waterfall e display restano scuri), <strong>Piano</strong> (piano di banda sulla scala), <strong>📌 Memorie</strong> (memorie sul waterfall), <strong>Spettro</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Generali</strong>: «Cambio modo → memoria del modo» e quanti minuti tenere per «Salva ultimi».</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Spettro, piano di banda e memorie sul waterfall</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Spettro</strong>: la striscia fra waterfall e scala mostra il livello dei segnali in questo momento (azzurro) e i picchi degli ultimi secondi (oro), con le righe di VFO A e VFO B.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Piano di banda</strong>: la striscia colorata sul bordo della scala (IARU Regione 1, indicativo): viola CW, arancio digitali, verde fonia, rosso beacon, azzurro FM e ripetitori, ciano satelliti; anche la fetta di QO-100.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>📌 Memorie</strong>: le memorie del banco che cadono nella vista compaiono come segnalini dorati con il nome; un clic sul segnalino porta su quella memoria.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Larghezza della vista</strong>: ogni modo ricorda la sua; di base FM e AM 30 kHz, SSB e DIGI 6 kHz, CW e RTTY 3 kHz.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>⛶</strong> accanto alla larghezza: schermo intero (Esc per uscire), comodo su un secondo monitor o sul tablet.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Sensibilità</th><th>Effetto</th></tr></thead><tbody><tr><td>Alta</td><td>più nominativi deboli, ma più errori</td></tr><tr><td>Media</td><td>il punto di partenza consigliato</td></tr><tr><td>Bassa</td><td>solo segnali puliti</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Pannello radio</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Sotto i modi c'è il pannello «da radio», con un riquadro per ogni ricevitore e i suoi comandi accanto.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>SPLIT</strong> (nei modi Ricevitore, tasto S): acceso = VFO B attivo; spento = solo VFO A, come una radio senza split: il riquadro VFO B sparisce, la rotellina e il clic sul waterfall spostano VFO A e, con la radio collegata, lo split della radio si spegne.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Quando c'è <strong>un solo ricevitore acceso</strong> (split spento, oppure VFO A o VFO B muto) lo senti in tutte e due le orecchie.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>VFO A</strong> (bordo verde): la frequenza grande, il modo e il filtro, lo S-meter, <strong>🔊 VFO A</strong> (acceso = si sente, spento = muto, tasto M) e il suo <strong>VOL</strong>. <strong>Rotellina sulla frequenza</strong>: sposta il DX del <strong>Passo</strong> di VFO A (da 10 Hz a 1 kHz, uno per ogni modo Ricevitore: di base 100 Hz in SSB e DIGI, 50 Hz in CW e RTTY; vale anche per Ctrl + rotellina, frecce e rotellina con lo split spento; con Maiusc 10 Hz; il <strong>🔒 DX</strong> la blocca). <strong>Cifre come tasti</strong>: clic sulla metà alta di una cifra = +1 su quella cifra, sulla metà bassa = −1 (su 14.074, sopra lo 0 delle decine di kHz si va a 14.084); passando con il mouse la cifra si illumina e una barretta mostra la metà. <strong>Rotellina sopra una cifra</strong>: cambia quella cifra. <strong>Clic su «MHz»</strong> o un numero sulla tastiera (con il VFO selezionato): scrivi la frequenza in kHz (<code>14195</code>) o in MHz (<code>14.195</code>), Invio conferma, Esc annulla; la frequenza scritta sposta anche il centro. Vale anche per VFO B.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>VFO B</strong> (bordo azzurro, nei modi Ricevitore): frequenza, scostamento UP/DOWN dal DX, S-meter, <strong>🔊 VFO B</strong> (tasto R) e il suo <strong>VOL</strong>, il <strong>Passo</strong> della rotellina, <strong>VFO B = DX</strong> e, con la radio collegata, <strong>TX = VFO B</strong>. Rotellina e clic sulla frequenza come per VFO A.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Audio</strong>: <strong>Volume</strong> (accende l'audio nel PC), <strong>AF</strong> (volume generale), cuffia (DX a sinistra, a destra o insieme), <strong>🎧 Prova</strong> e i pulsanti di registrazione (<strong>💾 Salva ultimi</strong>, <strong>⏺ Registra</strong>, 📂).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ricevitore</strong>: AGC e RF, ATT e PRE, filtro (CW o SSB) e banda laterale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Nei modi Skimmer (Normale, DXpedition, Contest) il pannello sta su una riga sola, così il waterfall resta alto. Nei modi Ricevitore il pulsante <strong>▴</strong> lo riduce alle sole due frequenze (<strong>▾</strong> lo riapre): i tasti M e R e la rotellina funzionano lo stesso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>I due <strong>VOL</strong> (doppio clic = normale) dosano DX e VFO B ognuno per conto suo.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">DSP: NB, NR, NOTCH e colori del display</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel riquadro <strong>Ricevitore</strong>, riga <strong>DSP</strong>. NB e NR hanno tre livelli: ogni clic sale di uno (1, 2, 3, poi spento), il tasto destro li spegne.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>NB</strong> (noise blanker, tasto B): toglie gli impulsi (scariche, motori, recinti elettrici) prima del filtro, come il noise blanker delle radio. Più alto il livello, più impulsi deboli toglie.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>NR</strong> (riduzione del rumore, tasto N): abbassa il fruscio fra le parole e fra i segni CW. Livello 1 leggero, 3 forte (con il 3 la voce diventa un po' «metallica»). Vale per VFO A e VFO B e anche nei modi Skimmer.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>NOTCH</strong> (solo SSB): spegne da solo le portanti fisse (chi accorda, battimenti) che restano più di un secondo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>NB, NR e NOTCH restano memorizzati. L'NR aggiunge un ritardo fisso di 32 ms, anche spento, uguale per VFO A e VFO B.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Display</strong> (in ⚙ Impostazioni → Aspetto, con Colori, Luce e Contrasto): il colore del pannello radio, cioè frequenze, S-meter e cursori: notte, ambra, verde, blu o rosso.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Comandi da radio: AGC, RF, AF, ATT, PRE, filtro SSB</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>AGC</strong>: <strong>FAST</strong> per i pile-up e i segnali che vanno e vengono, <strong>MED</strong>, <strong>SLOW</strong> per un ascolto riposante (il predefinito), oppure <strong>OFF</strong>: guadagno fisso regolato con il cursore <strong>RF</strong> (abbassalo se i segnali forti distorcono).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>AF</strong>: il volume; doppio clic lo riporta al normale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>ATT</strong> 0/10/20/30 dB e <strong>PRE</strong> (preamplificatore): compaiono solo con il Perseus. Lo S-meter tiene conto dell'attenuatore e continua a leggere il segnale in antenna.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Filtro SSB</strong> da 1,8 a 3,3 kHz (solo in SSB): la banda passante parte sempre da 200 Hz.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">S-meter</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel pannello radio c'è lo <strong>S-meter del DX</strong> (VFO A); nei modi Ricevitore anche quello di <strong>VFO B</strong>. Misura il segnale nella banda passante dell'RX, come una radio: S9 = −73 dBm, 6 dB per unità S, poi S9+10 fino a S9+60. La barra sale subito e scende piano; il trattino bianco è il picco degli ultimi 2 secondi.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>A lancetta</strong>: in ⚙ Impostazioni → Aspetto il pulsante <strong>Lancetta</strong> lo trasforma in uno strumento ambra retroilluminato, come le radio classiche, con il puntino rosso del picco e sotto la lettura in S e dBm. La lancetta ha un po' d'inerzia: sale svelta e scende più piano.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Finché non è tarato, i dBm hanno il segno <strong>≈</strong> (valore indicativo).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Con la <strong>chiavetta RTL-SDR</strong> non tarata il riferimento è il rumore di fondo del canale, che vale circa S3 in VHF (−174 dBm/Hz più la larghezza del filtro e 6 dB di cifra di rumore): il livello dei suoi campioni cambia con il guadagno, quindi un valore fisso darebbe sempre S9++. Per letture vere tarala come gli altri ricevitori.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Clic sullo S-meter → <strong>Imposta</strong>: metti il DX su un segnale stabile e scegli quanto vale (es. S9).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Oppure con la radio (CAT, stessa frequenza del DX, segnale stabile come una portante o un broadcast), in due passi perché col relè d'antenna Perseus e radio non ricevono insieme: <strong>1 · Misura qui</strong> con il relè sul Perseus, poi spegni il relè (antenna alla radio) e <strong>2 · Leggi la radio</strong>. Con antenne separate o uno splitter premi i due pulsanti uno dopo l'altro.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La taratura si ricorda per ogni ricevitore (Perseus, ExtIO, scheda audio); <strong>Azzera</strong> la toglie.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"normale"} -->
+<h2 class="wp-block-heading" id="normale">Modo Normale (ascolto libero, skimmer CW)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il modo per ascoltare la banda come con CW Skimmer. Si sceglie con <strong>Normale</strong> in alto a sinistra.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>A destra si apre il pannello <strong>Testo decodificato</strong>: una riga per ogni segnale visibile nel waterfall, dal più alto al più basso, con la frequenza e il testo degli ultimi 3 minuti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Evidenziati: <strong>nominativi</strong> (riquadro; quelli sicuri bianchi su blu, quelli corretti dal programma con il <strong>?</strong>), <strong>CQ</strong> in verde, <strong>599/5NN/TU</strong> su fondo arancio.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Lo stesso evidenziamento vale anche nella colonna accanto al waterfall.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic su una riga</strong>: l'RX va su quel segnale (con <strong>Volume</strong> acceso lo senti).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le righe con un solo frammento senza nominativi sono nascoste; quelle ferme da più di un minuto sono attenuate.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il pulsante <strong>☰ Elenco</strong> mostra o nasconde il pannello. La ricerca dell'ascolto è spenta.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"dxpedition"} -->
+<h2 class="wp-block-heading" id="dxpedition">Modo DXpedition (pile-up in split)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>È il modo per cui FZR SDR è nato. Un esempio tipico: il relè della radio commuta in trasmissione, il Perseus riceve; l'audio resta fisso sul DX mentre tu scorri il waterfall per vedere dove chiama il pile-up e dove risponde la stazione lavorata.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Imposta il DX</strong>: <strong>Ctrl + clic</strong> sul suo segnale nel waterfall, oppure scrivi la frequenza in <strong>DX kHz</strong> (in kHz, es. <code>14025,5</code>, o in MHz, es. <code>145,5</code> o <code>7,074</code>; Invio: se è fuori dalla vista il ricevitore si sposta da solo; lo stesso vale per <strong>Centro kHz</strong>), oppure tasto destro → <em>Imposta il DX qui</em>. Per ritoccarlo: <strong>Ctrl + rotellina</strong> (50 Hz, con Maiusc 10 Hz) o le frecce sinistra/destra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Zona UP</strong>: dove cercare l'ascolto, in kHz sopra il DX. Se il DX dice "UP 1-5", scrivi 1 e 5. Serve anche a escludere FT8 e altri segnali digitali.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ascolto rilevato</strong>: dopo ogni 5NN del DX, il programma guarda chi risponde subito dopo e traccia una <strong>linea arancio</strong> su quella frequenza, con lo scostamento dal DX. Le ultime frequenze restano come pulsanti in <strong>Ascolti</strong>: un clic e il waterfall si centra lì.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se l'ascolto è fuori dalla vista, compare un pulsante arancio in alto o in basso nel waterfall: cliccalo per andarci.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Il rilevamento scatta solo quando il DX passa un 5NN che il programma riesce a decodificare. Molti DX non ripetono il proprio nominativo: è normale non vederlo nella riga DX.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"contest"} -->
+<h2 class="wp-block-heading" id="contest">Modo Contest (S&amp;P)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Con <strong>Modo → Contest</strong> si apre l'<strong>elenco stazioni</strong> e la ricerca dell'ascolto si spegne. L'elenco si apre e chiude anche a mano con <strong>☰ Elenco</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Le stazioni sono in ordine di frequenza, con nominativo, etichetta <strong>CQ</strong> se stanno chiamando CQ o TEST, frequenza, dB, velocità e da quanto sono state sentite.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Ci finiscono i nominativi <strong>confermati</strong> (decodificati uguali almeno due volte sullo stesso segnale, oppure subito dopo CQ/TEST) e gli spot RBN della banda ricevuta, in viola.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic su una riga</strong>: l'audio va su quella stazione e il waterfall si centra lì.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><em>[Immagine: il modo Contest con l'elenco stazioni]</em></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"ssb"} -->
+<h2 class="wp-block-heading" id="ssb">Modo SSB (pile-up in fonia)</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Per i pile-up feroci in fonia. Il primo ricevitore resta fermo sul DX; un secondo ricevitore, <strong>VFO B</strong>, si sposta velocissimo con la rotellina per trovare chi sta rispondendo. Si sceglie con <strong>SSB</strong> in alto a sinistra.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Audio in stereo</strong>: DX in un orecchio e VFO B nell'altro (menu <em>DX sinistra · VFO B destra</em>, il contrario, oppure <em>insieme</em>). Ognuno ha il suo <strong>VOL</strong> nel pannello radio, accanto al suo mute (doppio clic = normale).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Rotellina</strong> sul waterfall: VFO B sale o scende del <strong>Passo</strong> scelto, 100, 500 o 1000 Hz, agganciato alla griglia (14200.0, 14200.5…). <strong>Maiusc + rotellina</strong> scorre la vista, <strong>Ctrl + rotellina</strong> sposta il DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic</strong> su una voce nel waterfall: VFO B va lì, con la banda passante centrata dove clicchi. <strong>Ctrl + clic</strong> fa lo stesso con il DX. <strong>VFO B = DX</strong> riporta VFO B sul DX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Banda laterale <strong>Auto</strong> (LSB sotto i 10 MHz, USB sopra e sui 60 m, come d'uso) oppure fissa; filtro 2,7 kHz (200–2900 Hz) con fianchi ripidi, per non sentire i vicini.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Sul waterfall: banda passante del DX in verde, di VFO B in azzurro con lo scostamento (es. <em>VFO B +5.30</em>); nella colonna a destra le due frequenze e il passo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La frequenza del DX e di VFO B è quella della portante, come sulla radio. Lo scostamento di VFO B è memorizzato rispetto al DX: cambiando banda resta, per esempio, UP 5.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Memorie di banda per la fonia</strong>: passando in SSB il ricevitore va sul segmento fonia della stessa banda (40 m: centro 7150, DX 7140; 20 m: 14220 / 14195; 80 m: 3780 / 3790…), tornando in CW riprende le memorie CW. <strong>Salva memoria</strong> in SSB salva quella fonia. Il 30 m in SSB non compare.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ctrl + rotellina</strong> e <strong>Ctrl + clic</strong> spostano <strong>solo il DX</strong>: VFO B resta dov'è e cambia lo scostamento. Cambiando banda, invece, VFO B tiene lo scostamento (es. UP 5).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🔊 VFO A DX</strong> (tasto <strong>M</strong>) e <strong>🔊 VFO B</strong> (tasto <strong>R</strong>) funzionano allo stesso modo: acceso (illuminato) = si sente, spento (🔇) = muto. VFO B spento sparisce anche dal waterfall e si riaccende appena giri la rotellina.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🔒 DX</strong> (spento di base): se lo accendi, Ctrl + rotellina e frecce non spostano il DX per sbaglio; Ctrl + clic, tasto destro, frequenza scritta e pulsanti di banda sì.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🎧 Prova</strong>: una nota bassa nell'orecchio del DX e una alta in quello di VFO B. Se le senti tutte e due uguali, il problema è fuori dal programma: cuffia mono, scheda audio, mixer, oppure Windows con <em>Audio mono</em> acceso (Impostazioni → Accessibilità → Audio).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>In SSB la decodifica CW è spenta (meno lavoro per il PC). Il TX resta sulla radio: lo scostamento mostrato è quello da impostare in split.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"rx"} -->
+<h2 class="wp-block-heading" id="rx">Ricevitore: CW, RTTY, DIGI</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Oltre all'SSB, la riga <strong>Ricevitore</strong> ha <strong>CW</strong>, <strong>RTTY</strong> e <strong>DIGI</strong>: un ricevitore puro (in RTTY con lo skimmer FZRTTY, vedi sotto), con tutto quello dell'SSB (VFO A sul DX, VFO B con la rotellina, stereo, 🔊 VFO A / 🔊 VFO B, split che segue VFO B, S-meter) e memorie di banda proprie.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Modo</th><th>Frequenza</th><th>Banda passante</th><th>Memorie</th></tr></thead><tbody><tr><td><strong>CW</strong></td><td>quella del segnale, sentito a 600 Hz</td><td><strong>Filtro RX</strong> 100–800 Hz</td><td>le stesse dello skimmer CW</td></tr><tr><td><strong>SSB</strong></td><td>portante (come la radio)</td><td>2,7 kHz, USB o LSB</td><td>fonia: 7140, 14195…</td></tr><tr><td><strong>RTTY</strong> (skimmer FZRTTY a scelta; TX su QO-100)</td><td><strong>mark</strong> (come gli Icom), shift 170 Hz</td><td>600 Hz: mark 2125 Hz, space 2295 Hz</td><td>7040, 14083, 21083…</td></tr><tr><td><strong>DIGI</strong> (FT8, FT4, PSK…)</td><td>sintonia USB-D</td><td>100–3100 Hz</td><td>frequenze FT8: 7074, 14074, 21074…</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>La rotellina ha anche i passi da <strong>10</strong> e <strong>50 Hz</strong>, comodi in CW e RTTY.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Con la radio collegata (CAT) il modo della radio segue: CW, USB/LSB, RTTY, USB-D per il DIGI.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>DIGI con WSJT-X (o un altro programma digitale): in Windows (Impostazioni → Sistema → Audio → Mixer volume) manda l'audio di Edge («FZR SDR») su un cavo audio virtuale (es. VB-Cable) e in WSJT-X scegli quel cavo come ingresso. Cuffia <em>DX e VFO B insieme</em> e VFO B spento (🔇 VFO B).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"fzrtty"} -->
+<h2 class="wp-block-heading" id="fzrtty">RTTY: lo skimmer FZRTTY</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel modo <strong>RTTY</strong> lavora <strong>FZRTTY</strong>, uno skimmer RTTY multicanale pensato per i contest: trova da solo tutti i segnali RTTY che vedi nel waterfall e li decodifica tutti insieme, come fa lo skimmer CW.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p><strong>Skimmer RTTY acceso o spento</strong> (2.9): nella riga dei modi, solo in RTTY, c'è il pulsante <strong>Skimmer RTTY</strong>. <strong>Spento</strong> (di serie) il programma decodifica solo il VFO A: è quello che serve per un QSO normale e pesa poco sul computer, come l'SSB. <strong>Acceso</strong> cerca e decodifica tutti i segnali RTTY della banda (contest, ricerca stazioni), ma su un ricevitore largo (192 kHz, QO-100) chiede molto al processore: se la ricezione va a scatti, spegnilo. La scelta resta salvata.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>RTTY dei radioamatori: 45,45 baud, shift 170 Hz, Baudot con cambio lettere/cifre e «unshift on space». La frequenza di un segnale è il suo <strong>mark</strong> (la riga più alta), come sugli Icom.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il testo di ogni segnale compare accanto al waterfall, all'altezza del mark, con <strong>nominativi</strong>, <strong>CQ</strong> e <strong>599</strong> evidenziati; un «TOO» (599 con il cambio cifre perso) diventa 599.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>L'<strong>elenco stazioni</strong> si accende da solo: per ogni segnale il nominativo che ripete di più (non il tuo, che compare quando ti risponde), con frequenza e forza. Clic = VFO A su quella stazione.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La riga in basso mostra il testo del DX (VFO A); in cuffia hai VFO A e VFO B come negli altri modi, con mark a 2125 Hz e space a 2295 Hz: l'audio si può mandare anche a MMTTY con un cavo audio virtuale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Un segnale nuovo viene ridecodificato dagli ultimi 3 secondi, così non perdi il nominativo detto all'inizio. Le coppie di righe che non si alternano (portanti, due CW vicini) vengono scartate, e un canale che dà solo caratteri rotti sparisce da solo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Memorie RTTY: mark a 7040, 14083, 21083… con il centro 15 kHz sopra, così hai tutto il segmento RTTY nel waterfall. Con «Larghezza» 30 o Tutto vedi più stazioni insieme.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Funziona meglio con segnali almeno qualche dB sopra il rumore; i segnali al limite escono con qualche lettera sbagliata, come con qualunque decoder RTTY.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"vhf"} -->
+<h2 class="wp-block-heading" id="vhf">Chiavetta RTL-SDR, VHF/UHF, FM e AM</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR SDR funziona anche <strong>senza Perseus</strong>, con una chiavetta <strong>RTL-SDR</strong> da pochi euro (RTL-SDR Blog V3/V4, Nooelec e simili): da 24 MHz a 1,7 GHz, cioè 10 m, 6 m, 2 m, 70 cm e 23 cm, più aeronautica, nautica, PMR446, satelliti. Con il <em>direct sampling</em> delle V3/V4 anche le onde corte, ma con meno dinamica del Perseus.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Driver</strong>: la chiavetta vuole il driver WinUSB, quello che si installa con <strong>Zadig</strong> (lo stesso che serve a SDR#). Se SDR# o SDR++ la vedono già, è a posto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>rtl_tcp</strong>: FZR SDR parla con la chiavetta attraverso <code>rtl_tcp.exe</code>, che si trova nella sottocartella <code>rtl</code> del programma e parte da solo. Così si può usare anche una chiavetta collegata a un <strong>altro computer</strong> (un Raspberry vicino all'antenna, per esempio): lì si avvia <code>rtl_tcp -a 0.0.0.0</code> e in FZR SDR si scrive il suo indirizzo nella casella <strong>rtl_tcp</strong> (es. <code>192.168.1.50:1234</code>).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Primo avvio</strong>: se il Perseus non c'è ma c'è una chiavetta, FZR SDR parte da solo con la chiavetta, in FM sui 2 m. Altrimenti: in basso <strong>Ricevitore → RTL-SDR (chiavetta)</strong> (con ✓ se il PC la vede).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Impostazioni</strong> (<strong>⚙ Impostazioni</strong> → Ricevitore): <strong>Guadagno</strong> (Auto o a mano; se compaiono segnali fantasma abbassalo), <strong>HF</strong> (direct sampling per le onde corte con le V3/V4, ramo Q), <strong>Bias-T</strong> (alimenta un LNA o un upconverter dal cavo), <strong>AGC chip</strong>. Il menu Guadagno mostra i valori veri del tuner della chiavetta (R820T, E4000, FC0012/13). La chiavetta riceve 192 kHz alla volta; l'errore del quarzo si corregge con <strong>Calibra…</strong> su un ponte o un beacon (vedi <a href="#calibrazione">Calibrazione</a>) o scrivendolo in <strong>Correzione ppm</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Fluidità</strong>: rtl_tcp manda i dati a pacchetti; FZR SDR lavora a 1,92 MS/s (un pacchetto ogni 68 ms) e fa scorrere il waterfall a velocità costante. L'audio ha circa 0,3 s di ritardo, il prezzo per non avere buchi. Se il PC resta indietro più di 1,5 s il programma salta in avanti e torna in tempo reale.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Bande</strong>: i pulsanti diventano 10, 6, 2, 70cm, 23cm (con il direct sampling quelli delle onde corte). Ogni banda ricorda la sua memoria per ciascun modo, come in HF.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">ADALM-Pluto</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Al posto della chiavetta si può usare un <strong>ADALM-Pluto</strong> di Analog Devices: <strong>⚙ Impostazioni</strong> → <strong>Ricevitore → ADALM-Pluto</strong>. FZR SDR parla con il server che gira dentro il Pluto (iiod), quindi non serve installare libiio sul PC.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Via USB</strong>: installa il driver «PlutoSDR» di Analog Devices (vedi <a href="#download">Download</a>); con la USB il Pluto è anche una scheda di rete e risponde a <code>192.168.2.1</code>, l'indirizzo di base.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>In rete</strong> (LAN, con un adattatore Ethernet o dietro un altro PC): scrivi nella casella <strong>Indirizzo</strong> il suo IP o <code>pluto.local</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Guadagno</strong>: Auto (AGC del chip) oppure fisso da 0 a 70 dB.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Frequenze</strong>: con il firmware standard il chip (AD9363) va da 325 a 3800 MHz, cioè 70 cm e 23 cm. Per i 2 m (e i 6 m) serve il firmware «sbloccato» come AD9364: da 70 MHz a 6 GHz, e in pratica il ricevitore scende fino a 46,9 MHz, con meno sensibilità sotto i 70 MHz: dal terminale del Pluto <code>fw_setenv attr_name compatible</code>, <code>fw_setenv attr_val ad9364</code>, poi <code>reboot</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Waterfall largo</strong>: accanto al waterfall principale, lo spettro di tutta la banda ricevuta dal Pluto (288 kHz, 576 kHz, 1,15 o 1,7 MHz; si sceglie in <strong>Waterfall largo</strong> o con − e + / rotella). Con QO-100 si centra da solo su tutto il transponder (10489,5–10490 MHz, beacon compresi), come SDR Console; il riquadro bianco è la fetta che ascolti. Clic su un segnale = ci vai.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il Pluto lavora a 2,304 MS/s e FZR SDR ne tiene 192 kHz, come con la chiavetta. Il suo quarzo standard sbaglia di qualche decina di ppm (a 435 MHz anche 10 kHz): calibralo su un ponte con <strong>Calibra…</strong>. Con il TCXO montato l'errore è di 1 ppm o meno.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">SpyServer (ricevitori in rete)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>⚙ Impostazioni → Ricevitore → SpyServer (in rete)</strong> si collega a uno SpyServer di Airspy: un Airspy HF+, un Airspy R2/Mini o una chiavetta RTL-SDR condivisi in rete, anche dall'altra parte del mondo. Funziona come un ricevitore locale: skimmer CW, waterfall, VFO A/B, split, memorie, calibrazione; banda e frequenza spostano il ricevitore remoto.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>In <strong>Server</strong> scrivi o incolla l'indirizzo con la porta (es. <code>sdr.esempio.it:5555</code>; va bene anche il link <code>sdr://…</code>) e premi Invio. I server usati restano nell'elenco della casella (gli ultimi 12).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🌐 Trova server (elenco Airspy)</strong> apre l'elenco dei server pubblici sul sito di Airspy.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il programma riconosce il ricevitore e chiede la banda scelta; mostra solo le bande che quel ricevitore raggiunge. Il guadagno compare se il ricevitore ne ha e se nessun altro lo sta comandando: su un server condiviso, se lo comanda un altro, ci si sposta solo dentro la banda che sta ricevendo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Banda</strong> (48, 96 o 192 kHz) e <strong>Dati</strong> (8 o 16 bit) decidono quanti dati chiedi al server: 192 kHz a 16 bit sono circa 6 Mbit/s, 96 kHz a 8 bit 1,5 Mbit/s, 48 kHz a 8 bit meno di 1 Mbit/s. Se audio e waterfall vanno a singhiozzo il server non ce la fa: scendi di banda o passa a 8 bit. Accanto c'è la stima dei Mbit/s; nella barra di stato i campioni che arrivano davvero.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Da Internet i dati arrivano meno regolari: l'audio ha più riserva (circa 0,4 s, che cresce da sola se il buffer si svuota). Sui server pubblici ci sono spesso posti limitati e un tempo massimo: usali con garbo.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">KiwiSDR (ricevitori in rete)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>⚙ Impostazioni → Ricevitore → KiwiSDR (in rete)</strong> si collega a un KiwiSDR: i ricevitori da 0 a 30 MHz che tanti radioamatori mettono a disposizione in Internet. Il Kiwi dà a ogni utente una fetta di circa <strong>±5 kHz</strong> (12 kHz di IQ): il waterfall è stretto, ma skimmer CW, VFO A/B, split, SSB, AM, memorie e bande funzionano come con un ricevitore locale. Banda, memorie e frequenza scritta spostano la fetta; il DX resta un quinto sotto il centro, con spazio sopra per lo split.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>In <strong>Kiwi</strong> scrivi o incolla l'indirizzo con la porta (es. <code>kiwi.esempio.it:8073</code>; va bene anche il link copiato dalla barra del browser) e premi Invio. I Kiwi usati restano nell'elenco della casella (gli ultimi 12).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>🌐 Trova Kiwi (mappa)</strong> apre la mappa dei KiwiSDR pubblici (rx.linkfanel.net), <strong>🌐 Trova Kiwi (elenco)</strong> l'elenco sul sito KiwiSDR: apri quello che ti interessa e copia l'indirizzo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Waterfall largo</strong>: a sinistra compare il waterfall del Kiwi su 30–120 kHz (e più), con il riquadro della fetta ricevuta e la riga verde del DX. Clic su un segnale: la fetta e il DX vanno lì. <strong>−</strong>/<strong>+</strong> o la rotella cambiano la larghezza. Lì si vede il pile-up; decodifica e audio restano nella fetta.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Guadagno</strong>: Auto usa l'AGC del Kiwi; per lo skimmer un guadagno fisso (da 0 a 120 dB) tiene fermo il fondo quando passa un segnalone. <strong>Password</strong> solo per i Kiwi protetti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Ogni collegamento occupa un canale del Kiwi: se sono tutti occupati il programma lo dice. Molti Kiwi pubblici hanno un tempo massimo: usali con garbo.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">QO-100 e convertitori</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>In <strong>⚙ Impostazioni</strong> → <strong>Frequenza</strong>, <strong>Convertitore</strong> dice al programma cosa c'è davanti al ricevitore, così le frequenze mostrate, le memorie e le bande sono quelle vere.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>QO-100 (LNB 9750 MHz)</strong>: con il Pluto o la chiavetta dietro un LNB (10489,5 MHz → 739,5 MHz). Compare il pulsante di banda <strong>QO-100</strong>: negli skimmer (Normal, DXpedition, Contest) il centro va sulla <strong>fetta CW</strong> (10489,505–540) con il beacon basso in vista; in SSB sulla fonia (10489,650–990); in DIGI su 10489,540. Nel banco di memorie c'è il gruppo <strong>QO-100 (con LNB)</strong> con i tre beacon.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le frequenze si scrivono vere: <code>10489,525</code> (sono MHz) o <code>10489525</code> (kHz).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>L'LNB sbaglia</strong> (da pochi Hz con il riferimento GPS a decine di kHz senza): <strong>Calibra…</strong>, scrivi <code>10489.5</code> (beacon basso) e <strong>Misura</strong>. Con il convertitore la correzione va sull'oscillatore (<strong>LO MHz</strong>, al Hz), non sui ppm del ricevitore. Si può anche scrivere a mano in <strong>LO MHz</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Aggancio beacon</strong> (compare con il convertitore acceso): l'LNB scivola con la temperatura. Con la casella spuntata il programma ogni mezzo secondo cerca il beacon nella banda ricevuta (il CW basso 10489,500 negli skimmer, il PSK centrale 10489,750 in SSB) e corregge da solo l'oscillatore: le frequenze restano quelle vere e il VFO resta sulla stazione. Accanto si vede il beacon agganciato e di quanto si stava spostando; con ⚠ il beacon non c'è nella banda ricevuta o è troppo debole. All'inizio cerca entro ±40 kHz (un LNB comune sbaglia anche di 30 kHz), poi lo segue da vicino; in <strong>LO MHz</strong> si vede l'oscillatore vero dell'LNB, che resta salvato. Corregge risintonizzando il ricevitore di pochi Hz: centro, VFO, filtri e decodifica non si toccano, quindi niente buchi nell'audio.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Con il Pluto l'aggancio è prudente: segue l'LNB a piccoli passi (al massimo 25 Hz per volta), un salto grande deve confermarsi prima di essere preso e non scambia una stazione per il beacon. Se perde il beacon per qualche secondo rifà da solo la ricerca dei tre beacon su tutti i 2,3 MHz. Mentre trasmetti si ferma, e riprende 1,5 s dopo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>altro…</strong>: qualunque convertitore o transverter; scrivi l'oscillatore in MHz (negativo per un upconverter, es. <code>-125</code> per un upconverter da 125 MHz davanti alla chiavetta).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il convertitore è memorizzato per ciascun ricevitore; <strong>nessuno</strong> lo toglie.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">QO-100 in tre passi (Pluto)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Con l'ADALM-Pluto la preparazione per QO-100 è guidata: <strong>⚙ Impostazioni → Frequenza → 🛰 QO-100 in 3 passi</strong> (anche dal pulsante <strong>🛰 3 passi</strong> nella barra TX).</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>1 · Ricezione</strong>: <strong>Imposta</strong> mette il convertitore QO-100 (LNB 9750 MHz) e va sulla fetta CW con i beacon in vista.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>2 · Correggi l'LNB</strong>: <strong>Cerca i beacon</strong> cerca insieme i tre beacon (CW basso, PSK, CW alto: hanno distanze fisse) in tutti i 2,3 MHz del Pluto e dice di quanto sbaglia l'oscillatore dell'LNB, anche di centinaia di kHz. Confermi con <strong>Correggi e aggancia</strong> (c'è sempre, anche se l'errore è piccolo): da lì l'<strong>aggancio al beacon</strong> rifinisce al Hz e segue la deriva.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>3 · Allinea il TX</strong>: <strong>Accendi il TX</strong>, <strong>Punto libero</strong> porta il VFO A in un punto libero della fetta CW, poi <strong>Calibra TX</strong> misura da solo l'errore del quarzo del Pluto: manda «VVV VVV VVV» a 18 WPM e riconosce la tua eco dal ritmo del tasto, entro ±40 kHz, quindi non la confonde con le altre stazioni. Se con la correzione salvata non la trova (correzione sballata), riprova da zero. <strong>Azzera correzione</strong> riporta la correzione TX a 0. In alternativa <strong>Portante + Sincro</strong>: 8 s di portante e clicchi tu la tua eco sul waterfall.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Fatto questo trasmetti esattamente dove sta la riga del VFO A; <strong>Segui la mia eco</strong> tiene l'allineamento mentre il Pluto si scalda e lo <strong>XIT</strong> ti fa ritoccare a orecchio (vedi Sincro TX/RX).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Le due correzioni sono separate: la <strong>ricezione</strong> si corregge sull'oscillatore dell'LNB (beacon), la <strong>trasmissione</strong> sul quarzo del Pluto (Correzione TX). Prima la ricezione, poi la trasmissione.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Trasmettere in CW su QO-100 (Pluto)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Con il Pluto dietro l'LNB (convertitore <strong>QO-100</strong>) compare la barra rossa <strong>TX QO-100</strong>: il Pluto trasmette in CW sulla salita a 2400 MHz mentre ricevi la discesa a 10489 MHz, e il tuo segnale torna dal satellite sul waterfall (circa 0,27 s dopo), decodificato dallo skimmer come gli altri.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Serve un amplificatore con il filtro</strong>: il Pluto da solo dà pochi milliwatt e ha armoniche. Parti con <strong>PWR</strong> basso (−30 dB) e alza piano guardando il tuo segnale sulla discesa: non deve superare il beacon.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>⏻ TX</strong> abilita la trasmissione. La frequenza di salita <strong>segue il VFO A</strong> (il VFO B con SPLIT, vedi sotto): discesa − 8089,5 MHz più la correzione TX e lo XIT. Segue anche <strong>mentre trasmetti</strong>: se giri la manopola la salita si sposta con te. Fuori dal transponder o a meno di 4 kHz da un beacon il programma non trasmette, e se ci arrivi girando la manopola si ferma.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Clic su una stazione CW</strong>: il VFO A va <strong>sulla sua portante, al Hz</strong> (la cerca entro ±80 Hz dal clic). Nel log: «VFO A sulla stazione: … (−40 Hz dal clic)». Così trasmetti esattamente sulla sua frequenza.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>F1–F6</strong> (pulsanti o tasti) mandano le macro; nella casella scrivi un testo e premi Invio. <strong>■ STOP</strong> o <strong>Esc</strong> fermano subito. Velocità in <strong>WPM</strong>. Le macro si cambiano in ⚙ Impostazioni → Frequenza: <code>{CALL}</code> è il tuo nominativo, <code>{DX}</code> quello del corrispondente (vedi sotto), i prosegni si scrivono <code>&lt;SK&gt;</code>, <code>&lt;AR&gt;</code>, <code>&lt;KN&gt;</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Suo call</strong> (2.9.2): la casella nella barra TX, prima delle macro, contiene il nominativo del corrispondente e nelle macro prende il posto di <code>{DX}</code>. Per riempirla <strong>clicca il suo nominativo nella riga RX</strong> in basso (lampeggia in giallo), oppure scrivilo. Resta lì finché non lo cambi. Una macro con <code>{DX}</code> e la casella vuota non parte: il programma te lo dice.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Calibra TX</strong>: il quarzo del Pluto sbaglia di qualche ppm, cioè qualche kHz a 2,4 GHz. Metti il VFO A in un punto libero della fetta CW e premi: il programma manda «VVV VVV VVV», riconosce la tua eco sulla discesa dal ritmo del tasto e corregge da solo la salita. Poi il tuo segnale cade esattamente dove clicchi. Meglio con l'<strong>aggancio beacon</strong> acceso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Full duplex</strong> (acceso): mentre trasmetti continui ad ascoltare e senti il tuo segnale tornare dal satellite. Spento = semiduplex: l'audio è muto mentre trasmetti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Portante</strong>: 5 s di portante per regolare l'amplificatore. Se il tuo segnale non compare sulla discesa, prova <strong>Inverti I/Q</strong> (⚙ Impostazioni → Frequenza).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il CW usa il generatore di toni del Pluto (+500 kHz dall'oscillatore): portante residua e immagine cadono sotto 2400 MHz, fuori dal transponder. La manipolazione ha una rampa di pochi millisecondi (niente clic). L'oscillatore TX si accende solo mentre trasmetti.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Trasmettere in SSB su QO-100 (Pluto)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>In modo <strong>SSB</strong> la barra TX mostra <strong>🎤 PTT</strong> al posto delle macro CW: clic per trasmettere in USB dove sta il VFO A, clic (o <strong>Esc</strong>, o <strong>■ STOP</strong>) per tornare in ricezione. Il PTT si spegne da solo dopo 5 minuti. Se giri la manopola mentre parli, la salita segue il VFO.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p><strong>SPLIT</strong> (SSB, RTTY e gli altri modi del Ricevitore): con SPLIT acceso <strong>trasmetti sul VFO B</strong> e ascolti sul VFO A, come sulla radio. Se il DX dice «up 5», metti il VFO B 5 kHz sopra e accendi SPLIT. La frequenza di salita mostrata nella barra TX è sempre quella su cui trasmetti. I modi Normale, DXpedition e Contest sono gli skimmer CW: lì si trasmette sul VFO A.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>In ⚙ Impostazioni → Frequenza scegli il <strong>Microfono</strong> e regola <strong>Guadagno mic</strong>: parlando normale la barretta MIC deve arrivare nel giallo.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Processore</strong> (0–20 dB, 0 = spento): alza le parti deboli della voce e taglia le creste del segnale SSB già formato, come il processore a RF delle radio: più potenza media a parità di picco, con le spurie sotto −75 dB. Per l'uso normale 8–12 dB; spento per i modi digitali. Accanto alla barretta MIC si vede quanto lavora.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Equalizzatore</strong> a 5 bande (200, 400, 800, 1600, 2600 Hz, ±12 dB; doppio clic = 0) con tre preimpostazioni: <strong>Piatto</strong>, <strong>DX</strong> (meno bassi e più alti, buca il rumore) e <strong>Caldo</strong> (voce piena per le chiacchierate).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Prova voce (5 s)</strong>: registra cinque secondi dal microfono senza trasmettere e te li fa riascoltare; dice anche se il guadagno è troppo alto o troppo basso. <strong>▶ Originale</strong> e <strong>▶ Elaborato</strong> si possono riascoltare quante volte vuoi: ritocca processore ed equalizzatore e senti subito la differenza sulla stessa frase. Le regolazioni valgono subito, anche mentre trasmetti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La voce passa da un filtro 300–2700 Hz che fa da solo la banda laterale superiore; il segnale è a +500 kHz dall'oscillatore come il CW (portante residua e immagine fuori dal transponder) e le spurie stanno sotto −75 dB.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il Pluto riceve e trasmette insieme (2,3 milioni di campioni al secondo per verso): con <strong>Full duplex</strong> ti senti tornare dal satellite. Prima di usarla la prima volta fai <strong>Prova streaming</strong> (⚙ Impostazioni → Frequenza): deve dire REGGE.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Allineare TX e RX: Sincro TX/RX</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il tuo segnale deve tornare dal satellite esattamente sulla riga del VFO A. Il quarzo del Pluto sbaglia di qualche kHz a 2,4 GHz e si sposta quando si scalda: il programma lo corregge con la <strong>Correzione TX</strong> (⚙ Impostazioni → Frequenza), che vale per tutto il transponder. Prima allinea la ricezione con l'<strong>aggancio beacon</strong>, poi la trasmissione.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Sincro TX/RX</strong> (il più rapido): trasmetti (<strong>Portante</strong> o un messaggio CW), premi <strong>Sincro TX/RX</strong> (diventa «Clicca la tua eco…») e clicca sulla tua eco nel waterfall. Il clic non sintonizza: misura di quanto l'eco è fuori dalla riga e sposta la correzione di altrettanto. Nella barra di stato: «TX sincronizzato sulla tua eco: … Hz». Da lì cambi frequenza e resti allineato. Un clic a più di 20 kHz dalla riga non viene preso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Calibra TX</strong>: la stessa cosa in automatico, con una portante di 4 s (vedi sopra).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Segui la mia eco</strong> (acceso di serie): dopo ogni messaggio CW, dalle macro o dal paddle, il programma misura dove è tornata la tua eco e corregge da solo, al massimo 150 Hz per volta. La tua eco la riconosce <strong>dal ritmo del tuo tasto</strong>, non da quanto è forte: una stazione vicina più forte non lo inganna. Così segue il Pluto che si scalda.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>XIT</strong> (ritocco fine, deciso da te): i pulsanti <strong>−10 −1 XIT +1 +10</strong> nella barra TX spostano la tua trasmissione di pochi Hz; <strong>0</strong> la riporta a zero; con la rotellina sul valore 1 Hz (Maiusc 10 Hz). Vale subito, anche mentre trasmetti: in full duplex porti la tua eco esattamente sulla stazione. Lo XIT <strong>resta</strong> cambiando frequenza e non viene toccato da Sincro, Calibra o Segui la mia eco: è il tuo «un pelo più su» che il corrispondente non deve notare.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>La <strong>Correzione TX</strong> si può anche scrivere a mano (in Hz); <strong>Azzera correzione</strong> la riporta a 0.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Trasmettere in RTTY su QO-100 (Pluto)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Dalla 2.8 il programma <strong>trasmette RTTY da solo</strong>: niente MMTTY, niente cavo audio virtuale. Metti il modo <strong>RTTY</strong> e accendi <strong>⏻ TX</strong>: la barra TX ha le macro RTTY e la casella del testo.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>RTTY dei radioamatori: 45,45 baud, shift 170 Hz, Baudot con cambio lettere/cifre automatico, 1,5 bit di stop, fase continua e passaggi mark/space ammorbiditi (a 500 Hz dal mark il segnale è già 60 dB sotto: niente splatter).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Frequenza</strong>: il <strong>mark</strong> cade esattamente sul VFO A (sul VFO B con SPLIT), lo space 170 Hz sotto, come in FSK. Valgono la correzione TX e lo XIT.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>F1–F6</strong> mandano le macro; nella casella scrivi un testo e premi Invio. Puoi <strong>scrivere mentre trasmette</strong>: il testo va in coda e la trasmissione continua senza buchi. Il testo che esce si vede nella barra TX.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>PTT automatico: prima del testo circa un secondo di «diddle» (LTRS) per far agganciare chi riceve, alla fine due LTRS e torna in ricezione da solo. <strong>■ STOP</strong> o <strong>Esc</strong> fermano subito.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le <strong>macro RTTY</strong> sono una serie a parte da quelle CW (si modificano nella stessa finestra stando in RTTY). Di serie: <code>CQ CQ CQ DE {CALL} {CALL} {CALL} PSE K</code>, <code>{DX} DE {CALL} {CALL} K</code>, <code>{DX} TU 599 599 {CALL}</code>, <code>{DX} TU 73 DE {CALL} SK</code>, <code>QRZ? DE {CALL}</code>, <code>{DX} RR TU 73</code>. Le macro vanno a capo da sole all'inizio e alla fine.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Prendere il nominativo</strong> di chi ti risponde: clic sul suo call nella riga RX → va nella casella <strong>Suo call</strong> e da lì in <code>{DX}</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In <strong>Full duplex</strong> la riga RX mostra la tua eco decodificata: controlli da solo che il segnale esca giusto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Per i QSO tieni lo <strong>Skimmer RTTY spento</strong>: decodifica solo il VFO A e lascia il processore libero.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Come per il CW e l'SSB serve l'amplificatore con il filtro, e il PWR va tenuto basso: l'RTTY è una portante continua per tutto il messaggio, il finale lavora come in CW tenuto premuto.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Paddle su porta COM</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Puoi manipolare con il tuo <strong>paddle</strong> (o un tasto verticale) collegato al PC con un adattatore USB-seriale: il programma legge i due contatti, fa il keyer iambico e manipola il Pluto. Va bene anche l'<strong>HaliKey Serial</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"sizeSlug":"large","align":"center"} -->
+<figure class="wp-block-image aligncenter size-large"><img src="schema-paddle-usb.png" alt="Collegamento del paddle all'adattatore USB-seriale"/></figure>
+<!-- /wp:image -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Collegamento</strong>: punto (punta del jack) su <strong>CTS</strong>, linea (anello) su <strong>DSR</strong> o DCD. Con il cavo USB-seriale con <strong>DB9</strong> (RS-232): punto al pin 8, linea al pin 6, il comune al pin 4 (DTR) con una resistenza da 1 kΩ in serie; il comune <strong>non</strong> va a massa. Con una schedina <strong>TTL FT232RL</strong> il comune va a GND. Le schedine economiche a 6 piedini hanno solo CTS: serve quella con DSR.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In ⚙ Impostazioni → Frequenza, riquadro <strong>Paddle (porta COM)</strong>: scegli la <strong>Porta</strong> e il <strong>Modo</strong>: <strong>Iambico B</strong> (con le leve strette e poi lasciate aggiunge un segno), <strong>Iambico A</strong> (si ferma subito) o <strong>Tasto verticale</strong>. <strong>Velocità</strong> in WPM, la stessa delle macro. Se punto e linea sono scambiati: <strong>Inverti paddle</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Sidetone</strong>: la nota di controllo la fa la pagina, senza ritardo (l'eco del satellite torna dopo 0,27 s: manipolare ascoltando quella è impossibile). Nota e volume si regolano. Il browser fa partire l'audio solo dopo il primo clic sulla pagina.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Con <strong>⏻ TX</strong> acceso il paddle trasmette sulla salita del VFO A, con gli stessi controlli delle macro (transponder e beacon); quello che mandi compare decodificato nella barra TX. Con il TX spento, o con un altro ricevitore, suona solo il sidetone: <strong>ci si può esercitare</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il paddle ha la precedenza: se tocchi le leve mentre va una macro, la macro si ferma; mentre manipoli le macro non partono. Dopo l'ultimo segno l'oscillatore TX resta acceso 0,8 s, per le pause fra lettere e parole, poi si spegne.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se stacchi l'adattatore il programma lo dice e riprova ad aprire la porta ogni 10 s.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Prima prova</strong>: TX spento, solo sidetone. Se punti e linee escono giusti, il cavo è a posto.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">FM e AM</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Nei modi <strong>Ricevitore</strong> ci sono <strong>FM</strong> (banda stretta: ripetitori, simplex, PMR, nautica, satelliti) e <strong>AM</strong> (aeronautica, 10 m). Funzionano con tutti i ricevitori, anche in HF (FM sui 10 m).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>VFO A e VFO B, SPLIT, mute, volumi, NB e NR funzionano come in SSB: per esempio VFO A sull'uscita del ripetitore e VFO B sull'ingresso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Filtro</strong> da 6 a 25 kHz (FM 12 kHz per i canali da 12,5 kHz, 16 o 25 kHz per quelli larghi; AM 8 kHz).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>SQL</strong> (squelch): chiude l'audio quando sul canale c'è solo rumore; 0 = sempre aperto, più a destra = serve un segnale più forte (doppio clic = 0). La spia <strong>SQ</strong> accanto a VFO A e VFO B si accende quando il canale è aperto.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Passo</strong> dei canali: 5, 6,25, 8,33 (aeronautica), 12,5 e 25 kHz, per VFO A e VFO B.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Lo <strong>S-meter</strong> sopra i 30 MHz usa la scala VHF (S9 = −93 dBm).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"qo100"} -->
+<h2 class="wp-block-heading" id="qo100">Guida QO-100 con il Pluto, dall'LNB al QSO</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Tutto il percorso, nell'ordine giusto: la stazione, la prima configurazione (una volta sola), quello che si fa a ogni accensione e come tenere TX e RX allineati durante la giornata. I dettagli dei singoli comandi sono nei capitoli QO-100 qui sopra.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">1 · La stazione</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Ricezione</strong>: parabola con <strong>LNB</strong> (oscillatore 9750 MHz). La discesa 10489,5–10490 MHz esce a 739,5–740 MHz e va all'ingresso RX del Pluto. L'LNB vuole l'alimentazione sul coassiale (bias-T, 12–18 V). Un LNB con riferimento esterno (PLL, GPSDO) sbaglia di pochi Hz; uno comune di decine di kHz e scivola con la temperatura: il programma corregge tutti e due.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Trasmissione</strong>: uscita TX del Pluto (2400 MHz, pochi mW) → <strong>filtro</strong> → <strong>amplificatore</strong> → illuminatore in banda S. Il filtro serve: il Pluto da solo ha armoniche e spurie.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Il quarzo del Pluto</strong> sbaglia di qualche ppm (qualche kHz a 2,4 GHz) e si sposta quando si scalda. Un Pluto con TCXO o riferimento esterno è molto più stabile, ma il programma corregge comunque (Calibra TX, Segui la mia eco).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Collegamento al PC</strong>: via USB (driver «PlutoSDR» di Analog Devices, indirizzo <code>192.168.2.1</code>) o in rete (scrivi il suo indirizzo). Con la rete la ricezione è più regolare.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">2 · Prima configurazione (una volta sola)</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>In basso scegli <strong>ADALM-Pluto</strong> come ricevitore e scrivi il suo indirizzo. Campionamento <strong>192 kHz</strong> (il Pluto lavora a 2,304 MS/s e il programma riduce): con un PC lento 96 kHz.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>⚙ Impostazioni → Frequenza → <strong>🛰 QO-100 in 3 passi</strong> → <strong>1 · Ricezione</strong> → <strong>Imposta</strong>: mette il convertitore QO-100 (LNB 9750 MHz) e va sulla fetta CW con i beacon in vista.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>2 · Correggi l'LNB</strong> → <strong>Cerca i beacon</strong>: trova i tre beacon (10489,500 CW, 10489,750 PSK, 10490,000 CW) in tutti i 2,3 MHz del Pluto e misura l'errore dell'LNB, anche di centinaia di kHz. <strong>Correggi e aggancia</strong>: da qui le frequenze sul waterfall sono quelle vere e l'<strong>aggancio beacon</strong> segue la deriva. In basso compare «🔒 10489.500 · +0 Hz».</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Prova streaming</strong> (⚙ Impostazioni → Frequenza): deve dire <strong>REGGE</strong>. Serve per SSB e RTTY, dove il Pluto riceve e trasmette insieme. Se non regge: rete invece di USB, o campionamento più basso.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Scegli il <strong>Microfono</strong> e regola il guadagno (SSB), imposta le <strong>macro</strong> CW e RTTY con il tuo nominativo (<code>{CALL}</code> è quello dell'RBN, in ⚙ Impostazioni).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>PWR</strong> basso (−30 dB) per cominciare. <strong>⏻ TX</strong>, poi <strong>Portante</strong> (5 s): il tuo segnale deve comparire sulla discesa dopo circa 0,27 s. Alza PWR finché sei <strong>sotto il beacon</strong>, mai sopra. Se la portante non compare da nessuna parte, prova <strong>Inverti I/Q</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>3 · Allinea il TX</strong> → <strong>Punto libero</strong> → <strong>Calibra TX</strong>: manda «VVV VVV VVV», riconosce la tua eco e corregge la salita (Correzione TX). Il risultato resta salvato.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">3 · A ogni accensione</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Avvia FZR SDR e aspetta che compaia <strong>🔒</strong> accanto al beacon: l'LNB è agganciato. Se dopo un minuto c'è ⚠, rifai il passo 2 (Cerca i beacon).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Lascia scaldare il Pluto <strong>10–15 minuti</strong> (anche solo in ricezione, con ⏻ TX acceso): il suo quarzo si sposta soprattutto all'inizio.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Vai in un punto libero della fetta CW e premi <strong>Calibra TX</strong>. Da qui trasmetti dove sta la riga del VFO A (o del VFO B con SPLIT).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Tieni acceso <strong>Segui la mia eco</strong>: dopo ogni messaggio CW corregge da solo i piccoli spostamenti del Pluto.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">4 · Durante la giornata: tenere allineato il TX</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Controllo veloce</strong>, con Full duplex acceso: manda un messaggio (in CW «VVV» o la tua macro) e guarda la tua eco sul waterfall. Deve stare sulla riga del VFO A. In RTTY guarda che la riga RX decodifichi il tuo testo; in SSB ascoltati.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ogni ora circa</strong>, o quando cambia molto la temperatura (sole sul Pluto, stanza che si scalda), o se l'eco è fuori di più di 20–30 Hz: <strong>Calibra TX</strong> in un punto libero. Bastano pochi secondi.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>In SSB e RTTY Segui la mia eco non lavora (serve il ritmo del tasto CW): ogni tanto un <strong>Calibra TX</strong>, o <strong>Sincro TX/RX</strong> cliccando la tua eco.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ritocco fine</strong>: se il corrispondente ti dice che sei un pelo fuori, usa lo <strong>XIT</strong> (±1 Hz). Lo XIT resta cambiando frequenza e non viene toccato dalle calibrazioni.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Per lavorare una stazione</strong>: in CW clic sulla sua traccia (il VFO A va sulla portante al Hz), in SSB e RTTY sintonizza il VFO A su di lui; poi clic sul suo nominativo nella riga RX per metterlo in <strong>Suo call</strong> e usa le macro con <code>{DX}</code>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se l'<strong>aggancio beacon</strong> mostra ⚠ (beacon perso, LNB che salta), il programma rifà da solo la ricerca dei tre beacon; se non basta, ripeti il passo 2.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Cosa</th><th>Quando</th><th>Comando</th></tr></thead><tbody><tr><td>LNB (ricezione)</td><td>la prima volta, o se l'aggancio non trova il beacon</td><td>3 passi → Cerca i beacon → Correggi e aggancia</td></tr><tr><td>Deriva dell'LNB</td><td>sempre, da solo</td><td>Aggancio beacon 🔒</td></tr><tr><td>Quarzo del Pluto (trasmissione)</td><td>a ogni accensione dopo 10–15 min, poi ogni ora circa</td><td>Calibra TX (punto libero)</td></tr><tr><td>Piccoli spostamenti in CW</td><td>dopo ogni messaggio, da solo</td><td>Segui la mia eco</td></tr><tr><td>Ritocco a orecchio</td><td>quando serve</td><td>XIT ±1 / ±10 Hz</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2,"anchor":"memorie"} -->
+<h2 class="wp-block-heading" id="memorie">Banco di memorie</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il pulsante <strong>📒 Memorie</strong> (accanto a «Salva memoria», tasto K) apre il banco di memorie: frequenze con un nome, il modo e un gruppo, per tutti i ricevitori e tutti i modi (anche HF: un DX, una rete, una frequenza di contest).</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Clic su una memoria</strong>: FZR SDR va su quella frequenza, nel suo modo, con il suo filtro (e squelch in FM/AM); il centro si sposta sempre, con la memoria un quinto di banda sotto il centro (a 192 kHz 38 kHz), lontana dal picco centrale e con spazio sopra per lo split. Il pannello resta aperto, così si passa da una memoria all'altra.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>＋ Salva qui</strong>: salva la frequenza di VFO A con il modo e le impostazioni attuali; scrivi il nome e il gruppo (quelli che hai già si scelgono dall'elenco).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>✎</strong> modifica nome, gruppo, frequenza e modo; <strong>🗑</strong> cancella (secondo clic per confermare).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Cerca</strong> per nome o frequenza, e filtra per <strong>gruppo</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Al primo uso il banco ha già 354 memorie, divise per gruppo: <strong>radioamatori</strong> 10 m, 6 m, 2 m, 70 cm e 23 cm (chiamate CW, SSB, FM e FT8, APRS, ISS voce, APRS e ripetitore), <strong>ripetitori 2 m</strong> R0–R7 e R0x–R7x (uscita), <strong>ripetitori 70 cm</strong> nelle tre griglie usate in Italia (uscita 430,0125–430,400 e 431,2125–431,600 con shift +1,6 MHz, 430,500–431,100 con +5 MHz, 438,650–439,425 IARU con −7,6 MHz), <strong>PMR446</strong> 1–16, <strong>LPD</strong> 1–69, <strong>aeronautica</strong> (121,5 emergenza, 123,45 aria-aria, 243,0 emergenza militare), <strong>aeroporti del Nord-Ovest</strong> (Malpensa, Linate, Milano Radar e Milano Informazioni, Caselle, Aosta AFIS, 123,1 soccorso: ATIS, TWR, GND e APP; le frequenze degli aeroporti ogni tanto cambiano, si correggono con ✎), <strong>nautica</strong> (canali 16, 6, 9, 13, 70 DSC e AIS), <strong>QO-100</strong> (beacon, fetta CW, FT8, fonia: con il convertitore). <strong>Preset</strong> rimette quelli che hai cancellato; aggiornando il programma arrivano da soli quelli nuovi, le tue memorie non si toccano. <strong>Onde corte</strong> (dalla 2.9.6): beacon NCDXF/IARU, FT8 da 160 a 10 m, frequenze di emergenza IARU, QRP CW e SSB, SSTV, segnali orari (DCF77, CHU, RWM, WWV), Shannon VOLMET; in QO-100 anche la frequenza di emergenza 10489,860.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Se una memoria è fuori dalla portata del ricevitore in uso (per esempio 145,5 MHz con il Perseus) il programma lo dice e resta dov'è.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Le memorie stanno in <code>fzrsdr.json</code> insieme alle altre impostazioni.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Importare i ponti (IK2ANE) e i canali di CHIRP</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel banco di memorie il pulsante <strong>📥 Importa ponti…</strong> apre un elenco preso dal PC.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Elenco ponti di IK2ANE</strong>: scarica <code>pontixls.xls</code> da <a href="https://www.ik2ane.it/ham.htm" target="_blank" rel="noopener">ik2ane.it</a> («DOWNLOAD PONTI.xls») e sceglilo. Si importano <strong>per regione e provincia</strong> (spuntando la regione si prendono tutte le sue province) oppure <strong>entro N km dal tuo locatore</strong>, solo le <strong>bande</strong> che vuoi (2 m e 70 cm di base) e, se vuoi, anche i ponti solo digitali (DMR, C4FM, D-STAR: qui non si decodificano, restano come promemoria). L'anteprima dice quanti ponti entrano e in quali gruppi.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Ogni ponte diventa una memoria FM sulla frequenza d'uscita, nel gruppo <strong>Ponti &lt;provincia&gt;</strong> (es. «Ponti BI»), con nome, nominativo e località; sotto, in piccolo, shift, tono CTCSS, sistema, locatore e gestore: quello che serve per trasmettere con la radio.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Reimportando il file aggiornato i ponti dei gruppi scelti si aggiornano; le tue memorie non si toccano. L'elenco è © Walter De Vercelli IK2ANE, gratuito per uso privato dei radioamatori citando l'autore.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>CSV di CHIRP</strong>: i canali che hai programmato nei portatili (FM, AM, SSB, CW) entrano in un gruppo con il nome del file.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Il <strong>🗑</strong> accanto al nome di un gruppo lo cancella tutto (secondo clic per confermare).</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"nominativi"} -->
+<h2 class="wp-block-heading" id="nominativi">Nominativi e decodifica</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Il decoder segue ogni segnale CW sulla sua frequenza esatta, misura da solo la velocità e ignora i disturbi brevi. Per rendere più sicuri i nominativi usa tre aiuti, in quest'ordine:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Reverse Beacon Network</strong>: se il nominativo decodificato coincide con uno spottato lì vicino, è sicuro.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ripetizione</strong>: chi chiama ripete il proprio call. Quando lo stesso nominativo esce due volte sullo stesso segnale diventa confermato, e le letture storpiate di quel segnale (una lettera sbagliata, l'inizio perso) vengono mostrate corrette con il <strong>?</strong>, anche quelle arrivate prima.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Elenco nominativi</strong>: se nella cartella c'è <code>MASTER.SCP</code> (Super Check Partial, da supercheckpartial.com o dalla cartella di N1MM), <code>MASTER.DTA</code> (CW Skimmer) oppure <code>callsign.dat</code> / <code>nominativi.txt</code> con un nominativo per riga, i call presenti vengono evidenziati e quelli che differiscono di una sola lettera vengono suggeriti con il <strong>?</strong>.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Le parole attaccate per uno spazio troppo corto (<code>CQCQDE</code>, <code>DL1ABCTEST</code>, <code>TU5NN203</code>) vengono separate da sole.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"rbn"} -->
+<h2 class="wp-block-heading" id="rbn">Reverse Beacon Network</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Pulsante <strong>RBN</strong> (accanto a Elenco) o casella <strong>RBN</strong> in <strong>⚙ Impostazioni</strong> → Rete e radio: accende e spegne il collegamento a telnet.reversebeacon.net, solo CW. Si usa il nominativo della registrazione; se non sei registrato compare il campo <strong>Nominativo</strong>.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pulsante <strong>Spot</strong>: mostra o nasconde le etichette sul waterfall. Gli spot compaiono in viola sul <strong>bordo sinistro</strong>, sulla loro frequenza, con i dB; sbiadiscono con il tempo e spariscono dopo 15 minuti.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>L'RBN spotta chi chiama CQ: il DX e le stazioni in contest, quasi mai i chiamanti di un pile-up.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"registrare"} -->
+<h2 class="wp-block-heading" id="registrare">Registrare e riascoltare</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Nel riquadro <strong>Audio</strong> del pannello radio (nei modi Skimmer in forma compatta: 💾 m:ss e ● REC):</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>💾 Salva ultimi m:ss</strong>: FZR SDR tiene sempre in memoria gli ultimi minuti ricevuti; il pulsante li scrive su disco senza fermare il ricevitore. Comodo per controllare con calma se il DX ti ha messo a log. Quanti minuti tenere si sceglie in basso alla voce <strong>Memoria</strong> (spenta, 1, 2, 5, 10 minuti; a 96 kHz servono circa 23 MB di RAM al minuto).</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>⏺ Registra</strong>: registra su disco da quel momento finché non lo premi di nuovo (circa 35 MB al minuto a 96 kHz). Cambiando banda il file si chiude e ne parte un altro.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>📂</strong>: apre la cartella <code>registrazioni</code>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>I file sono WAV IQ a 24 bit, con centro e DX scritti dentro e nel nome (es. <code>FZR_20261017_121500Z_18085.000kHz_DX18080.00.wav</code>); si aprono anche con HDSDR, SDR Console e CW Skimmer.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Per riascoltare</strong>: <strong>Ricevitore → Registrazione (WAV)</strong>. Il Perseus si ferma e compare la barra di riproduzione: ▶/⏸ (anche la barra spaziatrice), <strong>−15 s</strong>, cursore della posizione, elenco delle registrazioni e <strong>Sfoglia…</strong> per aprire qualsiasi WAV IQ. Waterfall, decodifica e ricerca dell'ascolto funzionano come dal vivo. Per le registrazioni di CW Skimmer, che non salvano la frequenza, scrivila in <strong>Centro kHz</strong>: viene ricordata per quel file. <strong>Torna al ricevitore</strong> riaccende il Perseus.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"anchor":"tastiera"} -->
+<h2 class="wp-block-heading" id="tastiera">Mouse e tastiera</h2>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Comando</th><th>Effetto</th></tr></thead><tbody><tr><td>Rotellina / trascinamento</td><td>scorre il waterfall (l'audio resta sul DX)</td></tr><tr><td>Ctrl + clic</td><td>DX esattamente lì (passo 10 Hz)</td></tr><tr><td>Ctrl + rotellina</td><td>sposta il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Tasto destro (o pressione lunga sul tablet)</td><td>menu: Imposta il DX qui, Segnaposto qui / Togli questo segnaposto, Togli tutti i segnaposti, Centra la vista qui</td></tr><tr><td>PagSu / PagGiù</td><td>±5 kHz</td></tr><tr><td>Frecce su / giù</td><td>scorrono la vista</td></tr><tr><td>Frecce sinistra / destra</td><td>spostano il DX di 50 Hz (con Maiusc 10 Hz)</td></tr><tr><td>Home</td><td>torna al DX</td></tr><tr><td>S</td><td>SPLIT acceso / spento (modi Ricevitore)</td></tr><tr><td>B / N</td><td>NB / NR: livello successivo</td></tr><tr><td>K</td><td>apre / chiude il banco di memorie</td></tr><tr><td>Barra spaziatrice</td><td>pausa / riprendi nella riproduzione</td></tr><tr><td>Doppio clic su Luce o Contrasto</td><td>valore iniziale</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2,"anchor":"tablet"} -->
+<h2 class="wp-block-heading" id="tablet">Uso dal tablet</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>FZR SDR si può guardare anche da un tablet o un telefono collegati alla rete di casa: apri nel browser l'indirizzo scritto in <code>fzrsdr.log</code>, del tipo <code>http://192.168.x.x:8073</code>. Dal tablet chiudere il browser non spegne nulla: per spegnere usa <strong>Esci</strong>. Chiudendo invece la finestra sul PC si spegne tutto.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:quote -->
+<blockquote class="wp-block-quote"><!-- wp:paragraph -->
+<p>Non aprire la porta 8073 verso Internet: l'interfaccia non ha password. Per usarlo da fuori casa passa dalla VPN.</p>
+<!-- /wp:paragraph --></blockquote>
+<!-- /wp:quote -->
+
+<!-- wp:heading {"level":2,"anchor":"problemi"} -->
+<h2 class="wp-block-heading" id="problemi">Problemi e soluzioni</h2>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Problema</th><th>Cosa fare</th></tr></thead><tbody><tr><td>Il ricevitore non parte</td><td>Chiudi CW Skimmer, HDSDR e il software Perseus; premi <strong>Riavvia ricevitore</strong>. Controlla in Gestione attività che non ci sia un altro FZR SDR acceso.</td></tr><tr><td>ExtIO: «Nessun plugin ExtIO trovato» o «impossibile caricare il plugin»</td><td>Installa il plugin <strong>a 32 bit</strong> per HDSDR del ricevitore e il suo driver, poi <strong>Plugin → Sfoglia…</strong>. Chiudi HDSDR: il ricevitore lo usa un programma per volta.</td></tr><tr><td>I segnali sono un po' fuori frequenza (es. i nominativi dell'RBN non coincidono)</td><td>Calibra il ricevitore: <a href="#calibrazione">Calibrazione della frequenza</a>.</td></tr><tr><td>Stazioni specchiate rispetto al centro</td><td>Spunta <strong>Inverti I/Q</strong>.</td></tr><tr><td>Chiavetta RTL: in FM vedo la portante ma non sento niente</td><td>La chiavetta è fuori frequenza: <strong>Calibra…</strong> su un ponte (vedi <a href="#calibrazione">Calibrazione</a>).</td></tr><tr><td>QO-100: le stazioni sono spostate (es. l'FT8 non è a 10489,540)</td><td>L'LNB non è a 9750,000 MHz esatti: spunta <strong>Aggancio beacon</strong> con il beacon in vista, oppure <strong>Calibra…</strong> su <code>10489.5</code>.</td></tr><tr><td>Waterfall lento e audio a scatti (soprattutto in DXpedition e Contest)</td><td>La pagina disegna al massimo 30 volte al secondo e si limita da sola; se va ancora a scatti, controlla che nella finestra di Edge la grafica sia accelerata: <code>edge://gpu</code>, alla voce «Canvas» deve esserci «Hardware accelerated».</td></tr><tr><td>Chiavetta RTL a scatti</td><td>Guarda in <code>fzrsdr.log</code> la riga che si ripete ogni 3 s: «dati» sotto 192 k = la chiavetta o la USB non tengono il passo (prova un'altra porta USB, senza hub); «calcolo» vicino al 100% = il PC non ce la fa; «rtl_tcp in coda» = il programma resta indietro.</td></tr><tr><td>Nessun audio</td><td>Premi <strong>Volume</strong>: il browser accende l'audio solo dopo un clic.</td></tr><tr><td>Troppa decodifica sbagliata</td><td>Sensibilità <strong>Media</strong> o <strong>Bassa</strong>; restringi il <strong>Filtro RX</strong>.</td></tr><tr><td>Waterfall troppo scuro o chiaro</td><td>Cursori <strong>Luce</strong> e <strong>Contrasto</strong>, o un'altra tavolozza in <strong>Colori</strong>.</td></tr><tr><td>In Gestione attività ci sono due FZRSDR.exe</td><td>È normale: l'exe "a file unico" è composto da due processi. Alla chiusura spariscono tutti e due entro pochi secondi.</td></tr><tr><td>"Persi" che cresce nel log</td><td>Il PC non tiene il passo: scegli un campionamento più basso (48 kHz).</td></tr><tr><td>In RTTY la ricezione va a scatti</td><td>Lo skimmer RTTY su tutta la banda pesa troppo (nel log «calcolo» sopra il 90% e «coda» che cresce): spegni <strong>Skimmer RTTY</strong>, decodifichi solo il VFO A.</td></tr><tr><td>Premo una macro RTTY e non trasmette</td><td>Controlla che ⏻ TX sia acceso e che il VFO sia dentro il transponder. Nel log c'è una riga «TX RTTY: richiesta …» per ogni F1 o Invio, e sotto il motivo se non è partito. Se la macro contiene <code>{DX}</code>, riempi prima la casella <strong>Suo call</strong>.</td></tr><tr><td>Il log dice «FZR Skimmer 1.83»</td><td>Stai avviando l'exe vecchio. Cancella <code>FZRSkimmer.exe</code> e l'icona «FZR Skimmer», poi rifai il setup di FZR SDR.</td></tr><tr><td>La mia eco CW è un po' sotto o sopra la stazione</td><td>Prima <strong>Calibra TX</strong>, poi ritocca con lo <strong>XIT</strong> (±1 Hz): resta anche cambiando frequenza.</td></tr><tr><td>Il paddle non fa nulla</td><td>In ⚙ Impostazioni → Frequenza, riquadro Paddle, sotto c'è l'errore della porta. Con il cavo DB9 il comune va su DTR, non a massa; con la schedina TTL va a massa. Prova con il TX spento: deve suonare il sidetone (clicca prima una volta sulla pagina).</td></tr><tr><td>Qualcos'altro</td><td>Guarda <code>fzrsdr.log</code> nella cartella del programma e mandamelo.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:separator -->
+<hr class="wp-block-separator has-alpha-channel-opacity"/>
+<!-- /wp:separator -->
+
+<!-- wp:paragraph -->
+<p><em>FZR SDR è un programma di IW1FZR. Il Perseus è un prodotto <a href="https://www.microtelecom.it/en/perseus-22" target="_blank" rel="noopener">Microtelecom</a>; i suoi file (perseususb.dll, .sbs) non sono distribuiti con FZR SDR e vanno presi dal sito del produttore.</em></p>
+<!-- /wp:paragraph -->
