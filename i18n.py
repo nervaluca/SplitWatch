@@ -162,6 +162,8 @@ _EN = [
     (r'Macro con \{DX\}: manca il nominativo del corrispondente \(clic sul suo nominativo nella riga RX\)',
      'Macro with {DX}: the other station\'s call is missing (click its call in the RX line)'),
     (r"Recuperate dall'installazione precedente \((.*)\): (.*)", r'Recovered from the previous installation (\1): \2'),
+    (r"LNB già vicino \(entro ±([\d.]+) kHz\): l'aggancio al beacon lo rifinisce al Hz", r'LNB already close (within ±\1 kHz): the beacon lock fine-tunes it to the Hz'),
+    (r"QO-100: LNB entro ±([\d.]+) kHz \(([-+\d]+) Hz misurati sulla banda larga\): non lo sposto, l'aggancio al beacon lo rifinisce al Hz", r'QO-100: LNB within ±\1 kHz (\2 Hz measured on the wide band): not moved, the beacon lock fine-tunes it to the Hz'),
     (r'TX RTTY: aspetta la fine della trasmissione', 'TX RTTY: wait for the current transmission to end'),
     (r'TX RTTY: 5 minuti di PTT, spento per sicurezza', 'TX RTTY: 5 minutes of PTT, switched off for safety'),
     (r'TX RTTY: mark ([\d.]+) MHz, space 170 Hz sotto', r'TX RTTY: mark \1 MHz, space 170 Hz below'),

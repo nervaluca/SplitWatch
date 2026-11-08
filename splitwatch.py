@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '2.9.7'
+VERSION = '2.9.8'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -223,6 +223,7 @@ BANDS = {  # banda: (limite basso, limite alto, centro predefinito, DX predefini
 }
 CONV_QO100 = 9750000000          # oscillatore dell'LNB standard: 10489,5 MHz → 739,5 MHz
 QO100_BEACONS = (10489500000, 10489750000, 10490000000)   # CW basso, PSK 400 al centro, CW alto
+QO_FINE = 1200.0                 # errore LNB sotto cui la ricerca larga non sposta: rifinisce l'aggancio fine
 HF_BANDS = ('160', '80', '60', '40', '30', '20', '17', '15', '12', '10')
 VHF_BANDS = ('6', '2', '70', '23')
 
@@ -712,7 +713,7 @@ class Hub:
             self.relock()
             return
         # agganciato: cerco vicino; all'inizio fino a ±40 kHz (un LNB comune sbaglia anche di 30 kHz)
-        win = 1000.0 if self.lk_ok else 40000.0
+        win = 1500.0 if self.lk_ok else 40000.0
         dec = 2 if win <= 20000 else 1                          # al quadrato la riga va a 2×: serve banda
         n = len(x) // 2 * 2
         t = np.arange(n) / self.fs
@@ -727,7 +728,10 @@ class Hub:
         snr = 10 * math.log10(sp[k] / (float(np.median(sp[idx])) + 1e-30))
         if snr < (18 if self.lk_ok else 22):                    # il rumore da solo arriva a ~10 dB
             self.lk_miss = getattr(self, 'lk_miss', 0) + 1
-            if self.lk_ok and self.lk_miss < 4:                 # un attimo senza beacon (manipolato, QSB): tengo l'aggancio
+            # beacon che non si vede per un po' (il CW basso manda il suo identificativo, QSB, eco forte vicina):
+            # tengo l'aggancio fermo fino a 30 s. Perderlo vuol dire rifare la ricerca larga, che sbaglia di qualche
+            # centinaio di Hz (punti da 281 Hz) e faceva saltare la ricezione avanti e indietro
+            if self.lk_ok and self.lk_miss < 60:
                 return
             self.lk_ok = False
             self.lk_pend = None
@@ -780,7 +784,8 @@ class Hub:
             try:
                 delta, snr, seen = self.beacon_measure()
                 self.qo_delta = delta
-                log(f'Aggancio beacon: ricerca dei tre beacon, LNB fuori di {delta:+.0f} Hz')
+                log(f'Aggancio beacon: ricerca dei tre beacon, LNB fuori di {delta:+.0f} Hz'
+                    + (' (dentro la finestra fine: non sposto, rifinisce l\'aggancio)' if abs(delta) < QO_FINE else ''))
                 self.qo_apply(quiet=True)
             except Exception as e:
                 self._lock_msg(False, None, str(e))
@@ -872,15 +877,20 @@ class Hub:
             return
         cv = self.conv()
         k = 1 + self.ppm() * 1e-6
-        self.cfg.setdefault('conv', {})[self.src_kind] = round(cv - delta)
+        fine = abs(delta) < QO_FINE
+        # la ricerca larga ha punti da 281 Hz e sbaglia di qualche centinaio di Hz: un errore piccolo non lo applico,
+        # lo misura al Hz l'aggancio fine (finestra ±1,5 kHz). Così la ricezione non salta avanti e indietro.
+        if not fine:
+            self.cfg.setdefault('conv', {})[self.src_kind] = round(cv - delta)
         self.cfg['beacon_lock'] = True
         save_cfg(self.cfg)
-        hw = self.hw_center + delta / k
-        self.hw_center = hw
-        try:
-            self.src.set_lo(hw, notify=False)
-        except TypeError:
-            self.src.set_lo(hw)
+        if not fine:
+            hw = self.hw_center + delta / k
+            self.hw_center = hw
+            try:
+                self.src.set_lo(hw, notify=False)
+            except TypeError:
+                self.src.set_lo(hw)
         self.lk_ok = True                      # entro qualche decina di Hz: si rifinisce con la finestra stretta
         self.lk_miss = 0
         self.lk_pend = None
@@ -890,8 +900,13 @@ class Hub:
         if quiet:
             self.post_json(self.cfg_msg())
             return
-        log(f'QO-100: LNB corretto di {delta:+.0f} Hz, oscillatore {self.conv()/1e6:.6f} MHz, aggancio beacon acceso')
-        self.on_status(f'LNB corretto di {delta/1000:+.3f} kHz: oscillatore {self.conv()/1e6:.6f} MHz, aggancio al beacon acceso')
+        if fine:
+            log(f'QO-100: LNB entro ±{QO_FINE/1000:.1f} kHz ({delta:+.0f} Hz misurati sulla banda larga): '
+                f'non lo sposto, l\'aggancio al beacon lo rifinisce al Hz')
+            self.on_status(f'LNB già vicino (entro ±{QO_FINE/1000:.1f} kHz): l\'aggancio al beacon lo rifinisce al Hz')
+        else:
+            log(f'QO-100: LNB corretto di {delta:+.0f} Hz, oscillatore {self.conv()/1e6:.6f} MHz, aggancio beacon acceso')
+            self.on_status(f'LNB corretto di {delta/1000:+.3f} kHz: oscillatore {self.conv()/1e6:.6f} MHz, aggancio al beacon acceso')
         self.post_json({'type': 'qo', 'step': 'apply', 'ok': True, 'conv': self.conv()})
         self.post_json(self.cfg_msg())
 
