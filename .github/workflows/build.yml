@@ -24,7 +24,24 @@ jobs:
       - name: Dipendenze
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller==6.10.0 pillow==10.4.0
+          pip install -r requirements.txt pillow==10.4.0
+
+      # PyInstaller con il "bootloader" (il piccolo programma che avvia FZRSDR.exe) compilato qui, non quello
+      # già pronto: quello già pronto è lo stesso di migliaia di programmi, anche di virus veri, e Windows
+      # Defender lo segnala come trojan (Wacatac, Bearfoos …!ml: falsi positivi). Compilato da noi è diverso.
+      - name: PyInstaller con bootloader compilato qui
+        run: |
+          git clone --depth 1 --branch v6.10.0 https://github.com/pyinstaller/pyinstaller.git pyi_src
+          cd pyi_src\bootloader
+          python ./waf distclean all --target-arch=32bit
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cd ..
+          Get-ChildItem PyInstaller\bootloader\Windows-32bit-intel | Format-Table Name, Length, LastWriteTime -AutoSize | Out-String | Write-Host
+          pip install .
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cd ..
+          python -c "import PyInstaller, os; d=os.path.join(os.path.dirname(PyInstaller.__file__),'bootloader','Windows-32bit-intel'); print(PyInstaller.__version__, sorted(os.listdir(d)))"
+        shell: pwsh
 
       - name: Logo e icona
         run: |
