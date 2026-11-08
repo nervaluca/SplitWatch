@@ -808,8 +808,8 @@
       <li><strong>altro…</strong>: qualunque convertitore o transverter; scrivi l'oscillatore in MHz (negativo per un upconverter, es. <code>-125</code> per un upconverter da 125 MHz davanti alla chiavetta).</li>
       <li>Il convertitore è memorizzato per ciascun ricevitore; <strong>nessuno</strong> lo toglie.</li>
     </ul>
-    <h3>QO-100 in tre passi (Pluto)</h3>
-    <p>Con l'ADALM-Pluto la preparazione per QO-100 è guidata: <strong>⚙ Impostazioni → Frequenza → 🛰 QO-100 in 3 passi</strong> (anche dal pulsante <strong>🛰 3 passi</strong> nella barra TX).</p>
+    <h3>QO-100: configurazione guidata e parametri (Pluto)</h3>
+    <p>Con l'ADALM-Pluto la preparazione per QO-100 è guidata: <strong>⚙ Impostazioni → Frequenza → 🛰 QO-100</strong> (anche dal pulsante <strong>🛰 QO-100</strong> nella barra TX). La finestra ha due schede: <strong>Configurazione guidata</strong>, i tre passi qui sotto, e <strong>Parametri</strong>, con tutte le impostazioni di QO-100 in una pagina (oscillatore dell'LNB, aggancio al beacon, TX, PWR, correzione TX, XIT, Segui la mia eco, full duplex, Inverti I/Q, velocità CW, microfono e processore SSB, skimmer RTTY). Se l'LNB è già impostato si apre direttamente sui Parametri.</p>
     <ul>
       <li><strong>1 · Ricezione</strong>: <strong>Imposta</strong> mette il convertitore QO-100 (LNB 9750 MHz) e va sulla fetta CW con i beacon in vista.</li>
       <li><strong>2 · Correggi l'LNB</strong>: <strong>Cerca i beacon</strong> cerca insieme i tre beacon (CW basso, PSK, CW alto: hanno distanze fisse) in tutti i 2,3 MHz del Pluto e dice di quanto sbaglia l'oscillatore dell'LNB, anche di centinaia di kHz. Confermi con <strong>Correggi e aggancia</strong> (c'è sempre, anche se l'errore è piccolo): da lì l'<strong>aggancio al beacon</strong> rifinisce al Hz e segue la deriva.</li>
@@ -899,7 +899,7 @@
     <h3>2 · Prima configurazione (una volta sola)</h3>
     <ul>
       <li>In basso scegli <strong>ADALM-Pluto</strong> come ricevitore e scrivi il suo indirizzo. Campionamento <strong>192 kHz</strong> (il Pluto lavora a 2,304 MS/s e il programma riduce): con un PC lento 96 kHz.</li>
-      <li>⚙ Impostazioni → Frequenza → <strong>🛰 QO-100 in 3 passi</strong> → <strong>1 · Ricezione</strong> → <strong>Imposta</strong>: mette il convertitore QO-100 (LNB 9750 MHz) e va sulla fetta CW con i beacon in vista.</li>
+      <li>⚙ Impostazioni → Frequenza → <strong>🛰 QO-100</strong> → <strong>Configurazione guidata</strong> → <strong>1 · Ricezione</strong> → <strong>Imposta</strong>: mette il convertitore QO-100 (LNB 9750 MHz) e va sulla fetta CW con i beacon in vista.</li>
       <li><strong>2 · Correggi l'LNB</strong> → <strong>Cerca i beacon</strong>: trova i tre beacon (10489,500 CW, 10489,750 PSK, 10490,000 CW) in tutti i 2,3 MHz del Pluto e misura l'errore dell'LNB, anche di centinaia di kHz. <strong>Correggi e aggancia</strong>: da qui le frequenze sul waterfall sono quelle vere e l'<strong>aggancio beacon</strong> segue la deriva. In basso compare «🔒 10489.500 · +0 Hz».</li>
       <li><strong>Prova streaming</strong> (⚙ Impostazioni → Frequenza): deve dire <strong>REGGE</strong>. Serve per SSB e RTTY, dove il Pluto riceve e trasmette insieme. Se non regge: rete invece di USB, o campionamento più basso.</li>
       <li>Scegli il <strong>Microfono</strong> e regola il guadagno (SSB), imposta le <strong>macro</strong> CW e RTTY con il tuo nominativo (<code>{CALL}</code> è quello dell'RBN, in ⚙ Impostazioni).</li>
@@ -1471,8 +1471,8 @@
       <li><strong>other…</strong>: any converter or transverter; type the oscillator in MHz (negative for an upconverter, e.g. <code>-125</code> for a 125 MHz upconverter in front of the dongle).</li>
       <li>The converter is stored per receiver; <strong>none</strong> removes it.</li>
     </ul>
-    <h3>QO-100 in three steps (Pluto)</h3>
-    <p>With the ADALM-Pluto the QO-100 setup is guided: <strong>⚙ Settings → Frequency → 🛰 QO-100 in 3 steps</strong> (also from the <strong>🛰 3 steps</strong> button in the TX bar).</p>
+    <h3>QO-100: guided setup and settings (Pluto)</h3>
+    <p>With the ADALM-Pluto the QO-100 setup is guided: <strong>⚙ Settings → Frequency → 🛰 QO-100</strong> (also from the <strong>🛰 QO-100</strong> button in the TX bar). The window has two tabs: <strong>Guided setup</strong>, the three steps below, and <strong>Settings</strong>, with every QO-100 setting on one page (LNB oscillator, beacon lock, TX, PWR, TX correction, XIT, Track my echo, full duplex, Swap I/Q, CW speed, SSB microphone and processor, RTTY skimmer). If the LNB is already set up it opens straight on Settings.</p>
     <ul>
       <li><strong>1 · Reception</strong>: <strong>Set up</strong> sets the QO-100 converter (LNB 9750 MHz) and goes to the CW slice with the beacons in view.</li>
       <li><strong>2 · Correct the LNB</strong>: <strong>Find the beacons</strong> looks for the three beacons together (lower CW, PSK, upper CW: their spacing is fixed) across the Pluto's whole 2.3 MHz and tells you how far off the LNB oscillator is, even by hundreds of kHz. Confirm with <strong>Correct and lock</strong> (always shown, even when the error is small): from then on the <strong>beacon lock</strong> refines to the Hz and follows the drift.</li>
@@ -1562,7 +1562,7 @@
     <h3>2 · First setup (once only)</h3>
     <ul>
       <li>At the bottom choose <strong>ADALM-Pluto</strong> as receiver and type its address. Sample rate <strong>192 kHz</strong> (the Pluto runs at 2.304 MS/s and the program decimates); on a slow PC 96 kHz.</li>
-      <li>⚙ Settings → Frequency → <strong>🛰 QO-100 in 3 steps</strong> → <strong>1 · Receive</strong> → <strong>Set up</strong>: sets the QO-100 converter (LNB 9750 MHz) and goes to the CW slice with the beacons in view.</li>
+      <li>⚙ Settings → Frequency → <strong>🛰 QO-100</strong> → <strong>Guided setup</strong> → <strong>1 · Receive</strong> → <strong>Set up</strong>: sets the QO-100 converter (LNB 9750 MHz) and goes to the CW slice with the beacons in view.</li>
       <li><strong>2 · Correct the LNB</strong> → <strong>Find the beacons</strong>: finds the three beacons (10489.500 CW, 10489.750 PSK, 10490.000 CW) across the Pluto's whole 2.3 MHz and measures the LNB error, even hundreds of kHz. <strong>Correct and lock</strong>: from here the frequencies on the waterfall are the real ones and the <strong>beacon lock</strong> follows the drift. At the bottom «🔒 10489.500 · +0 Hz» appears.</li>
       <li><strong>Streaming test</strong> (⚙ Settings → Frequency): it must say <strong>OK</strong>. It is needed for SSB and RTTY, where the Pluto receives and transmits together. If it fails: network instead of USB, or a lower sample rate.</li>
       <li>Pick the <strong>Microphone</strong> and set the gain (SSB), set up the CW and RTTY <strong>macros</strong> with your callsign (<code>{CALL}</code> is the RBN one, in ⚙ Settings).</li>
