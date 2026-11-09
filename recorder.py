@@ -28,7 +28,11 @@ def _systemtime(t):
 
 
 def _auxi(t0, t1, center, fs):
-    d = _systemtime(t0) + _systemtime(t1) + struct.pack('<IIIII', int(round(center)), int(fs), 0, 0, 0) + b'\0' * 16
+    # il blocco 'auxi' (HDSDR) ha la frequenza su 32 bit: arriva a 4,29 GHz. Sopra (QO-100, 10 GHz) scrivo 0;
+    # la frequenza vera resta nel blocco 'fzrx' e nel nome del file, ed è quella che FZR SDR rilegge.
+    c = int(round(center or 0))
+    c = c if 0 <= c < 2 ** 32 else 0
+    d = _systemtime(t0) + _systemtime(t1) + struct.pack('<IIIII', c, int(fs), 0, 0, 0) + b'\0' * 16
     return b'auxi' + struct.pack('<I', len(d)) + d
 
 
