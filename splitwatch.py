@@ -71,7 +71,7 @@ import ponti
 
 TX_HUB = None
 NET_KINDS = ('rtl', 'pluto', 'spyserver', 'kiwi')   # ricevitori a pacchetti (chiavetta, Pluto, in rete)
-VERSION = '3.1.2'
+VERSION = '3.2'
 APP = 'FZR SDR'
 TRIAL_S = 30 * 60                                  # prova senza registrazione: 30 minuti per avvio
 URL_RICHIESTA_CHIAVE = 'https://www.iw1fzr.it/?p=38#registrazione'
@@ -400,6 +400,7 @@ class Hub:
         self.tx_connecting = False
         self.ssbtx = None                      # PTT in SSB (flusso dal microfono)
         self.digi = None                       # ponte con WSJT-X/JTDX (modo DIGI)
+        self.wcat = None                       # CAT per WSJT-X (Hamlib NET rigctl)
         self.digi_key = None
         self.digi_t = 0.0
         self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
@@ -2352,6 +2353,9 @@ class Hub:
                 self.ssbtx.stop()
 
     def on_ssb_end(self):
+        if getattr(self, 'digi_t0', 0):
+            log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s')
+            self.digi_t0 = 0
         self.on_tx_ptt(False)
         self.post_json({'type': 'tx', 'ptt': False, 'busy': False})
         if self.digi is not None:
@@ -2402,6 +2406,9 @@ class Hub:
                 self.ssbtx.stop()
             self.digi.stop()
             self.digi = None
+            if self.wcat is not None:
+                self.wcat.stop()
+                self.wcat = None
             log('Ponte WSJT-X spento')
         self.digi_key = key
         if key is None:
@@ -2435,6 +2442,18 @@ class Hub:
             return
         self.digi = b
         log(f'Ponte WSJT-X acceso: RX → {d["out"] or "—"}, TX ← {d["in"] or "—"}')
+        # CAT per WSJT-X (Hamlib NET rigctl): frequenza vera e PTT
+        try:
+            import catsrv
+            port = int(d.get('cat_port', 4533) or 4533)
+            self.wcat = catsrv.RigctlServer(port, lambda: float(self.dx_abs or 0), self.cat_set_freq,
+                                           self.cat_get_ptt, self.cat_set_ptt, log=log)
+            self.wcat.start()
+            log(f'CAT per WSJT-X su 127.0.0.1:{port} (Hamlib NET rigctl)')
+        except Exception as e:
+            self.wcat = None
+            log(f'CAT per WSJT-X: {e}')
+            self.on_status(f'Ponte WSJT-X: CAT non disponibile ({e})')
         self.on_status('Ponte WSJT-X acceso')
 
     WSJTX_NAME = 'FZRSDR'                  # istanza dedicata: impostazioni sue, quelle solite di WSJT-X non si toccano
@@ -2519,9 +2538,43 @@ class Hub:
             return
         tx = self.ssbtx is not None and self.ssbtx.alive and isinstance(self.ssbtx.gen, txmod.DigiTx)
         self.post_json({'type': 'digi_st', 'run': True, 'out': b.ost is not None, 'inp': b.ist is not None,
+                        'cat': self.wcat.clients if self.wcat is not None else -1,
+                        'cat_port': self.wcat.port if self.wcat is not None else None,
                         'rx_db': db(b.rx_level), 'tx_db': db(b.level), 'rx_n': b.rx_n, 'under': b.under, 'tx': tx})
 
-    def digi_vox(self, on, pre):
+    def cat_set_freq(self, hz):
+        """WSJT-X cambia frequenza (cambio banda, frequenza scelta): sposto il VFO A se il ricevitore ci arriva."""
+        hz = float(hz)
+        if abs(hz - float(self.dx_abs or 0)) < 1:
+            return
+        if not self.band_reach(hz):
+            log(f'CAT: WSJT-X chiede {hz/1e6:.6f} MHz, fuori da questo ricevitore: resto dove sono')
+            return
+        self.cmd_q.put(('dx', hz, 'band'))
+        if self.tunable() and self.fs and self.center and abs(hz - self.center) > self.fs * 0.42:
+            self.tune(hz + self.fs * 0.2)
+
+    def cat_get_ptt(self):
+        st = self.ssbtx
+        return bool(st is not None and st.alive and isinstance(st.gen, txmod.DigiTx))
+
+    def cat_set_ptt(self, on):
+        """PTT da WSJT-X via CAT: parte subito e si ferma quando WSJT-X lo toglie (non aspetta il silenzio)."""
+        b = self.digi
+        if not on:
+            st = self.ssbtx
+            if st is not None and st.alive and isinstance(st.gen, txmod.DigiTx):
+                st.gen.done = True
+            return
+        if b is None or b.iq is None:
+            self.on_status('Ponte WSJT-X: PTT da WSJT-X ma manca il cavo «Audio TX ← WSJT-X»')
+            return
+        if self.cat_get_ptt():
+            return
+        b.tx_busy = True
+        self.digi_vox(True, [], cat=True)
+
+    def digi_vox(self, on, pre, cat=False):
         """WSJT-X ha cominciato a mandare audio: trasmetto col Pluto (USB, portante sulla sintonia)."""
         b = self.digi
         if b is None:
@@ -2541,12 +2594,45 @@ class Hub:
             self.on_status('Ponte WSJT-X: frequenza fuori dal transponder o vicino a un beacon')
             b.tx_ended()
             return
-        g = txmod.DigiTx(b.iq, pre, gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20))
+        import math
+        lv = 20 * math.log10(max(b.level, 1e-9))
+        g = txmod.DigiTx(b.iq, pre, gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20),
+                         hang=600.0 if cat else 0.4)          # col CAT si ferma quando WSJT-X toglie il PTT
         st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
         self.ssbtx = st
+        self.digi_t0 = time.time()
         self.on_tx_ptt(True)
         st.start(up, gen=g)
-        log(f'TX DIGI (WSJT-X): sintonia {up/1e6:.6f} MHz')
+        log(f'TX DIGI (WSJT-X): sintonia {up/1e6:.6f} MHz, audio da WSJT-X {lv:.0f} dB')
+
+    def digi_test(self):
+        """Prova del TX senza WSJT-X: 5 s di tono a 1500 Hz per la stessa strada dell'audio di WSJT-X.
+        Sul waterfall (full duplex) la tua eco deve comparire 1500 Hz sopra il VFO A."""
+        import numpy as np
+        st = self.ssbtx
+        if st is not None and st.alive:
+            self.on_status('Prova TX DIGI: sta già trasmettendo')
+            return
+        if not self.tx or not self.keyer:
+            self.on_status('Prova TX DIGI: accendi ⏻ TX')
+            return
+        up = self.tx_up()
+        if up is None or not txmod.up_ok(up + 3000) or not txmod.up_ok(up):
+            self.on_status('Prova TX DIGI: frequenza fuori dal transponder o vicino a un beacon')
+            return
+        q = queue.Queue()
+        t = np.arange(8000 * 5) / 8000.0
+        a = (0.3 * np.sin(2 * np.pi * 1500 * t)).astype(np.float32)
+        for i in range(0, len(a), 80):
+            q.put(a[i:i + 80])
+        g = txmod.DigiTx(q, [], gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20), hang=0.2)
+        st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
+        self.ssbtx = st
+        self.digi_t0 = time.time()
+        self.on_tx_ptt(True)
+        st.start(up, gen=g)
+        log(f'Prova TX DIGI: tono 1500 Hz per 5 s, sintonia {up/1e6:.6f} MHz')
+        self.on_status(f'Prova TX DIGI: 5 s di tono, la tua eco a {(self.tx_dx() + 1500)/1e6:.6f} MHz')
 
     def on_tx_level(self, mic_db, comp_db):
         self.post_json({'type': 'tx', 'ptt': True, 'busy': True, 'mic': round(mic_db, 1), 'comp': round(comp_db, 1)})
@@ -3526,6 +3612,8 @@ class Hub:
                         self.digi_key = ('?',)              # dispositivi cambiati: riavvio il ponte
                     self.digi_sync()
                     self.post_json(self.cfg_msg())
+                elif k == 'digi_test':
+                    self.digi_test()
                 elif k == 'wsjtx_start':
                     self.wsjtx_start()
                 elif k == 'digi_auto':
