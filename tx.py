@@ -82,6 +82,7 @@ class PlutoTx:
         self.on_status = on_status
         self.sock = self.f = None
         self.lock = threading.Lock()
+        self.slock = threading.Lock()     # un solo flusso di campioni alla volta (SSB, RTTY, DIGI)
         self.phy = self.dds = None
         self.dch = {}                 # nome del tono del DDS (TX1_I_F1…) → id del canale (altvoltage0…)
         self.fq = float(DDS_F)        # frequenza vera del DDS (risoluzione ~35 Hz): letta dal Pluto
@@ -874,30 +875,51 @@ class SsbTx:
         s = ms = None
         f = None
         gen = self.gen
-        what = 'RTTY' if gen is not None else 'SSB'
+        what = ('DIGI' if isinstance(gen, DigiTx) else 'RTTY') if gen is not None else 'SSB'
+        lk = getattr(tx, 'slock', None)
+        held = False
+        nbuf = 0
         try:
+            # la trasmissione di prima deve aver finito di rimettere a posto il Pluto (DDS per il CW,
+            # oscillatore spento): se no il suo «finally» mi spegne questa appena partita
+            if lk is not None:
+                held = lk.acquire(timeout=3.0)
+                if not held:
+                    raise RuntimeError('la trasmissione precedente non ha ancora liberato il Pluto')
             if gen is None:
                 ms, mq = open_mic(mic)
             tx.set_freq_off(f_up - self.audio_off, SSB_OFF)
             tx.lo_on(True)
-            s = socket.create_connection((tx.host, tx.PORT), timeout=5)
-            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            f = s.makefile('rb')
-
-            def rint():
-                while True:
-                    b = f.readline()
-                    if not b:
-                        raise OSError('il Pluto ha chiuso il flusso TX')
-                    t = b.decode('ascii', 'replace').strip()
-                    if t:
-                        return int(t)
             words = (getattr(tx, 'tx_nch', 2) + 31) // 32
             mask = ''.join(f'{(getattr(tx, "tx_mask", 3) >> (32 * w)) & 0xFFFFFFFF:08x}' for w in reversed(range(words)))
-            s.sendall(f'SET {tx.dds} BUFFERS_COUNT 8\r\n'.encode('ascii'))   # 128 ms di riserva nel Pluto
-            rint()
-            s.sendall(f'OPEN {tx.dds} {SSB_N} {mask}\r\n'.encode('ascii'))
-            if rint() < 0:
+            for prova in range(3):                     # il Pluto a volte non ha ancora chiuso il flusso di prima
+                s = socket.create_connection((tx.host, tx.PORT), timeout=5)
+                s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                f = s.makefile('rb')
+
+                def rint():
+                    while True:
+                        b = f.readline()
+                        if not b:
+                            raise OSError('il Pluto ha chiuso il flusso TX')
+                        t = b.decode('ascii', 'replace').strip()
+                        if t:
+                            return int(t)
+                s.sendall(f'SET {tx.dds} BUFFERS_COUNT 8\r\n'.encode('ascii'))   # 128 ms di riserva nel Pluto
+                rint()
+                s.sendall(f'OPEN {tx.dds} {SSB_N} {mask}\r\n'.encode('ascii'))
+                r = rint()
+                if r >= 0:
+                    break
+                if self.on_stats:
+                    self.on_stats(f'TX {what}: il Pluto non apre il flusso (errore {r}), riprovo')
+                try:
+                    s.close()
+                except OSError:
+                    pass
+                s = None
+                time.sleep(0.3)
+            if s is None:
                 raise RuntimeError('il Pluto non apre il flusso TX')
             buf = np.zeros(0, np.float32)
             need = SSB_N // 288
@@ -913,6 +935,7 @@ class SsbTx:
                     s.sendall(f'WRITEBUF {tx.dds} {len(data)}\r\n'.encode('ascii') + data)
                     if rint() < 0:
                         raise RuntimeError('errore scrivendo i campioni')
+                    nbuf += 1
                     if not keyed:
                         tx.key(True)
                         keyed = True
@@ -981,6 +1004,10 @@ class SsbTx:
                 tx._write(tx.dds, tx.dch['TX1_I_F1'], 'raw', 1)
             except Exception:
                 pass
+            if gen is not None and self.on_stats:
+                self.on_stats(f'TX {what}: {nbuf} blocchi mandati al Pluto ({nbuf * SSB_N / 2304000:.1f} s)')
+            if held:
+                lk.release()
             if self.on_end:
                 self.on_end()
 
@@ -994,7 +1021,7 @@ class DigiTx:
 
     mark = 0.0
 
-    def __init__(self, q, pre=(), gain=1.0, thr=0.004, hang=0.4):
+    def __init__(self, q, pre=(), gain=1.0, thr=0.0015, hang=0.4):
         import numpy as np
         self.q, self.gain, self.thr, self.hang = q, float(gain), float(thr), float(hang)
         self.h = _ssb_bp()
@@ -1003,23 +1030,37 @@ class DigiTx:
         self.quiet = 0.0
         self.done = False
         self.ending = False
+        self.level = 0.0                     # RMS dell'audio che arriva da WSJT-X (per la finestra e il log)
+        self.peak = 0.0
+        self.ag = None                       # livello automatico: FT8/FT4 sono a inviluppo costante
+        self.sent = 0.0                      # secondi di audio con segnale mandati al Pluto
 
     def read(self, n):
         import numpy as np
         while len(self.buf) < n and not self.done:
             try:
-                x = self.q.get(timeout=0.2)
+                x = self.q.get(timeout=max(0.005, (n - len(self.buf)) / 8000.0))
             except queue.Empty:
-                x = np.zeros(n, np.float32)              # WSJT-X ha smesso: conta come silenzio
+                # niente audio per il tempo di un blocco: silenzio subito, così il Pluto non resta senza campioni
+                x = np.zeros(n - len(self.buf), np.float32)
             self.buf = np.concatenate([self.buf, x])
         a, self.buf = self.buf[:n], self.buf[n:]
         if len(a) < n:
             a = np.concatenate([a, np.zeros(n - len(a), np.float32)])
         lvl = float(np.sqrt(np.mean(a * a))) if len(a) else 0.0
+        self.level = lvl
+        self.peak = max(self.peak, lvl)
         self.quiet = self.quiet + n / 8000.0 if lvl < self.thr else 0.0
         if self.quiet >= self.hang:
             self.done = True
-        z = np.concatenate([self.tail, (a * self.gain).astype(np.complex64)])
+        # livello automatico: qualunque sia il cursore «Pwr» di WSJT-X, al Pluto arriva sempre lo stesso livello
+        # (quello del tono di prova); la potenza la decide l'attenuatore del TX, come in CW e SSB
+        if lvl >= self.thr:
+            want = min(max(0.212 / lvl, 0.05), 200.0)
+            self.ag = want if self.ag is None else self.ag * 0.6 + want * 0.4
+            self.sent += n / 8000.0
+        g = self.gain * (self.ag if self.ag is not None else 1.0)
+        z = np.concatenate([self.tail, (a * g).astype(np.complex64)])
         y = np.convolve(z, self.h, mode='valid') * 2.0     # banda laterale superiore (il filtro ha guadagno ½)
         self.tail = z[-(len(self.h) - 1):]
         return y.astype(np.complex64)
@@ -1032,7 +1073,7 @@ class DigiBridge:
     TX: l'audio che WSJT-X manda su un altro cavo virtuale fa scattare il VOX: on_vox(True, pre) quando c'è
     segnale; da lì l'audio lo legge DigiTx. In WSJT-X: PTT «VOX», audio d'ingresso e d'uscita sui due cavi."""
 
-    def __init__(self, out_dev, in_dev, on_vox, on_status, thr=0.004):
+    def __init__(self, out_dev, in_dev, on_vox, on_status, thr=0.0015):
         self.out_dev, self.in_dev = out_dev, in_dev
         self.on_vox, self.on_status, self.thr = on_vox, on_status, float(thr)
         self.alive = False

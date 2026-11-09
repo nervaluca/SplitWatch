@@ -2353,8 +2353,21 @@ class Hub:
                 self.ssbtx.stop()
 
     def on_ssb_end(self):
+        if self.ssbtx is not None and self.ssbtx.alive:
+            return                  # è già partita un'altra trasmissione: non spengo il suo PTT
         if getattr(self, 'digi_t0', 0):
-            log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s')
+            import math
+            g = getattr(self.ssbtx, 'gen', None)
+            if isinstance(g, txmod.DigiTx):
+                pk = 20 * math.log10(max(g.peak, 1e-9))
+                log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s · audio da WSJT-X: {g.sent:.1f} s, '
+                    f'livello massimo {pk:.0f} dB' + ('  ← NESSUN AUDIO: in WSJT-X «Audio → Uscita» deve essere '
+                                                       'il cavo scelto come «TX ← WSJT-X»' if g.sent < 0.2 else ''))
+                if g.sent < 0.2:
+                    self.on_status('TX DIGI: il PTT è arrivato ma da WSJT-X non arriva audio — in WSJT-X '
+                                   'Impostazioni → Audio → Uscita deve essere il cavo «TX ← WSJT-X»')
+            else:
+                log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s')
             self.digi_t0 = 0
         self.on_tx_ptt(False)
         self.post_json({'type': 'tx', 'ptt': False, 'busy': False})
@@ -2537,6 +2550,8 @@ class Hub:
             self.post_json({'type': 'digi_st', 'run': False, 'why': why})
             return
         tx = self.ssbtx is not None and self.ssbtx.alive and isinstance(self.ssbtx.gen, txmod.DigiTx)
+        if tx:
+            b.level = self.ssbtx.gen.level              # in TX il VOX non legge: il livello lo dà il TX
         self.post_json({'type': 'digi_st', 'run': True, 'out': b.ost is not None, 'inp': b.ist is not None,
                         'cat': self.wcat.clients if self.wcat is not None else -1,
                         'cat_port': self.wcat.port if self.wcat is not None else None,
@@ -2561,12 +2576,14 @@ class Hub:
     def cat_set_ptt(self, on):
         """PTT da WSJT-X via CAT: parte subito e si ferma quando WSJT-X lo toglie (non aspetta il silenzio)."""
         b = self.digi
+        log(f'CAT: PTT {"ON" if on else "OFF"} da WSJT-X')
         if not on:
             st = self.ssbtx
             if st is not None and st.alive and isinstance(st.gen, txmod.DigiTx):
                 st.gen.done = True
             return
         if b is None or b.iq is None:
+            log('CAT: PTT ignorato, nel ponte manca il cavo «TX ← WSJT-X»')
             self.on_status('Ponte WSJT-X: PTT da WSJT-X ma manca il cavo «Audio TX ← WSJT-X»')
             return
         if self.cat_get_ptt():
@@ -2597,9 +2614,12 @@ class Hub:
         import math
         lv = 20 * math.log10(max(b.level, 1e-9))
         g = txmod.DigiTx(b.iq, pre, gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20),
-                         hang=600.0 if cat else 0.4)          # col CAT si ferma quando WSJT-X toglie il PTT
+                         hang=15.0 if cat else 0.4)           # col CAT si ferma quando WSJT-X toglie il PTT (o dopo 15 s muti)
         st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
         self.ssbtx = st
+        st.on_stats = log
+        if self.keyer.busy:
+            self.keyer.stop()                       # un CW in corso si ferma, come col PTT della SSB
         self.digi_t0 = time.time()
         self.on_tx_ptt(True)
         st.start(up, gen=g)
@@ -2616,6 +2636,9 @@ class Hub:
         if not self.tx or not self.keyer:
             self.on_status('Prova TX DIGI: accendi ⏻ TX')
             return
+        if self.cal_busy:
+            self.on_status('Prova TX DIGI: aspetta, è in corso una misura del TX')
+            return
         up = self.tx_up()
         if up is None or not txmod.up_ok(up + 3000) or not txmod.up_ok(up):
             self.on_status('Prova TX DIGI: frequenza fuori dal transponder o vicino a un beacon')
@@ -2628,6 +2651,9 @@ class Hub:
         g = txmod.DigiTx(q, [], gain=10 ** (float(self.digi_cfg().get('gain', 0.0)) / 20), hang=0.2)
         st = txmod.SsbTx(self.tx, self.on_status, None, self.on_ssb_end)
         self.ssbtx = st
+        st.on_stats = log
+        if self.keyer.busy:
+            self.keyer.stop()                       # un CW in corso si ferma, come col PTT della SSB
         self.digi_t0 = time.time()
         self.on_tx_ptt(True)
         st.start(up, gen=g)
