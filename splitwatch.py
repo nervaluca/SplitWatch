@@ -1456,6 +1456,9 @@ class Hub:
                     pend_rows = []
                 if pend_audio:
                     a = np.concatenate(pend_audio)
+                    if getattr(self, 'digi_echo', None) is not None:
+                        st0 = self.engine is not None and self.engine.ssb
+                        self.digi_echo_rx((a[0::2] if st0 else a).astype(np.float32) / 25500.0)
                     if self.tx_mute or time.time() < self.tx_mute_until:
                         a = np.zeros_like(a)                 # semiduplex: in TX non si ascolta
                     st = self.engine is not None and self.engine.ssb
@@ -2125,6 +2128,7 @@ class Hub:
             try:
                 tr = txmod.PlutoTx(self.cfg.get('pluto', {}).get('host', '192.168.2.1'), self.on_status)
                 tr.inv = bool(t.get('inv'))
+                tr.hold_lo = bool(t.get('lo_hold', True))
                 tr.connect()
                 tr.level = float(t.get('pwr', -20))
                 tr.power(True)
@@ -2369,10 +2373,70 @@ class Hub:
             else:
                 log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s')
             self.digi_t0 = 0
+            self.digi_echo_end()               # l'eco arriva ~0,3 s dopo: la misura parte fra poco
         self.on_tx_ptt(False)
         self.post_json({'type': 'tx', 'ptt': False, 'busy': False})
         if self.digi is not None:
             self.digi.tx_ended()
+
+    # ------------------------------------------------------------------ allineamento del TX DIGI sulla mia eco
+    def digi_echo_start(self, g):
+        """In full duplex, mentre trasmetto in DIGI, tengo una copia dell'audio trasmesso e di quello che ricevo
+        sul VFO A (la mia eco). A fine messaggio confronto i due spettri: lo spostamento è l'errore del TX, che
+        col Pluto scivola piano col caldo. Come «Segui la mia eco» del CW, e si spegne con la stessa casella."""
+        self.digi_echo = None
+        t = self.tx_cfg()
+        if not t.get('track', True) or not t.get('full', True) or self.engine is None:
+            return
+        if not self.dx_abs or self.tx_dx() != self.dx_abs:      # in split l'eco non cade sul VFO A
+            return
+        g.rec = []
+        self.digi_echo = {'g': g, 'rx': [], 'n': 0, 'rate': float(self.engine.arate), 'dx': self.tx_dx(),
+                          'trim': (self.xit(), float(t.get('corr', 0.0)))}
+
+    def digi_echo_rx(self, x):
+        e = getattr(self, 'digi_echo', None)
+        if e is not None and e['n'] < 32 * e['rate']:
+            e['rx'].append(np.asarray(x, np.float32).copy())
+            e['n'] += len(x)
+
+    def digi_echo_end(self):
+        e = getattr(self, 'digi_echo', None)
+        if e is None:
+            return
+
+        def fin():
+            if self.digi_echo is e:
+                self.digi_echo = None
+            g = e['g']
+            if not g.rec or not e['rx'] or g.sent < 3.0:
+                return
+            if self.tx_dx() != e['dx'] or (self.xit(), float(self.tx_cfg().get('corr', 0.0))) != e['trim']:
+                return
+            txa = np.concatenate(g.rec)
+            rxa = np.concatenate(e['rx'])
+            r = txmod.digi_echo_offset(txa, 8000.0, rxa, e['rate'])
+            if r is None:
+                return
+            err, sim = r
+            # le due metà del messaggio: quanto scivola il TX mentre trasmette (solo per il log)
+            h1 = txmod.digi_echo_offset(txa[:len(txa) // 2], 8000.0, rxa[:len(rxa) // 2], e['rate'])
+            h2 = txmod.digi_echo_offset(txa[len(txa) // 2:], 8000.0, rxa[len(rxa) // 2:], e['rate'])
+            dr = f', nel messaggio {h2[0] - h1[0]:+.1f} Hz' if h1 and h2 and min(h1[1], h2[1]) > 0.4 else ''
+            if sim < 0.45:
+                log(f'TX DIGI: eco non riconosciuta (somiglianza {sim:.2f}), TX non toccato')
+                return
+            if abs(err) < 1.5:
+                log(f'TX DIGI: eco a {err:+.1f} Hz (somiglianza {sim:.2f}{dr}): allineato')
+                return
+            t = self.tx_cfg()
+            step = max(-100.0, min(100.0, 0.8 * err))
+            t['corr'] = round(float(t.get('corr', 0.0)) - step, 1)
+            save_cfg(self.cfg)
+            log(f'TX DIGI: la mia eco era {err:+.1f} Hz fuori (somiglianza {sim:.2f}{dr}), correzione {t["corr"]:+.1f} Hz')
+            self.on_status(f'TX allineato sulla mia eco: {-step:+.0f} Hz')
+            self.post_json(self.cfg_msg())
+        threading.Timer(0.6, lambda: threading.Thread(target=fin, daemon=True).start()).start()
 
     # ------------------------------------------------------------------ ponte con WSJT-X (FT8, FT4…)
     def digi_cfg(self):
@@ -2621,6 +2685,7 @@ class Hub:
         if self.keyer.busy:
             self.keyer.stop()                       # un CW in corso si ferma, come col PTT della SSB
         self.digi_t0 = time.time()
+        self.digi_echo_start(g)
         self.on_tx_ptt(True)
         st.start(up, gen=g)
         log(f'TX DIGI (WSJT-X): sintonia {up/1e6:.6f} MHz, audio da WSJT-X {lv:.0f} dB')
@@ -2655,6 +2720,7 @@ class Hub:
         if self.keyer.busy:
             self.keyer.stop()                       # un CW in corso si ferma, come col PTT della SSB
         self.digi_t0 = time.time()
+        self.digi_echo_start(g)
         self.on_tx_ptt(True)
         st.start(up, gen=g)
         log(f'Prova TX DIGI: tono 1500 Hz per 5 s, sintonia {up/1e6:.6f} MHz')
@@ -2758,7 +2824,7 @@ class Hub:
         t = self.tx_cfg()
         up = self.tx_up() if self.tx_avail() else None
         return {'avail': self.tx_avail(), 'on': bool(t.get('on')), 'ready': self.tx is not None,
-                'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)),
+                'pwr': float(t.get('pwr', -20)), 'wpm': int(t.get('wpm', 24)), 'full': bool(t.get('full', True)), 'lo_hold': bool(t.get('lo_hold', True)),
                 'inv': bool(t.get('inv')), 'corr': round(float(t.get('corr', 0.0)), 1), 'xit': float(t.get('xit', 0.0)), 'macros': t.get(self.mac_key(), []), 'rtty': self.modo() == 'rtty',
                 'up': up, 'busy': bool(self.keyer and self.keyer.busy or self.ssbtx and self.ssbtx.alive and self.ssbtx.gen is not None), 'err': self.tx_err, 'err_en': i18n.en(self.tx_err), 'call': self.rbn_call() or '', 'dxcall': self.dx_call,
                 'track': bool(t.get('track', True)), 'mic': t.get('mic', ''), 'micgain': float(t.get('micgain', 0)), 'comp': bool(t.get('comp', True)), 'proc': float(t.get('proc', 10)), 'eq': list(t.get('eq', [0] * 5)), 'mictest': self.mic_raw is not None,
@@ -2783,6 +2849,10 @@ class Hub:
                 self.keyer.wpm = t['wpm']
         if 'full' in v:
             t['full'] = bool(v['full'])
+        if 'lo_hold' in v:
+            t['lo_hold'] = bool(v['lo_hold'])
+            if self.tx is not None:
+                self.tx.set_hold(t['lo_hold'])
         if 'inv' in v:
             t['inv'] = bool(v['inv'])
             if self.tx:

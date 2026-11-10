@@ -81,6 +81,7 @@ class PlutoTx:
         self.host = (host or '192.168.2.1').strip()
         self.on_status = on_status
         self.sock = self.f = None
+        self.hold_lo = True               # oscillatore TX sempre acceso col TX acceso (frequenza stabile)
         self.lock = threading.Lock()
         self.slock = threading.Lock()     # un solo flusso di campioni alla volta (SSB, RTTY, DIGI)
         self.phy = self.dds = None
@@ -161,7 +162,8 @@ class PlutoTx:
         self._write(self.dds, dch['TX1_I_F1'], 'raw', 1)
         self.down = False
         self.enabled = False
-        self.lo_on(False)
+        self.hold_lo = getattr(self, 'hold_lo', True)
+        self._write(self.phy, 'altvoltage1', 'powerdown', 1)
 
     def _dds(self):
         """Tono complesso a +DDS_F: I con fase 90°, Q con fase 0 (−DDS_F se invertito)."""
@@ -189,11 +191,25 @@ class PlutoTx:
             return
         if not on:
             self.key(False)
-            self.lo_on(False)
+            self._write(self.phy, 'altvoltage1', 'powerdown', 1)
+        elif self.hold_lo:
+            self.lo_on(True)
+
+    def set_hold(self, on):
+        """Oscillatore TX sempre acceso (col TX acceso): il Pluto resta alla stessa temperatura e la frequenza
+        non scivola a ogni passaggio RX/TX. Spento in ricezione l'integrato si raffredda e riscalda a ogni over."""
+        self.hold_lo = bool(on)
+        if self.sock is not None and self.enabled:
+            if on:
+                self.lo_on(True)
+            elif not self.down:
+                self._write(self.phy, 'altvoltage1', 'powerdown', 1)
 
     def lo_on(self, on):
-        """Oscillatore TX acceso solo durante la trasmissione: in ricezione niente perdite sulla salita."""
+        """Oscillatore TX: acceso per trasmettere; spento in ricezione solo se non deve restare sempre acceso."""
         if self.sock is None:
+            return
+        if not on and self.hold_lo and self.enabled:
             return
         self._write(self.phy, 'altvoltage1', 'powerdown', 0 if on else 1)
         if on:
@@ -1035,6 +1051,7 @@ class DigiTx:
         self.ag = None                       # livello automatico: FT8/FT4 sono a inviluppo costante
         self.sent = 0.0                      # secondi di audio con segnale mandati al Pluto
         self.gap = False                     # l'audio di WSJT-X si è interrotto (fine del messaggio)
+        self.rec = None                      # se è una lista: copia dell'audio trasmesso (per misurare l'eco)
 
     def read(self, n):
         import numpy as np
@@ -1056,6 +1073,8 @@ class DigiTx:
         if len(a) < n:
             a = np.concatenate([a, np.zeros(n - len(a), np.float32)])
         lvl = float(np.sqrt(np.mean(a * a))) if len(a) else 0.0
+        if self.rec is not None and len(self.rec) < 2000:     # ~30 s al massimo
+            self.rec.append(a.copy())
         self.level = lvl
         self.peak = max(self.peak, lvl)
         self.quiet = self.quiet + n / 8000.0 if lvl < self.thr else 0.0
@@ -1701,3 +1720,46 @@ class PaddleKeyer:
             self._ptt_off()
             self.alive = False
             self.inp.close()
+
+
+def digi_echo_offset(txa, tx_rate, rxa, rx_rate, span=150.0):
+    """Di quanti Hz la mia eco (audio del VFO A durante la trasmissione) è spostata rispetto all'audio che ho
+    trasmesso. Si confrontano gli spettri di tutto il messaggio: i toni FT8/FT4 formano un «disegno» che si
+    ritrova nell'eco, spostato dell'errore del TX. Niente da allineare nel tempo (il ritardo del satellite non
+    conta). Torna (errore Hz, somiglianza 0–1) o None."""
+    import numpy as np
+    step = 0.05
+
+    def spec(x, fs):
+        x = np.asarray(x, np.float64)
+        n = 1 << int(np.ceil(np.log2(max(fs / step, len(x)))))
+        p = np.abs(np.fft.rfft(x * np.hanning(len(x)), n))
+        f = np.fft.rfftfreq(n, 1.0 / fs)
+        return f, p
+    ft, pt = spec(txa, tx_rate)
+    fr, pr = spec(rxa, rx_rate)
+    grid = np.arange(150.0, 3600.0, step)
+    t = np.interp(grid, ft, pt)
+    r = np.interp(grid, fr, pr)
+    on = np.nonzero(t > 0.05 * t.max())[0]
+    if len(on) < 4:
+        return None
+    lo, hi = on[0] - int(20 / step), on[-1] + int(20 / step)
+    m = int(span / step)
+    if lo - m < 0 or hi + m >= len(grid):
+        return None
+    k = t[lo:hi] - t[lo:hi].mean()
+    kn = np.sqrt((k * k).sum()) + 1e-30
+    best, bl = -2.0, 0
+    cs = np.empty(2 * m + 1)
+    for j, lag in enumerate(range(-m, m + 1)):
+        w = r[lo + lag:hi + lag]
+        w = w - w.mean()
+        cs[j] = float((k * w).sum() / (kn * (np.sqrt((w * w).sum()) + 1e-30)))
+    j = int(np.argmax(cs))
+    best = cs[j]
+    d = 0.0
+    if 0 < j < len(cs) - 1:                                  # interpolazione parabolica fra i punti
+        den = cs[j - 1] - 2 * cs[j] + cs[j + 1]
+        d = 0.5 * (cs[j - 1] - cs[j + 1]) / den if den != 0 else 0.0
+    return ((j - m + d) * step, float(best))

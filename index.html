@@ -1974,8 +1974,9 @@ function qoPar(force){const P=$('#qoPar');if(P.hidden||!CFG)return;if(!force&&P.
      row(L('Potenza PWR (dB)','Power PWR (dB)'),num('qpPwr',f(t.pwr,1),-60,0,1,!tx),L('stai sotto il beacon','stay below the beacon')),
      row(L('Correzione TX (Hz)','TX correction (Hz)'),num('qpCorr',f(t.corr,1),-200000,200000,1,!tx)+`<button id="qpCorr0"${tx?'':' disabled'}>${L('Azzera','Reset')}</button><button id="qpCal"${tx&&t.ready?'':' disabled'}>${L('Calibra TX','Calibrate TX')}</button>`,L('quarzo del Pluto','Pluto crystal')),
      row(L('XIT (Hz)','XIT (Hz)'),num('qpXit',f(t.xit,0),-500,500,1,!tx)+`<button id="qpXit0"${tx?'':' disabled'}>0</button>`,L('ritocco tuo, resta cambiando frequenza','your trim, kept across frequencies')),
-     row(L('Segui la mia eco (CW)','Track my echo (CW)'),ck('qpTrack',t.track,!tx)),
+     row(L('Segui la mia eco (CW e DIGI)','Track my echo (CW and DIGI)'),ck('qpTrack',t.track,!tx)),
      row('Full duplex',ck('qpFull',t.full,!tx),L('ricevi mentre trasmetti','receive while transmitting')),
+     row(L('TX stabile','Stable TX'),ck('qpHold',t.lo_hold!==false,!tx),L('oscillatore TX sempre acceso: il Pluto non si raffredda tra un over e l\'altro e la frequenza non scivola','TX oscillator always on: the Pluto does not cool down between overs and the frequency does not drift')),
      row(L('Inverti I/Q in TX','Swap TX I/Q'),ck('qpInv',t.inv,!tx),L('solo se la portante non compare','only if the carrier does not show'))]) +
    grp('CW',[row(L('Velocità (WPM)','Speed (WPM)'),num('qpWpm',t.wpm||24,10,45,1,!tx))]) +
    grp('SSB',[
@@ -1993,7 +1994,7 @@ function qoPar(force){const P=$('#qoPar');if(P.hidden||!CFG)return;if(!force&&P.
   $('#qpCorr').onchange=e=>{const v=nv(e);if(v!=null)tv({corr:v})};$('#qpCorr0').onclick=()=>tv({corr:0});
   $('#qpCal').onclick=()=>{qoTab(1);$('#qoCal').click()};
   $('#qpXit').onchange=e=>{const v=nv(e);if(v!=null)tv({xit:v})};$('#qpXit0').onclick=()=>tv({xit:0});
-  $('#qpTrack').onchange=e=>tv({track:e.target.checked});$('#qpFull').onchange=e=>tv({full:e.target.checked});$('#qpInv').onchange=e=>tv({inv:e.target.checked});
+  $('#qpTrack').onchange=e=>tv({track:e.target.checked});$('#qpFull').onchange=e=>tv({full:e.target.checked});$('#qpHold').onchange=e=>tv({lo_hold:e.target.checked});$('#qpInv').onchange=e=>tv({inv:e.target.checked});
   $('#qpWpm').onchange=e=>{const v=nv(e);if(v!=null)tv({wpm:v})};
   $('#qpMic').onchange=e=>tv({mic:e.target.value});$('#qpMicG').onchange=e=>{const v=nv(e);if(v!=null)tv({micgain:v})};
   $('#qpComp').onchange=e=>tv({comp:e.target.checked});$('#qpProc').onchange=e=>{const v=nv(e);if(v!=null)tv({proc:v})};
