@@ -1525,7 +1525,11 @@ class PlutoSource:
 
     def _reader(self):
         nb = self.BUF * 4                                  # I e Q a 16 bit
+        dur = self.BUF / PLUTO_RATE                        # durata di un buffer (~28 ms)
+        fast = 0                                           # letture arrivate subito di fila: dati in arretrato
+        drop = 0
         while self.alive:
+            t0 = time.perf_counter()
             try:
                 with self.lock:
                     self.sock.sendall(f'READBUF {self.rx} {nb}\r\n'.encode('ascii'))
@@ -1551,6 +1555,23 @@ class PlutoSource:
                 break
             if len(raw) < 4:
                 continue
+            # Ritardo: se per un attimo il PC rallenta, i 16 buffer del Pluto si riempiono e da lì in poi tutto
+            # resta ~0,4 s indietro per sempre (si legge al passo, ma sempre in arretrato). Quando le letture
+            # arrivano subito, una dopo l'altra, i dati sono vecchi: ne butto un po' e torno in tempo reale.
+            if time.perf_counter() - t0 < dur * 0.6:
+                fast += 1
+            else:
+                if drop:
+                    self.drop_ms = getattr(self, 'drop_ms', 0.0) + drop * dur * 1000
+                    if time.time() - getattr(self, 'drop_t', 0) > 60:
+                        self.drop_t = time.time()
+                        self.on_status(f'ADALM-Pluto: ricezione in ritardo, recuperati {self.drop_ms:.0f} ms')
+                        self.drop_ms = 0.0
+                fast, drop = 0, 0
+            if fast >= 3:
+                drop += 1
+                self.dropped = getattr(self, 'dropped', 0) + 1
+                continue
             try:
                 self.rawq.put_nowait(raw)                  # il calcolo in un altro thread: subito la richiesta dopo
             except queue.Full:
@@ -1563,6 +1584,9 @@ class PlutoSource:
             raw = self.rawq.get()
             if raw is None:
                 return
+            if self.rawq.qsize() > 3:                      # il calcolo è rimasto indietro: salto, meglio che ritardare
+                self.lost = getattr(self, 'lost', 0) + 1
+                continue
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
             c = v.view(np.complex64)
             if self.acc_left > 0:

@@ -1086,6 +1086,7 @@ class DigiBridge:
         self.rx_level = 0.0                       # livello dell'audio che mando a WSJT-X (RMS)
         self.rx_n = 0                             # campioni mandati a WSJT-X
         self.under = 0                            # uscita rimasta senza audio
+        self.trim = 0                             # volte che ho buttato audio vecchio (ritardo verso WSJT-X)
         self.err = ''
         self.ores = {'ph': 0.0, 'last': 0.0}
 
@@ -1097,11 +1098,17 @@ class DigiBridge:
         if self.out_dev is not None:                     # None = spento; 'default' = uscita predefinita
             def cb(outdata, frames, t, status):
                 need = frames
-                while len(self.buf) < need:
+                parts = [self.buf]
+                while True:                              # prendo tutto quello che c'è…
                     try:
-                        self.buf = np.concatenate([self.buf, self.oq.get_nowait()])
+                        parts.append(self.oq.get_nowait())
                     except queue.Empty:
                         break
+                self.buf = np.concatenate(parts) if len(parts) > 1 else self.buf
+                keep = need + 4800                       # …e non tengo più di 0,1 s di riserva: WSJT-X vuole l'ora giusta
+                if len(self.buf) > keep:
+                    self.buf = self.buf[-keep:]
+                    self.trim += 1
                 a = self.buf[:need]
                 self.buf = self.buf[need:]
                 if len(a) < need:

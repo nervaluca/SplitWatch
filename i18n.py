@@ -119,6 +119,7 @@ _EN = [
     (r'il Pluto non accetta ([\d.]+) MHz', r'the Pluto does not accept \1 MHz'),
     (r'il Pluto non apre il flusso TX \(errore (-?\d+)\)', r'the Pluto does not open the TX stream (error \1)'),
     (r'il Pluto non apre il flusso TX', 'the Pluto does not open the TX stream'),
+    (r'ADALM-Pluto: ricezione in ritardo, recuperati (\d+) ms', r'ADALM-Pluto: reception was lagging, caught up \1 ms'),
     (r'errore (-?\d+) scrivendo i campioni', r'error \1 writing the samples'),
     (r'errore scrivendo i campioni', 'error writing the samples'),
     (r'Controlla Windows → Impostazioni → Privacy → Microfono \(accesso consentito alle app desktop\) e che il microfono non sia usato da un altro programma in modo esclusivo', 'Check Windows → Settings → Privacy → Microphone (access allowed for desktop apps) and that no other program uses the microphone exclusively'),
