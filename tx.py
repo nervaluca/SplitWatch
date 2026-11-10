@@ -1034,14 +1034,22 @@ class DigiTx:
         self.peak = 0.0
         self.ag = None                       # livello automatico: FT8/FT4 sono a inviluppo costante
         self.sent = 0.0                      # secondi di audio con segnale mandati al Pluto
+        self.gap = False                     # l'audio di WSJT-X si è interrotto (fine del messaggio)
 
     def read(self, n):
         import numpy as np
         while len(self.buf) < n and not self.done:
+            # L'audio di Windows arriva a pacchetti irregolari. Mentre WSJT-X sta suonando aspetto il pacchetto
+            # dopo fino a 0,12 s (il Pluto intanto va avanti con la sua scorta di 128 ms): un buco di silenzio
+            # in mezzo al tono lo fa uscire «tremolante». Prima che l'audio parta, o quando è finito, niente
+            # attesa: silenzio subito, così il Pluto si riempie la scorta e la fine non si allunga.
+            wait = 0.12 if (self.ag is not None and not self.gap) else 0.0
             try:
-                x = self.q.get(timeout=max(0.005, (n - len(self.buf)) / 8000.0))
+                x = self.q.get(timeout=wait) if wait else self.q.get_nowait()
+                self.gap = False
             except queue.Empty:
-                # niente audio per il tempo di un blocco: silenzio subito, così il Pluto non resta senza campioni
+                if wait:
+                    self.gap = True
                 x = np.zeros(n - len(self.buf), np.float32)
             self.buf = np.concatenate([self.buf, x])
         a, self.buf = self.buf[:n], self.buf[n:]
@@ -1057,7 +1065,7 @@ class DigiTx:
         # (quello del tono di prova); la potenza la decide l'attenuatore del TX, come in CW e SSB
         if lvl >= self.thr:
             want = min(max(0.212 / lvl, 0.05), 200.0)
-            self.ag = want if self.ag is None else self.ag * 0.6 + want * 0.4
+            self.ag = want if self.ag is None else self.ag * 0.85 + want * 0.15   # lento: niente pompaggio
             self.sent += n / 8000.0
         g = self.gain * (self.ag if self.ag is not None else 1.0)
         z = np.concatenate([self.tail, (a * g).astype(np.complex64)])
@@ -1105,7 +1113,7 @@ class DigiBridge:
                     except queue.Empty:
                         break
                 self.buf = np.concatenate(parts) if len(parts) > 1 else self.buf
-                keep = need + 4800                       # …e non tengo più di 0,1 s di riserva: WSJT-X vuole l'ora giusta
+                keep = need + 9600                       # …e non tengo più di 0,2 s di riserva: WSJT-X vuole l'ora giusta
                 if len(self.buf) > keep:
                     self.buf = self.buf[-keep:]
                     self.trim += 1

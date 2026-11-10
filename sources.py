@@ -1568,7 +1568,7 @@ class PlutoSource:
                         self.on_status(f'ADALM-Pluto: ricezione in ritardo, recuperati {self.drop_ms:.0f} ms')
                         self.drop_ms = 0.0
                 fast, drop = 0, 0
-            if fast >= 3:
+            if fast >= 6:                                  # oltre ~0,17 s di arretrato
                 drop += 1
                 self.dropped = getattr(self, 'dropped', 0) + 1
                 continue
