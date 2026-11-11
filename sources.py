@@ -1558,7 +1558,7 @@ class PlutoSource:
             # Ritardo: se per un attimo il PC rallenta, i 16 buffer del Pluto si riempiono e da lì in poi tutto
             # resta ~0,4 s indietro per sempre (si legge al passo, ma sempre in arretrato). Quando le letture
             # arrivano subito, una dopo l'altra, i dati sono vecchi: ne butto un po' e torno in tempo reale.
-            if time.perf_counter() - t0 < dur * 0.6:
+            if time.perf_counter() - t0 < dur * 0.75:            # al passo ogni lettura dura un buffer intero
                 fast += 1
             else:
                 if drop:
@@ -1584,7 +1584,7 @@ class PlutoSource:
             raw = self.rawq.get()
             if raw is None:
                 return
-            if self.rawq.qsize() > 3:                      # il calcolo è rimasto indietro: salto, meglio che ritardare
+            if self.rawq.qsize() > 10:                     # il calcolo è rimasto indietro di ~0,3 s: salto, meglio che ritardare
                 self.lost = getattr(self, 'lost', 0) + 1
                 continue
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)

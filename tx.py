@@ -536,6 +536,9 @@ def stream_test(tx, f_up, secs=10.0, on_status=None):
 
 
 # ---------------------------------------------------------------------------------------------- SSB
+# FT8/FT4 hanno l'inviluppo costante: si può stare quasi al fondo scala senza distorcere (a PWR 0 dB come il CW).
+# Con questo livello la cresta verso il DAC arriva a ~97% di SSB_PEAK.
+DIGI_RMS = 0.345
 SSB_PEAK = 29000          # cresta dei campioni verso il DAC (fondo scala 32767): la portante del DDS sta a 0,95
 TX_RATE = 2304000         # come la ricezione del Pluto
 SSB_OFF = 500000          # come il CW: oscillatore 500 kHz sotto, portante residua e immagine fuori dal transponder
@@ -1060,13 +1063,15 @@ class DigiTx:
             # dopo fino a 0,12 s (il Pluto intanto va avanti con la sua scorta di 128 ms): un buco di silenzio
             # in mezzo al tono lo fa uscire «tremolante». Prima che l'audio parta, o quando è finito, niente
             # attesa: silenzio subito, così il Pluto si riempie la scorta e la fine non si allunga.
-            wait = 0.12 if (self.ag is not None and not self.gap) else 0.0
+            wait = 0.12 if (self.ag is not None and not self.gap and not self.ending) else 0.0
             try:
                 x = self.q.get(timeout=wait) if wait else self.q.get_nowait()
                 self.gap = False
             except queue.Empty:
                 if wait:
                     self.gap = True
+                if self.ending:
+                    self.done = True                 # PTT tolto da WSJT-X: finito l'audio rimasto in coda, stop
                 x = np.zeros(n - len(self.buf), np.float32)
             self.buf = np.concatenate([self.buf, x])
         a, self.buf = self.buf[:n], self.buf[n:]
@@ -1083,7 +1088,7 @@ class DigiTx:
         # livello automatico: qualunque sia il cursore «Pwr» di WSJT-X, al Pluto arriva sempre lo stesso livello
         # (quello del tono di prova); la potenza la decide l'attenuatore del TX, come in CW e SSB
         if lvl >= self.thr:
-            want = min(max(0.212 / lvl, 0.05), 200.0)
+            want = min(max(DIGI_RMS / lvl, 0.05), 60.0)   # al massimo +36 dB: il rumore di fondo non va in TX
             self.ag = want if self.ag is None else self.ag * 0.85 + want * 0.15   # lento: niente pompaggio
             self.sent += n / 8000.0
         g = self.gain * (self.ag if self.ag is not None else 1.0)
@@ -1180,6 +1185,8 @@ class DigiBridge:
                 x = self.iq.get(timeout=0.3)
             except queue.Empty:
                 continue
+            if self.tx_busy:
+                continue                              # nel frattempo è partito il TX (PTT via CAT): la coda è sua
             lvl = float(np.sqrt(np.mean(x * x))) if len(x) else 0.0
             self.level = lvl
             hist = (hist + [x])[-4:]
@@ -1193,6 +1200,12 @@ class DigiBridge:
                 hist = []
 
     def tx_ended(self):
+        if self.iq is not None:                       # audio rimasto in coda (arrivato mentre trasmettevo altro): via
+            try:
+                while True:
+                    self.iq.get_nowait()
+            except queue.Empty:
+                pass
         self.tx_busy = False
 
     def stop(self):

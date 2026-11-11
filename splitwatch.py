@@ -2102,9 +2102,9 @@ class Hub:
 
     def tx_dx(self):
         """Dove trasmetto (frequenza di discesa): VFO A, oppure VFO B con SPLIT inserito (il DX ascolta «up»)."""
-        if self.is_ssb() and self.cfg.get('split', True):
+        if self.is_ssb() and self.modo() != 'ft8' and self.cfg.get('split', True):
             return (self.dx_abs or 0) + float(self.cfg.get('rx2_off', 5000.0))
-        return self.dx_abs
+        return self.dx_abs                       # in FT8 l'audio di WSJT-X è quello del VFO A: si trasmette lì
 
     def xit(self):
         """Ritocco fine della trasmissione deciso da te (XIT, Hz): si somma alla correzione automatica, resta
@@ -2131,6 +2131,9 @@ class Hub:
                 tr.hold_lo = bool(t.get('lo_hold', True))
                 tr.connect()
                 tr.level = float(t.get('pwr', -20))
+                up = self.tx_up()
+                if up is not None:
+                    tr.set_freq(up)                # l'oscillatore si accende già sulla frequenza giusta
                 tr.power(True)
                 k = txmod.CwKeyer(tr, self.on_tx_ptt, self.on_tx_progress, self.on_status)
                 k.wpm = int(t.get('wpm', 24))
@@ -2644,7 +2647,7 @@ class Hub:
         if not on:
             st = self.ssbtx
             if st is not None and st.alive and isinstance(st.gen, txmod.DigiTx):
-                st.gen.done = True
+                st.gen.ending = True             # manda l'audio che è ancora in coda (la fine del messaggio), poi stop
             return
         if b is None or b.iq is None:
             log('CAT: PTT ignorato, nel ponte manca il cavo «TX ← WSJT-X»')
@@ -2662,8 +2665,7 @@ class Hub:
             return
         st = self.ssbtx
         if st is not None and st.alive:
-            b.tx_ended()
-            return
+            return                      # sta già trasmettendo: il VOX resta fermo finché quella non finisce
         if not self.tx or not self.keyer:
             if time.time() - self.digi_t > 20:
                 self.digi_t = time.time()
