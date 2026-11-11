@@ -183,6 +183,8 @@ _EN = [
     (r'Ponte WSJT-X: RX e TX sullo stesso cavo\. Per trasmettere serve un secondo cavo \(Hi-Fi Cable o VB-CABLE A\+B\): per ora solo ricezione', 'WSJT-X bridge: RX and TX on the same cable. To transmit you need a second cable (Hi-Fi Cable or VB-CABLE A+B): receive only for now'),
     (r'Ponte WSJT-X: stesso cavo per RX e TX, TX escluso', 'WSJT-X bridge: same cable for RX and TX, TX disabled'),
     (r'Prova TX DIGI: sta già trasmettendo', 'DIGI TX test: already transmitting'),
+    (r'Livello dell\'audio RX verso WSJT-X: regolalo finché il meter di WSJT-X sta fra 30 e 60 dB. Doppio clic = 0 dB', 'RX audio level to WSJT-X: adjust it until the WSJT-X meter sits between 30 and 60 dB. Double click = 0 dB'),
+    (r'Audio che arriva da WSJT-X quando trasmette: il livello verso il Pluto è automatico, qui vedi solo che arriva', 'Audio coming from WSJT-X when it transmits: the level to the Pluto is automatic, here you only see that it arrives'),
     (r'Prova TX DIGI: accendi ⏻ TX', 'DIGI TX test: switch ⏻ TX on'),
     (r'Prova TX DIGI: aspetta, è in corso una misura del TX', 'DIGI TX test: wait, a TX measurement is running'),
     (r'la trasmissione precedente non ha ancora liberato il Pluto', 'the previous transmission has not released the Pluto yet'),

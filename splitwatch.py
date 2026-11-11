@@ -403,6 +403,7 @@ class Hub:
         self.wcat = None                       # CAT per WSJT-X (Hamlib NET rigctl)
         self.digi_key = None
         self.digi_t = 0.0
+        self.digi_rxk = 10 ** (float(self.digi_cfg().get('rxgain', 0.0)) / 20) / 25500.0   # livello RX → WSJT-X
         self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
         self.tx_lvl_t = 0.0
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
@@ -1464,7 +1465,7 @@ class Hub:
                     st = self.engine is not None and self.engine.ssb
                     self.post_bin((b'\x03' if st else b'\x02') + struct.pack('<d', 0.0) + a.tobytes())
                     if self.digi is not None:
-                        x = (a[0::2] if st else a).astype(np.float32) / 25500.0   # VFO A
+                        x = (a[0::2] if st else a).astype(np.float32) * self.digi_rxk   # VFO A, col livello RX → WSJT-X
                         self.digi.push_rx(x, self.engine.arate)
                     pend_audio = []
                 if pend_words or pend_listen:
@@ -2448,6 +2449,7 @@ class Hub:
         d.setdefault('out', '')            # uscita audio verso WSJT-X (cavo virtuale); '' = nessuna
         d.setdefault('in', '')             # ingresso audio da WSJT-X (altro cavo virtuale); '' = niente TX
         d.setdefault('gain', 0.0)          # dB sull'audio TX di WSJT-X
+        d.setdefault('rxgain', 0.0)        # dB sull'audio RX verso WSJT-X (sul suo meter vuole 30–60 dB)
         return d
 
     def out_dev(self, label):
@@ -3702,9 +3704,10 @@ class Hub:
                     d = self.digi_cfg()
                     v = c.get('v', {})
                     dev_old = (d.get('out'), d.get('in'))
-                    for kk in ('on', 'out', 'in', 'gain', 'exe'):
+                    for kk in ('on', 'out', 'in', 'gain', 'rxgain', 'exe'):
                         if kk in v:
-                            d[kk] = bool(v[kk]) if kk == 'on' else float(v[kk]) if kk == 'gain' else str(v[kk])
+                            d[kk] = bool(v[kk]) if kk == 'on' else max(-30.0, min(30.0, float(v[kk]))) if kk in ('gain', 'rxgain') else str(v[kk])
+                    self.digi_rxk = 10 ** (float(d.get('rxgain', 0.0)) / 20) / 25500.0
                     save_cfg(self.cfg)
                     if (d.get('out'), d.get('in')) != dev_old:
                         self.digi_key = ('?',)              # dispositivi cambiati: riavvio il ponte

@@ -1164,7 +1164,7 @@ class DigiBridge:
         step = rate / 48000.0
         x = np.concatenate([[self.ores['last']], a]).astype(np.float32)
         pos = self.ores['ph'] + np.arange(0, len(x) - 1 - self.ores['ph'], step)
-        y = np.interp(pos, np.arange(len(x)), x).astype(np.float32)
+        y = np.clip(np.interp(pos, np.arange(len(x)), x), -1.0, 1.0).astype(np.float32)
         self.ores['ph'] = float(pos[-1] + step - (len(x) - 1)) if len(pos) else self.ores['ph'] - (len(x) - 1)
         self.ores['last'] = float(a[-1])
         self.rx_level = 0.8 * self.rx_level + 0.2 * float(np.sqrt(np.mean(y * y))) if len(y) else self.rx_level
