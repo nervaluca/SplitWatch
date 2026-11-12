@@ -84,6 +84,21 @@ def append_adif(path, record):
         f.write(record + '\n')
 
 
+def _parse_reply(body):
+    """Cloudlog risponde in JSON o in XML (<auth><status>Valid</status>…): tiro fuori i campi in un dizionario."""
+    b = body.strip()
+    try:
+        r = json.loads(b)
+        return r if isinstance(r, dict) else {'raw': b[:200]}
+    except ValueError:
+        pass
+    if b.startswith('<'):
+        d = {k.lower(): v.strip() for k, v in re.findall(r'<(status|rights|reason|message)>(.*?)</\1>', b, re.S | re.I)}
+        if d:
+            return d
+    return {'raw': b[:200]}
+
+
 class Cloudlog:
     """API di Cloudlog / Wavelog: POST /api/qso con un record ADIF; GET /api/auth/<chiave> per la prova."""
 
@@ -107,10 +122,7 @@ class Cloudlog:
                                                  headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
                 with urllib.request.urlopen(req, timeout=12) as r:
                     body = r.read().decode('utf-8', 'replace')
-                try:
-                    return json.loads(body)
-                except ValueError:
-                    return {'raw': body[:200]}
+                return _parse_reply(body)
             except urllib.error.HTTPError as e:
                 last = e
                 if e.code in (404, 405):
