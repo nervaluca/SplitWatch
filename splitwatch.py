@@ -67,6 +67,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      PlutoSource, PLUTO_RANGE, PLUTO_RATE, SpyServerSource, KiwiSource)
 import banco
 import tx as txmod
+import wsjtxlog
 import ponti
 
 TX_HUB = None
@@ -404,6 +405,11 @@ class Hub:
         self.digi_key = None
         self.digi_t = 0.0
         self.digi_rxk = 10 ** (float(self.digi_cfg().get('rxgain', 0.0)) / 20) / 25500.0   # livello RX → WSJT-X
+        self.wlog = None
+        try:
+            self.wsjtx_udp_sync()
+        except Exception as e:
+            log(f'WSJT-X UDP: {e}')
         self.echo = None                       # misura della propria eco in CW (allineamento TX/RX)
         self.tx_lvl_t = 0.0
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
@@ -2450,7 +2456,70 @@ class Hub:
         d.setdefault('in', '')             # ingresso audio da WSJT-X (altro cavo virtuale); '' = niente TX
         d.setdefault('gain', 0.0)          # dB sull'audio TX di WSJT-X
         d.setdefault('rxgain', 0.0)        # dB sull'audio RX verso WSJT-X (sul suo meter vuole 30–60 dB)
+        d.setdefault('udp', True)          # ricevo i QSO registrati da WSJT-X (UDP)
+        d.setdefault('udp_port', 2238)     # porta: non la 2237, che spesso è già occupata da altri programmi
+        d.setdefault('cl_on', False)       # li mando anche a Cloudlog / Wavelog
+        d.setdefault('cl_url', '')
+        d.setdefault('cl_key', '')
+        d.setdefault('cl_id', '')          # ID del profilo stazione in Cloudlog
         return d
+
+    ADI_PATH = os.path.join(DATA_DIR, 'fzrsdr_lotw.adi')
+
+    def wsjtx_udp_sync(self):
+        """Accende o spegne l'ascolto dei QSO di WSJT-X secondo le impostazioni."""
+        d = self.digi_cfg()
+        want = (bool(d.get('udp', True)), int(d.get('udp_port', 2238)))
+        w = getattr(self, 'wlog', None)
+        if w is not None and (not want[0] or w.port != want[1] or not w.is_alive()):
+            w.close()
+            self.wlog = w = None
+        if want[0] and w is None:
+            self.wlog = wsjtxlog.WsjtxListener(want[1], self.on_wsjtx_adif, log)
+            self.wlog.start()
+            log(f'WSJT-X UDP: ascolto i QSO registrati su 127.0.0.1:{want[1]}')
+
+    def on_wsjtx_adif(self, text, ident):
+        """QSO appena registrato da WSJT-X: lo completo per LoTW (satellite) e lo salvo; poi Cloudlog."""
+        fields = wsjtxlog.parse_adif(text)
+        d = dict(fields)
+        if not d.get('CALL'):
+            return
+        fields, sat = wsjtxlog.fix_sat(fields)
+        rec = wsjtxlog.fmt_adif(fields)
+        try:
+            wsjtxlog.append_adif(self.ADI_PATH, rec)
+        except OSError as e:
+            self.on_status(f'QSO con {d["CALL"]}: non riesco a scrivere {self.ADI_PATH} ({e})')
+            return
+        where = 'SAT QO-100, 13cm/3cm' if sat else d.get('BAND', '')
+        msg = f'QSO con {d["CALL"]} registrato ({d.get("MODE", "")}, {where}) → fzrsdr_lotw.adi'
+        c = self.digi_cfg()
+        if c.get('cl_on') and c.get('cl_url') and c.get('cl_key'):
+            def go():
+                try:
+                    wsjtxlog.Cloudlog(c['cl_url'], c['cl_key'], c.get('cl_id', '')).qso(rec)
+                    self.on_status(msg + ' e Cloudlog ✓')
+                except Exception as e:
+                    self.on_status(msg + f' — Cloudlog NO: {e}')
+            threading.Thread(target=go, daemon=True).start()
+        else:
+            self.on_status(msg)
+
+    def cloudlog_test(self):
+        c = self.digi_cfg()
+        cl = wsjtxlog.Cloudlog(c.get('cl_url'), c.get('cl_key'), c.get('cl_id'))
+        if not cl.ok:
+            self.on_status('Cloudlog: servono indirizzo e chiave API')
+            return
+
+        def go():
+            try:
+                r = cl.test()
+                self.on_status(f'Cloudlog: collegamento OK (permessi {r})' if r else 'Cloudlog: collegamento OK')
+            except Exception as e:
+                self.on_status(f'Cloudlog: {e}')
+        threading.Thread(target=go, daemon=True).start()
 
     def out_dev(self, label):
         try:
@@ -2568,6 +2637,12 @@ class Hub:
             return
         try:
             flags = 0x00000008 | 0x00000200 if os.name == 'nt' else 0      # DETACHED_PROCESS | NEW_PROCESS_GROUP
+            d = self.digi_cfg()
+            if d.get('udp', True) and os.name == 'nt':
+                try:                                   # i QSO di questa istanza arrivano a me, sulla mia porta
+                    wsjtxlog.ini_set_udp(wsjtxlog.ini_path(self.WSJTX_NAME), int(d.get('udp_port', 2238)))
+                except OSError as e:
+                    log(f'WSJT-X: non riesco a impostare la porta UDP nel suo ini ({e})')
             subprocess.Popen([exe, f'--rig-name={self.WSJTX_NAME}'], cwd=os.path.dirname(exe), creationflags=flags,
                              close_fds=True)
             log(f'WSJT-X dedicato avviato: {exe} --rig-name={self.WSJTX_NAME}')
@@ -3704,17 +3779,25 @@ class Hub:
                     d = self.digi_cfg()
                     v = c.get('v', {})
                     dev_old = (d.get('out'), d.get('in'))
-                    for kk in ('on', 'out', 'in', 'gain', 'rxgain', 'exe'):
+                    for kk in ('on', 'out', 'in', 'gain', 'rxgain', 'exe', 'udp', 'udp_port', 'cl_on', 'cl_url', 'cl_key', 'cl_id'):
                         if kk in v:
-                            d[kk] = bool(v[kk]) if kk == 'on' else max(-30.0, min(30.0, float(v[kk]))) if kk in ('gain', 'rxgain') else str(v[kk])
+                            d[kk] = (bool(v[kk]) if kk in ('on', 'udp', 'cl_on') else
+                                     max(-30.0, min(30.0, float(v[kk]))) if kk in ('gain', 'rxgain') else
+                                     max(1024, min(65535, int(v[kk]))) if kk == 'udp_port' else str(v[kk]).strip())
                     self.digi_rxk = 10 ** (float(d.get('rxgain', 0.0)) / 20) / 25500.0
                     save_cfg(self.cfg)
+                    try:
+                        self.wsjtx_udp_sync()
+                    except Exception as e:
+                        log(f'WSJT-X UDP: {e}')
                     if (d.get('out'), d.get('in')) != dev_old:
                         self.digi_key = ('?',)              # dispositivi cambiati: riavvio il ponte
                     self.digi_sync()
                     self.post_json(self.cfg_msg())
                 elif k == 'digi_test':
                     self.digi_test()
+                elif k == 'cl_test':
+                    self.cloudlog_test()
                 elif k == 'wsjtx_start':
                     self.wsjtx_start()
                 elif k == 'digi_auto':
