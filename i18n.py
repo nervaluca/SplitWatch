@@ -183,6 +183,8 @@ _EN = [
     (r'Ponte WSJT-X: RX e TX sullo stesso cavo\. Per trasmettere serve un secondo cavo \(Hi-Fi Cable o VB-CABLE A\+B\): per ora solo ricezione', 'WSJT-X bridge: RX and TX on the same cable. To transmit you need a second cable (Hi-Fi Cable or VB-CABLE A+B): receive only for now'),
     (r'Ponte WSJT-X: stesso cavo per RX e TX, TX escluso', 'WSJT-X bridge: same cable for RX and TX, TX disabled'),
     (r'Prova TX DIGI: sta già trasmettendo', 'DIGI TX test: already transmitting'),
+    (r'Log: manca il nominativo', 'Log: callsign missing'),
+    (r'Log: scrivi il tuo nominativo nella finestra', 'Log: enter your callsign in the window'),
     (r'QSO con (\S+) registrato \((.*?), (.*?)\) → fzrsdr_lotw.adi', r'QSO with \1 logged (\2, \3) → fzrsdr_lotw.adi'),
     (r' e Cloudlog ✓', ' and Cloudlog ✓'),
     (r' — Cloudlog NO: ', ' — Cloudlog FAILED: '),

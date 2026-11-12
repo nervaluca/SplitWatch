@@ -2482,9 +2482,57 @@ class Hub:
     def on_wsjtx_adif(self, text, ident):
         """QSO appena registrato da WSJT-X: lo completo per LoTW (satellite) e lo salvo; poi Cloudlog."""
         fields = wsjtxlog.parse_adif(text)
-        d = dict(fields)
-        if not d.get('CALL'):
+        if dict(fields).get('CALL'):
+            self.log_record(fields)
+
+    def log_cfg(self):
+        return self.cfg.setdefault('log', {})
+
+    def log_qso(self, v):
+        """QSO fatto a mano (CW, SSB, RTTY…) dalla finestrella 📒 Log: stesso registro e stesso Cloudlog di WSJT-X."""
+        call = re.sub(r'[^A-Z0-9/]', '', str(v.get('call', '')).upper())[:16]
+        if not call:
+            self.on_status('Log: manca il nominativo')
             return
+        lg = self.log_cfg()
+        if str(v.get('call_my', '')).strip():
+            lg['call'] = str(v['call_my']).strip().upper()[:16]
+        if str(v.get('grid_my', '')).strip():
+            lg['grid'] = str(v['grid_my']).strip().upper()[:10]
+        my = (lg.get('call') or self.rbn_call() or '').strip().upper()
+        if not my:
+            self.on_status('Log: scrivi il tuo nominativo nella finestra')
+            return
+        f = (self.dx_abs or 0) / 1e6                       # MHz del VFO A: su QO-100 fix_sat ricava la salita
+        m = self.modo()
+        mode = {'ssb': 'SSB', 'rtty': 'RTTY', 'fm': 'FM', 'am': 'AM', 'ft8': 'FT8'}.get(m, 'CW')
+        now = time.gmtime()
+        t_on = re.sub(r'\D', '', str(v.get('time_on', '')))[:6]
+        if len(t_on) == 4:
+            t_on += '00'
+        if len(t_on) != 6:
+            t_on = time.strftime('%H%M%S', now)
+        date_on = str(v.get('date_on', '')) or time.strftime('%Y%m%d', now)
+        rst_def = '59' if mode in ('SSB', 'FM', 'AM') else '599'
+        fields = [('CALL', call), ('QSO_DATE', date_on), ('TIME_ON', t_on), ('QSO_DATE_OFF', time.strftime('%Y%m%d', now)),
+                  ('TIME_OFF', time.strftime('%H%M%S', now)), ('MODE', mode)]
+        if mode == 'SSB':
+            fields.append(('SUBMODE', 'USB' if self.sb_eff() > 0 else 'LSB'))
+        fields += [('FREQ', f'{f:.6f}'), ('BAND', wsjtxlog.adif_band(f)),
+                   ('RST_SENT', str(v.get('rst_s') or rst_def).strip()[:8]), ('RST_RCVD', str(v.get('rst_r') or rst_def).strip()[:8]),
+                   ('STATION_CALLSIGN', my), ('OPERATOR', my)]
+        if lg.get('grid'):
+            fields.append(('MY_GRIDSQUARE', lg['grid']))
+        for k, kk in (('name', 'NAME'), ('grid', 'GRIDSQUARE'), ('comment', 'COMMENT')):
+            if str(v.get(k, '')).strip():
+                fields.append((kk, str(v[k]).strip()[:120]))
+        save_cfg(self.cfg)
+        self.log_record(fields)
+        self.post_json({'type': 'logged', 'call': call})
+
+    def log_record(self, fields):
+        """Registro comune: completa per LoTW (satellite), scrive fzrsdr_lotw.adi e, se acceso, manda a Cloudlog."""
+        d = dict(fields)
         fields, sat = wsjtxlog.fix_sat(fields)
         rec = wsjtxlog.fmt_adif(fields)
         try:
@@ -3413,7 +3461,7 @@ class Hub:
                 'dial': getattr(self.src, 'dial', None), 'calls_n': len(dsp.KNOWN_CALLS), 'ui': self.cfg.get('ui', {}), 'datadir': DATA_DIR,
                 'rbn_on': bool(self.cfg.get('rbn', True)), 'rbn_state': self.rbn_state(), 'rbn_call': self.rbn_call(),
                 'rbn_need_call': not (self.lic or {}).get('call'),
-                'modo': self.cfg.get('modo', 'dx'), 'modo_mem': bool(self.cfg.get('modo_mem', False)),
+                'modo': self.cfg.get('modo', 'dx'), 'modo_mem': bool(self.cfg.get('modo_mem', False)), 'log': dict(self.log_cfg(), mycall=self.rbn_call()),
                 'mem_min': self.rec.minutes, 'live_src': self.cfg.get('sorgente', 'perseus'), 'rec_dir': self.rec_dir, 'file': self.file_state(), **lic}
 
     # -------------------------------------------------------------- web
@@ -3798,6 +3846,9 @@ class Hub:
                     self.digi_test()
                 elif k == 'cl_test':
                     self.cloudlog_test()
+                elif k == 'log_qso':
+                    lq = c.get('v')
+                    self.log_qso(lq if isinstance(lq, dict) else {})
                 elif k == 'wsjtx_start':
                     self.wsjtx_start()
                 elif k == 'digi_auto':
