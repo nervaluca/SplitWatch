@@ -2044,21 +2044,25 @@ function digiSt(m){
 // 📒 Log: QSO a mano (CW, SSB, RTTY…) → fzrsdr_lotw.adi e Cloudlog, come quelli di WSJT-X
 const LG={t0:null};
 function lgMode(){const m=(CFG&&CFG.modo)||'dx';return {ssb:'SSB',rtty:'RTTY',fm:'FM',am:'AM',ft8:'FT8'}[m]||'CW'}
-function lgRefresh(){if(!CFG)return;const f=(CFG.dx||0)/1e6,mo=lgMode(),qo=f>=10489&&f<10490.5;
+function lgRefresh(open){if(!CFG)return;const f=(CFG.dx||0)/1e6,mo=lgMode(),qo=f>=10489&&f<10490.5;
   $('#lgInfo').textContent=mo+' · '+f.toFixed(3)+' MHz'+(qo?' · '+L('SAT QO-100 · 13cm ↔ 3cm','SAT QO-100 · 13cm ↔ 3cm'):'')+' · '+L('ora UTC','UTC');
   const def=(mo==='SSB'||mo==='FM'||mo==='AM')?'59':'599';for(const id of ['#lgRs','#lgRr']){const e=$(id);if(!e.value||e.value==='59'||e.value==='599')e.value=def}
-  const lg=CFG.log||{};if(document.activeElement!==$('#lgMy'))$('#lgMy').value=lg.call||lg.mycall||'';if(document.activeElement!==$('#lgMyGrid'))$('#lgMyGrid').value=lg.grid||'';
-  if(!$('#lgCall').value&&CFG.tx&&CFG.tx.dxcall)$('#lgCall').value=CFG.tx.dxcall}
+  // i campi della «mia stazione» e il nominativo DX si riempiono solo all'apertura: gli aggiornamenti di stato
+  // che arrivano di continuo non devono cancellare quello che stai scrivendo
+  if(open){const lg=CFG.log||{};$('#lgMy').value=lg.call||lg.mycall||'';$('#lgMyGrid').value=lg.grid||'';
+    if(!$('#lgCall').value&&CFG.tx&&CFG.tx.dxcall)$('#lgCall').value=CFG.tx.dxcall}}
 function lgNow(){const t=new Date();LG.t0=t;$('#lgTime').value=String(t.getUTCHours()).padStart(2,'0')+String(t.getUTCMinutes()).padStart(2,'0')}
-function logOpen(){$('#logBox').hidden=false;lgNow();lgRefresh();$('#lgMsg').textContent='';setTimeout(()=>$('#lgCall').focus(),50)}
+function logOpen(){$('#logBox').hidden=false;lgNow();lgRefresh(true);$('#lgMsg').textContent='';setTimeout(()=>$('#lgCall').focus(),50)}
 $('#bLog').onclick=logOpen;$('#logClose').onclick=$('#logX').onclick=()=>{$('#logBox').hidden=true};$('#lgNow').onclick=lgNow;
+$('#lgMy').onchange=e=>send({cmd:'log_me',v:{call:e.target.value.trim().toUpperCase()}});
+$('#lgMyGrid').onchange=e=>send({cmd:'log_me',v:{grid:e.target.value.trim().toUpperCase()}});
 $('#lgSave').onclick=()=>{const call=$('#lgCall').value.trim().toUpperCase();if(!call){$('#lgCall').focus();return}
   const t=LG.t0||new Date();const date_on=t.getUTCFullYear()+String(t.getUTCMonth()+1).padStart(2,'0')+String(t.getUTCDate()).padStart(2,'0');
   send({cmd:'log_qso',v:{call,rst_s:$('#lgRs').value,rst_r:$('#lgRr').value,name:$('#lgName').value,grid:$('#lgGrid').value.toUpperCase(),comment:$('#lgNote').value,time_on:$('#lgTime').value,date_on,
     call_my:$('#lgMy').value.toUpperCase(),grid_my:$('#lgMyGrid').value.toUpperCase()}});
   $('#lgMsg').textContent=L('Registro…','Logging…')};
 for(const id of ['#lgCall','#lgRs','#lgRr','#lgName','#lgGrid','#lgNote'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#lgSave').click()}});
-function onLogged(m){$('#lgMsg').textContent=L('✓ '+m.call+' registrato','✓ '+m.call+' logged');for(const id of ['#lgCall','#lgName','#lgGrid','#lgNote'])$(id).value='';lgNow();lgRefresh();$('#lgCall').focus()}
+function onLogged(m){$('#lgMsg').textContent=L('✓ '+m.call+' registrato','✓ '+m.call+' logged');for(const id of ['#lgCall','#lgName','#lgGrid','#lgNote'])$(id).value='';lgNow();lgRefresh(true);$('#lgCall').focus()}
 const digiOpen=()=>{$('#digiBox').hidden=false;send({cmd:'digi_list'});digiUI()};$('#bDigi').onclick=digiOpen;$('#bDigi2').onclick=digiOpen;
 $('#digiClose').onclick=$('#digiX').onclick=()=>{$('#digiBox').hidden=true};
 const dgSet=v=>send({cmd:'digi',v});

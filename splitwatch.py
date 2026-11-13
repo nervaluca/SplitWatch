@@ -3849,6 +3849,15 @@ class Hub:
                 elif k == 'log_qso':
                     lq = c.get('v')
                     self.log_qso(lq if isinstance(lq, dict) else {})
+                elif k == 'log_me':                 # dati della propria stazione: salvati subito, non solo col QSO
+                    lm = c.get('v') or {}
+                    lg = self.log_cfg()
+                    if 'call' in lm:
+                        lg['call'] = str(lm['call']).strip().upper()[:16]
+                    if 'grid' in lm:
+                        lg['grid'] = str(lm['grid']).strip().upper()[:10]
+                    save_cfg(self.cfg)
+                    self.post_json(self.cfg_msg())
                 elif k == 'wsjtx_start':
                     self.wsjtx_start()
                 elif k == 'digi_auto':
