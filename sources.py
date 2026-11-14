@@ -1417,6 +1417,8 @@ class PlutoSource:
         self.pan_win = None
         self.rfbw = 250000
         self.acc = None                      # spettro medio di tutta la banda (procedura QO-100)
+        self.realtime = True                 # ricevitore a orecchio (SSB, CW, DIGI…): si recupera subito il ritardo.
+                                             # Skimmer: il calcolo è pesante, recuperare di continuo fa andare a scatti
         self.acc_left = 0
 
     # ---- protocollo
@@ -1568,7 +1570,9 @@ class PlutoSource:
                         self.on_status(f'ADALM-Pluto: ricezione in ritardo, recuperati {self.drop_ms:.0f} ms')
                         self.drop_ms = 0.0
                 fast, drop = 0, 0
-            if fast >= 6:                                  # oltre ~0,17 s di arretrato
+            # ricevitore a orecchio: oltre ~0,17 s di arretrato si recupera. Skimmer (calcolo pesante, il PC resta
+            # indietro spesso per un attimo): solo quando i buffer del Pluto sono quasi pieni e butterebbe lui
+            if fast >= (6 if self.realtime else 14):
                 drop += 1
                 self.dropped = getattr(self, 'dropped', 0) + 1
                 continue

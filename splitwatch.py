@@ -1357,6 +1357,8 @@ class Hub:
                 msg += f' · in ritardo {self.late}'
                 if getattr(self.src, 'lost', 0):
                     msg += f' · blocchi persi dal Pluto {self.src.lost}'
+                if getattr(self.src, 'dropped', 0):
+                    msg += f' · recuperi del ritardo {self.src.dropped}'
                 if self.engine is not None and getattr(self.engine, 'tx_on', False):
                     msg += ' · TX rilevato (audio muto)'
                 ll = getattr(self.src, 'll_max', 0)
@@ -1466,6 +1468,8 @@ class Hub:
                         self.digi_meter()
                     except Exception as e:
                         log(f'Ponte WSJT-X: {e}')
+                    if isinstance(self.src, PlutoSource):
+                        self.src.realtime = self.is_ssb()     # skimmer: niente recupero continuo del ritardo (scatti)
                     try:
                         self.bp_tick()
                     except Exception as e:
