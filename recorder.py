@@ -186,6 +186,28 @@ class Recorder:
             if not seg[3] and len(self.segs) > 1:
                 self.segs.popleft()
 
+    def last(self, seconds):
+        """Gli ultimi secondi di IQ dell'ultimo segmento: (fs, centro, iq complex64) oppure None."""
+        with self.lock:
+            if not self.segs:
+                return None
+            seg = self.segs[-1]
+            if time.time() - seg[5] > 3.0:                 # memoria ferma: dati vecchi, non servono
+                return None
+            fs, center, blocks = seg[0], seg[1], seg[3]
+            need = int(seconds * fs)
+            got, tot = [], 0
+            for q, sc in reversed(blocks):
+                got.append((q, sc))
+                tot += len(q)
+                if tot >= need:
+                    break
+        if not got:
+            return None
+        parts = [(q[:, 0].astype(np.float32) + 1j * q[:, 1].astype(np.float32)) * np.float32(sc) for q, sc in reversed(got)]
+        iq = np.concatenate(parts).astype(np.complex64)
+        return fs, center, iq[-need:]
+
     def buffered_s(self):
         with self.lock:
             return sum(sum(len(q) for q, _ in s[3]) / s[0] for s in self.segs)

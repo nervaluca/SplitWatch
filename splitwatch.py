@@ -68,6 +68,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
 import banco
 import tx as txmod
 import wsjtxlog
+import identify
 import ponti
 
 TX_HUB = None
@@ -416,6 +417,7 @@ class Hub:
         self.pad_port, self.pad_err, self.pad_try, self.pad_sent = '', '', 0.0, ''
         self.ports_cache = (0.0, [])
         self.snap = None                       # clic su una traccia CW: VFO A sulla portante della stazione
+        self.ident_col = None                  # «Che segnale è?»: IQ raccolto in avanti quando la memoria è vuota
         self.mic_raw = None                    # ultima prova voce (8 kHz, senza guadagno)
         self.mic_busy = False
         global TX_HUB
@@ -1431,6 +1433,14 @@ class Hub:
                 sn = self.snap
                 if sn is not None:
                     self.snap_step(sn, blk)
+                ic = self.ident_col
+                if ic is not None:
+                    ic['buf'].append(blk.copy())
+                    ic['n'] += len(blk)
+                    if ic['n'] >= ic['need']:
+                        self.ident_col = None
+                        threading.Thread(target=self._ident_run, args=(ic['hz'], self.fs, self.center,
+                                                                       np.concatenate(ic['buf'])), daemon=True).start()
                 if m is not None:
                     m.feed(blk)
                 elif self.cfg.get('beacon_lock') and self.src_kind != 'file':
@@ -1456,6 +1466,10 @@ class Hub:
                         self.digi_meter()
                     except Exception as e:
                         log(f'Ponte WSJT-X: {e}')
+                    try:
+                        self.bp_tick()
+                    except Exception as e:
+                        log(f'Bandplan: {e}')
             if now - last_send >= 0.05 and self.engine is not None:
                 last_send = now
                 if pend_rows:
@@ -2912,6 +2926,16 @@ class Hub:
         threading.Timer(0.45, fin).start()                     # la coda dell'eco arriva ~0,3 s dopo
 
     def on_tx_ptt(self, on):
+        if on:
+            try:
+                w = self.bp_warn()
+                if w and time.time() - getattr(self, 'bp_said', 0) > 30:
+                    self.bp_said = time.time()
+                    self.status = '⚠ TX fuori bandplan: ' + w[0]
+                    log(self.status)
+                    self.post_json({'type': 'status', 'text': self.status, 'en': '⚠ TX outside the bandplan: ' + w[1]})
+            except Exception as e:
+                log(f'Bandplan: {e}')
         if on and (self.keyer is not None and self.keyer.busy or self.paddle is not None and self.paddle.busy):  # solo CW (in SSB non c'è una portante da misurare)
             self.echo_start()
         elif not on:
@@ -2929,6 +2953,64 @@ class Hub:
                 self.tx_mute_until = time.time() + 0.4     # la propria discesa arriva ~0,27 s dopo
                 self.cmd_q.put(('ptt', False))
         self.post_json({'type': 'tx', 'busy': bool(on)})
+
+    # ------------------------------------------------------------------ bandplan QO-100 (solo avvisi)
+    def bp_span(self):
+        """Dove cade sulla discesa la trasmissione col modo e la frequenza di adesso: (da Hz, a Hz, modo) o None."""
+        f = self.tx_dx()
+        if not f or not identify.on_qo(f):
+            return None
+        f = f + self.xit()
+        m = self.modo()
+        if m in ('dx', 'rxcw'):
+            return f - 50, f + 50, 'cw'
+        if m == 'ssb':
+            return (f + 200, f + 2800, 'ssb') if self.sb_eff() > 0 else (f - 2800, f - 200, 'ssb')
+        if m == 'rtty':
+            return f + 1300, f + 1550, 'rtty'
+        if m == 'ft8':
+            return f + 100, f + 3000, 'digi'
+        return None
+
+    def bp_warn(self):
+        sp = self.bp_span()
+        return identify.tx_check(*sp) if sp else None
+
+    def bp_tick(self):
+        """Ogni mezzo secondo: l'avviso nella barra TX (solo col TX acceso), mandato quando cambia."""
+        w = self.bp_warn() if self.tx is not None else None
+        txt = w[0] if w else ''
+        now = time.time()
+        if txt != getattr(self, 'bp_last', None) or now - getattr(self, 'bp_t', 0) > 5:
+            self.bp_last, self.bp_t = txt, now
+            self.post_json({'type': 'bp', 'w': txt, 'w_en': w[1] if w else ''})
+
+    def ident(self, hz):
+        """«Che segnale è?»: analizza gli ultimi secondi attorno a hz (dalla memoria del registratore, o raccogliendo)."""
+        if self.engine is None or not self.fs:
+            self.post_json({'type': 'ident', 'hz': hz, 'key': 'none', 'it': 'Il ricevitore non è acceso', 'en': 'The receiver is not running'})
+            return
+        got = None
+        try:
+            got = self.rec.last(4.0) if self.src_kind != 'file' else None
+        except Exception as e:
+            log(f'Che segnale è: {e}')
+        if got and got[0] == self.fs and got[1] == self.center and len(got[2]) >= 2.5 * got[0]:
+            threading.Thread(target=self._ident_run, args=(hz, got[0], got[1], got[2]), daemon=True).start()
+        else:                                                    # niente in memoria: raccolgo 3,5 s da adesso
+            self.ident_col = {'hz': hz, 'buf': [], 'n': 0, 'need': int(3.5 * self.fs)}
+            self.post_json({'type': 'ident', 'hz': hz, 'wait': True})
+
+    def _ident_run(self, hz, fs, center, iq):
+        try:
+            r = identify.identify(iq, float(fs), float(center), float(hz))
+        except Exception as e:
+            log(f'Che segnale è: {e}')
+            r = {'hz': hz, 'key': 'none', 'it': f'Analisi non riuscita: {e}', 'en': f'Analysis failed: {e}'}
+        r['type'] = 'ident'
+        r['feats'] = {k: (float(v) if isinstance(v, (np.floating, np.integer)) else v) for k, v in (r.get('feats') or {}).items()}
+        log(f"Che segnale è: {hz / 1e6:.6f} MHz → {r.get('key')} {r.get('feats', '')}")
+        self.post_json(r)
 
     def on_tx_progress(self, sent, rest):
         self.post_json({'type': 'tx', 'busy': bool(self.keyer and self.keyer.busy), 'sent': sent[-40:], 'rest': rest[:80]})
@@ -3844,6 +3926,8 @@ class Hub:
                     self.post_json(self.cfg_msg())
                 elif k == 'digi_test':
                     self.digi_test()
+                elif k == 'ident':
+                    self.ident(float(c.get('hz', 0)))
                 elif k == 'cl_test':
                     self.cloudlog_test()
                 elif k == 'log_qso':
