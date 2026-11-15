@@ -1351,7 +1351,12 @@ class Hub:
             last = n
             q = self.iq_q.qsize()
             busy, self.busy = self.busy, 0.0
+            be, self.busy_eng = getattr(self, 'busy_eng', 0.0), 0.0
+            wb = getattr(self.src, 'wbusy', None)
+            if wb is not None:
+                self.src.wbusy = 0.0
             msg = (f'dati: {rate/1000:.1f} k campioni/s · coda {q} · persi {self.dropped} · calcolo {busy / 3 * 100:.0f}%'
+                   f' (ricevitore {be / 3 * 100:.0f}%' + (f', riduzione Pluto {wb / 3 * 100:.0f}%' if wb is not None else '') + ')'
                    f' · motore {"sì" if self.engine else "no"}')
             if self.src_kind in NET_KINDS:
                 msg += f' · in ritardo {self.late}'
@@ -1450,8 +1455,11 @@ class Hub:
                 # il riconoscimento del proprio TX (tutta la banda sale di colpo) vale per i ricevitori HF;
                 # con chiavetta e Pluto un cambio di guadagno lo farebbe scattare e zittirebbe l'audio
                 self.engine.tx_guard_on = self.src_kind not in NET_KINDS
+                t1 = time.perf_counter()
                 self.engine.feed(blk)
-                self.busy += time.perf_counter() - t0
+                t2 = time.perf_counter()
+                self.busy += t2 - t0
+                self.busy_eng = getattr(self, 'busy_eng', 0.0) + (t2 - t1)
                 r, au, w, l = self.engine.take()
                 pend_rows += r
                 pend_audio += au

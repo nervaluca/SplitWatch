@@ -1417,6 +1417,7 @@ class PlutoSource:
         self.pan_win = None
         self.rfbw = 250000
         self.acc = None                      # spettro medio di tutta la banda (procedura QO-100)
+        self.wbusy = 0.0                     # tempo speso nella riduzione di frequenza (per il log)
         self.realtime = True                 # ricevitore a orecchio (SSB, CW, DIGI…): si recupera subito il ritardo.
                                              # Skimmer: il calcolo è pesante, recuperare di continuo fa andare a scatti
         self.acc_left = 0
@@ -1591,6 +1592,7 @@ class PlutoSource:
             if self.rawq.qsize() > 10:                     # il calcolo è rimasto indietro di ~0,3 s: salto, meglio che ritardare
                 self.lost = getattr(self, 'lost', 0) + 1
                 continue
+            tw = time.perf_counter()
             v = np.frombuffer(raw[:len(raw) // 4 * 4], '<i2').astype(np.float32) * (1.0 / 2048.0)
             c = v.view(np.complex64)
             if self.acc_left > 0:
@@ -1605,6 +1607,7 @@ class PlutoSource:
                 except Exception:
                     pass
             y = self.dec(c)
+            self.wbusy += time.perf_counter() - tw            # per il log: quanto costa portare 2,3 MS/s a 192 kHz
             if len(y):
                 self.nsamp += len(y)
                 self.on_iq(y)

@@ -1121,6 +1121,7 @@ class DigiBridge:
         self.trim = 0                             # volte che ho buttato audio vecchio (ritardo verso WSJT-X)
         self.err = ''
         self.ores = {'ph': 0.0, 'last': 0.0}
+        self.slack_min, self.slack_n = None, 0    # riserva minima vista negli ultimi secondi (uscita verso WSJT-X)
 
     def start(self):
         import numpy as np
@@ -1141,6 +1142,17 @@ class DigiBridge:
                 if len(self.buf) > keep:
                     self.buf = self.buf[-keep:]
                     self.trim += 1
+                # riserva su misura: dopo un attimo di ritardo del calcolo la riserva restava alta per sempre (fino a
+                # 0,2 s: in WSJT-X il DT saliva). Guardo per 4 s quanta ne avanza SEMPRE: se sono più di 60 ms, quella
+                # in più non serve e la tolgo (ne lascio 40 ms sopra il momento peggiore visto)
+                slack = len(self.buf) - need
+                self.slack_min = slack if self.slack_min is None else min(self.slack_min, slack)
+                self.slack_n += frames
+                if self.slack_n >= 4 * 48000:
+                    if self.slack_min > 2880:
+                        self.buf = self.buf[int(self.slack_min - 1920):]
+                        self.trim += 1
+                    self.slack_min, self.slack_n = None, 0
                 a = self.buf[:need]
                 self.buf = self.buf[need:]
                 if len(a) < need:
