@@ -2451,6 +2451,8 @@ function knobKey(k,lungo){setTimeout(()=>knobDisp(true),0);
     return setStatus(L(`Manopola: passo ${KNOBB?'VFO B':'VFO A'} ${nx>=1000?(nx/1000).toLocaleString('it')+' kHz':nx+' Hz'}`,`Knob: ${KNOBB?'VFO B':'VFO A'} step ${nx>=1000?nx/1000+' kHz':nx+' Hz'}`))}
   if((k==='1'&&lungo)||k==='3'){KNOBB=!KNOBB;try{localStorage.setItem('fzr_knobb',KNOBB?'1':'0')}catch(e){}
     return setStatus(L(`Manopola su ${KNOBB?'VFO B':'VFO A'}`,`Knob on ${KNOBB?'VFO B':'VFO A'}`))}
+  if(k==='4'){const nx=KNOB_MODI[(KNOB_MODI.indexOf(MODE)+1)%KNOB_MODI.length],b=document.querySelector(`#modes button[data-m="${nx}"]`);
+    if(b)b.click();return}
   if(k==='2'){$('#bLock').click();setStatus(LOCK?L('DX bloccato (manopola)','DX locked (knob)'):L('DX sbloccato (manopola)','DX unlocked (knob)'))}}
 function knobUI(r){if(r.hello&&r.hello!==KNOBTYPE)setTimeout(()=>knobDisp(true),0);KNOBTYPE=r.hello||'';const s=$('#selKnob'),ps=r.ports||[],key=JSON.stringify(ps)+'|'+(r.port||'');
   if(s.dataset.k!==key){s.dataset.k=key;let h='<option value="">'+T('Nessuna')+'</option>'+ps.map(p=>`<option value="${hesc(p[0])}">${hesc(p[0])} · ${hesc(p[1])}</option>`).join('');
@@ -2460,10 +2462,12 @@ function knobUI(r){if(r.hello&&r.hello!==KNOBTYPE)setTimeout(()=>knobDisp(true),
   const st=$('#knobState'),t=!r.port?'':!r.ok?(r.err?L('Errore: ','Error: ')+r.err:'…'):r.hello?L(`Manopola pronta su ${r.port} (${r.hello})`,`Knob ready on ${r.port} (${r.hello})`):
     L(`${r.port} aperta, ma l'ESP32 non risponde: è la porta giusta? il firmware è caricato?`,`${r.port} open, but the ESP32 does not answer: right port? firmware loaded?`);
   setT(st,t);st.style.color=r.port&&(!r.ok||!r.hello)?'#ff5a5a':''}
+const knobModo=()=>({rxcw:'CW',ssb:sbe()>0?'USB':'LSB',rtty:'RTTY',ft8:'FT8',fm:'FM',am:'AM',dx:'DX',contest:'CONTEST',normale:'SKIMMER'})[MODE]||'-';
+const KNOB_MODI=['rxcw','ssb','am','fm','rtty','ft8'];   // giro del tasto MODO (dagli Skimmer si va in CW)
 // display della manopola (es. CYD): la pagina gli manda lo stato vero, solo quando cambia (e ogni 3 s, se si è riavviato)
 let knobDispLast='',knobDispT=0;
 function knobDisp(force){if(!KNOBTYPE||!CFG)return;
-  const b=RX2ON?Math.round(CFG.dx+CFG.rx2_off):0,mo=MODE==='rxcw'?'CW':String(MODE||'').toUpperCase().slice(0,8)||'-';
+  const b=RX2ON?Math.round(CFG.dx+CFG.rx2_off):0,mo=knobModo();
   const t=`S A=${Math.round(CFG.dx)} B=${b} P=${KNOBB?P2():P1()} V=${KNOBB?'B':'A'} L=${dxLocked()?1:0} O=${mo}`,now=performance.now();
   if(t===knobDispLast&&!force&&now-knobDispT<3000)return;knobDispLast=t;knobDispT=now;send({cmd:'knob_disp',s:t})}
 setInterval(()=>knobDisp(false),250);
