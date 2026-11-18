@@ -67,6 +67,7 @@ from sources import (AudioCard, ExtIOSource, PerseusDirect, PerseusExtIO, WavFil
                      PlutoSource, PLUTO_RANGE, PLUTO_RATE, SpyServerSource, KiwiSource)
 import banco
 import tx as txmod
+import manopola
 import wsjtxlog
 import identify
 import ponti
@@ -416,6 +417,8 @@ class Hub:
         self.paddle = None                     # paddle su porta COM (keyer iambico / tasto verticale)
         self.pad_port, self.pad_err, self.pad_try, self.pad_sent = '', '', 0.0, ''
         self.ports_cache = (0.0, [])
+        self.knob = None                       # manopola di sintonia (ESP32 + encoder su porta COM)
+        self.knob_ws = None                    # la pagina che la usa: l'ultima da cui è arrivato un comando
         self.snap = None                       # clic su una traccia CW: VFO A sulla portante della stazione
         self.ident_col = None                  # «Che segnale è?»: IQ raccolto in avanti quando la memoria è vuota
         self.mic_raw = None                    # ultima prova voce (8 kHz, senza guadagno)
@@ -2227,6 +2230,50 @@ class Hub:
         log(f'Paddle su {want}: {k.mode}')
         self.on_status(f'Paddle pronto su {want}')
 
+    # ---- manopola di sintonia (ESP32 + encoder)
+    def knob_cfg(self):
+        k = self.cfg.setdefault('knob', {})
+        k.setdefault('port', '')
+        k.setdefault('inv', False)
+        return k
+
+    def knob_apply(self):
+        """Apre, riapre o chiude la manopola secondo le impostazioni."""
+        k = self.knob_cfg()
+        want = str(k.get('port') or '')
+        m = self.knob
+        if m is not None and m.port == want:
+            m.inv = bool(k.get('inv'))
+            return
+        if m is not None:
+            m.close()
+            self.knob = None
+        if want:
+            self.knob = manopola.Manopola(want, self.on_knob_turn, self.on_knob_key,
+                                          lambda: self.post_json(self.knob_msg()), inv=k.get('inv'))
+            log(f'Manopola su {want}')
+
+    def knob_msg(self):
+        k, m = self.knob_cfg(), self.knob
+        return {'type': 'knob_st', 'port': k.get('port', ''), 'inv': bool(k.get('inv')), 'ports': self.com_ports(),
+                'ok': bool(m and m.ok), 'err': m.err if m else '', 'hello': m.hello if m else ''}
+
+    def on_knob_turn(self, n, v):
+        self.post_knob({'type': 'knob', 'n': n, 'v': v})
+
+    def on_knob_key(self, k, lungo):
+        self.post_knob({'type': 'knob', 'k': k, 'l': lungo})
+
+    def post_knob(self, obj):
+        """Gli scatti vanno a una pagina sola (con due finestre aperte il VFO non deve muoversi due volte)."""
+        if self.loop:
+            self.loop.call_soon_threadsafe(self._send_knob, json.dumps(obj))
+
+    def _send_knob(self, msg):
+        ws = self.knob_ws if self.knob_ws in self.clients else next(iter(self.clients), None)
+        if ws is not None:
+            asyncio.ensure_future(self._safe_send(ws, msg))
+
     def pad_tx(self):
         if self.tx is None or self.ssbtx is not None and self.ssbtx.alive:
             return None
@@ -3586,6 +3633,7 @@ class Hub:
         try:
             await ws.send(json.dumps(self.cfg_msg()))
             await ws.send(json.dumps(self.rig_msg()))
+            await ws.send(json.dumps(self.knob_msg()))
             with self.lock:
                 rows = list(self.rows_hist)
             if rows:
@@ -3600,6 +3648,8 @@ class Hub:
                 except Exception:
                     continue
                 k = c.get('cmd')
+                if k != 'knob_disp':
+                    self.knob_ws = ws                       # la manopola comanda la finestra che stai usando
                 if k == 'dx':
                     hz = float(c['hz'])
                     if c.get('jump'):                       # frequenza scritta: se è fuori dalla vista ci vado
@@ -3619,6 +3669,10 @@ class Hub:
                         self.cmd_q.put(('dx', hz))
                         if c.get('snap'):
                             self.snap_start(hz)
+                        if c.get('knob') and self.tunable() and self.fs and self.center and \
+                                abs(hz - self.center) > self.fs * 0.42:
+                            # manopola: il DX sta uscendo dalla banda ricevuta, il ricevitore lo segue (come la manopola della radio)
+                            self.tune(hz + (self.fs * 0.2 if self.modo() in ('dx',) + RX_MODES else 0))
                 elif k == 'up':
                     self.cmd_q.put(('up', c['lo'], c['hi']))
                 elif k == 'bw':
@@ -3786,6 +3840,22 @@ class Hub:
                         elif self.cat().get('tx_rx2', True) and self.dx_abs:
                             self.rig_tx(self.dx_abs + float(self.cfg.get('rx2_off', 5000.0)))
                     self.post_json(self.cfg_msg())
+                elif k == 'knob_disp':                      # stato per il display della manopola
+                    if self.knob is not None and (self.knob_ws is None or ws is self.knob_ws):
+                        line = ' '.join(str(c.get('s', '')).split())[:160]
+                        if line.startswith('S '):
+                            self.knob.write(line)
+                elif k == 'knob_get':
+                    self.post_json(self.knob_msg())
+                elif k == 'knob' and isinstance(c.get('v'), dict):
+                    kc, v = self.knob_cfg(), c['v']
+                    if 'port' in v:
+                        kc['port'] = str(v['port'] or '')
+                    if 'inv' in v:
+                        kc['inv'] = bool(v['inv'])
+                    save_cfg(self.cfg)
+                    self.knob_apply()
+                    self.post_json(self.knob_msg())
                 elif k == 'passo' and int(c.get('v', 0)) in (10, 50, 100, 500, 1000):
                     self.cfg['passo'] = int(c['v'])
                     save_cfg(self.cfg)
@@ -4099,6 +4169,10 @@ class Hub:
 
     async def main(self):
         self.loop = asyncio.get_running_loop()
+        try:
+            self.knob_apply()                    # manopola di sintonia, se scelta la porta
+        except Exception as e:
+            log(f'Manopola: {e}')
         threading.Thread(target=self.dsp_thread, daemon=True).start()
         threading.Thread(target=self.diag_thread, daemon=True).start()
         threading.Thread(target=self.trial_thread, daemon=True).start()
@@ -4209,6 +4283,8 @@ def hard_exit(code=0):
     try:
         if TX_HUB is not None and TX_HUB.paddle is not None:
             TX_HUB.paddle.close()
+        if TX_HUB is not None and TX_HUB.knob is not None:
+            TX_HUB.knob.close()
         if TX_HUB is not None and TX_HUB.tx is not None:
             TX_HUB.tx_close()                    # mai lasciare il Pluto in trasmissione
     except Exception:
