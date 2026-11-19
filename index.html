@@ -2429,7 +2429,7 @@ function knobSnap(a,dir,n,P){if(P===8333)return Math.round((a+dir*n*25000/3)/10)
   const g=dir>0?Math.floor(a/P+1e-6)+1:Math.ceil(a/P-1e-6)-1;return (g+dir*(n-1))*P}                 // sulla griglia del passo
 function onKnob(m){
   if(m.k!=null)return knobKey(m.k,!!m.l);
-  const n=m.n|0;if(!n||!CFG)return;
+  const n=m.n|0;if(!n||!CFG)return;knobSync();
   const dir=Math.sign(n),k=Math.abs(n)*knobMult(m.v||0);
   if(KNOBB){                                       // VFO B
     if(!RX2ON)setRx2On(true);
@@ -2442,13 +2442,18 @@ function onKnob(m){
   if(document.activeElement!==$('#iDx'))$('#iDx').value=(nd/1000).toFixed(2);
   const o=dxOff();if(o<view.low||o>view.low+view.span)centerOn(o);                // il DX esce dalla vista: la vista lo segue
   knobThrottle(()=>send({cmd:'dx',hz:KNOBDX,knob:true}));knobDisp(false)}
-function knobKey(k,lungo){setTimeout(()=>knobDisp(true),0);
+// nei modi RX la manopola segue lo SPLIT, come la rotellina: acceso = VFO B (pile-up / TX), spento = VFO A
+let knobLastSplit=null;
+function knobSync(){if(!isRX())return;if(SPLIT!==knobLastSplit){knobLastSplit=SPLIT;KNOBB=SPLIT}if(!SPLIT)KNOBB=false}
+function knobKey(k,lungo){knobSync();setTimeout(()=>knobDisp(true),0);
   if(k==='1'&&!lungo){                             // passo successivo del VFO che la manopola sta muovendo
     if(!KNOBB&&!isRX())return setStatus(L('Manopola: nei modi Skimmer il passo di VFO A è fisso a 50 Hz','Knob: in the Skimmer modes the VFO A step is fixed at 50 Hz'));
     const st=STEPS().map(x=>x[0]),cur=KNOBB?P2():P1(),nx=st[(st.indexOf(cur)+1)%st.length];
     try{localStorage.setItem((KNOBB?'fzr_passo2_':'fzr_passo1_')+MODE,String(nx))}catch(e){}
     PASSO=P2();renderSteps();
     return setStatus(L(`Manopola: passo ${KNOBB?'VFO B':'VFO A'} ${nx>=1000?(nx/1000).toLocaleString('it')+' kHz':nx+' Hz'}`,`Knob: ${KNOBB?'VFO B':'VFO A'} step ${nx>=1000?nx/1000+' kHz':nx+' Hz'}`))}
+  if(k==='3'&&isRX()){setSplit(!SPLIT);knobSync();return}            // tasto SPLIT
+  if(k==='1'&&lungo&&isRX()&&!SPLIT)return setStatus(L('Manopola: VFO B solo con lo SPLIT acceso','Knob: VFO B only with SPLIT on'));
   if((k==='1'&&lungo)||k==='3'){KNOBB=!KNOBB;try{localStorage.setItem('fzr_knobb',KNOBB?'1':'0')}catch(e){}
     return setStatus(L(`Manopola su ${KNOBB?'VFO B':'VFO A'}`,`Knob on ${KNOBB?'VFO B':'VFO A'}`))}
   if(k==='4'){const nx=KNOB_MODI[(KNOB_MODI.indexOf(MODE)+1)%KNOB_MODI.length],b=document.querySelector(`#modes button[data-m="${nx}"]`);
@@ -2466,9 +2471,9 @@ const knobModo=()=>({rxcw:'CW',ssb:sbe()>0?'USB':'LSB',rtty:'RTTY',ft8:'FT8',fm:
 const KNOB_MODI=['rxcw','ssb','am','fm','rtty','ft8'];   // giro del tasto MODO (dagli Skimmer si va in CW)
 // display della manopola (es. CYD): la pagina gli manda lo stato vero, solo quando cambia (e ogni 3 s, se si è riavviato)
 let knobDispLast='',knobDispT=0;
-function knobDisp(force){if(!KNOBTYPE||!CFG)return;
-  const b=RX2ON?Math.round(CFG.dx+CFG.rx2_off):0,mo=knobModo();
-  const t=`S A=${Math.round(CFG.dx)} B=${b} P=${KNOBB?P2():P1()} V=${KNOBB?'B':'A'} L=${dxLocked()?1:0} O=${mo}`,now=performance.now();
+function knobDisp(force){if(!KNOBTYPE||!CFG)return;knobSync();
+  const b=(isRX()?rx2Live():RX2ON)?Math.round(CFG.dx+CFG.rx2_off):0,mo=knobModo();
+  const t=`S A=${Math.round(CFG.dx)} B=${b} P=${KNOBB?P2():P1()} V=${KNOBB?'B':'A'} L=${dxLocked()?1:0} O=${mo} X=${isRX()?(SPLIT?1:0):2}`,now=performance.now();
   if(t===knobDispLast&&!force&&now-knobDispT<3000)return;knobDispLast=t;knobDispT=now;send({cmd:'knob_disp',s:t})}
 setInterval(()=>knobDisp(false),250);
 $('#selKnob').onchange=e=>send({cmd:'knob',v:{port:e.target.value}});
