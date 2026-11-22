@@ -419,6 +419,7 @@ class Hub:
         self.ports_cache = (0.0, [])
         self.knob = None                       # manopola di sintonia (ESP32 + encoder su porta COM)
         self.knob_ws = None                    # la pagina che la usa: l'ultima da cui è arrivato un comando
+        self.dec_hist = []                     # ultime decodifiche FT8, per il display della manopola
         self.snap = None                       # clic su una traccia CW: VFO A sulla portante della stazione
         self.ident_col = None                  # «Che segnale è?»: IQ raccolto in avanti quando la memoria è vuota
         self.mic_raw = None                    # ultima prova voce (8 kHz, senza guadagno)
@@ -2250,8 +2251,33 @@ class Hub:
             self.knob = None
         if want:
             self.knob = manopola.Manopola(want, self.on_knob_turn, self.on_knob_key,
-                                          lambda: self.post_json(self.knob_msg()), inv=k.get('inv'))
+                                          self.knob_state, inv=k.get('inv'))
             log(f'Manopola su {want}')
+
+    def on_wsjtx_decode(self, d):
+        """Decodifica di WSJT-X: la tengo da parte e la mando al display della manopola, se la sta guardando."""
+        testo = ' '.join(str(d.get('msg') or '').split())[:30]
+        if not testo:
+            return
+        t = int(d.get('t') or 0)
+        io = self.rbn_call()
+        mio = '*' if io and io in testo.upper().split() else ''
+        riga = (f"D{mio} {t // 3600 % 24:02d}{t // 60 % 60:02d} {int(d.get('snr') or 0):+d} "
+                f"{int(d.get('df') or 0)} {testo}")
+        self.dec_hist.append(riga)
+        del self.dec_hist[:-9]
+        m = self.knob
+        if m is not None and m.ok and getattr(m, 'pagina', 0) == 1:
+            m.write(riga)
+
+    def knob_state(self):
+        """La manopola è cambiata (porta, presentazione, pagina del display): aggiorno la finestra e,
+        se ha appena aperto le decodifiche, gli mando quelle che ho già."""
+        self.post_json(self.knob_msg())
+        m = self.knob
+        if m is not None and m.ok and getattr(m, 'pagina', 0) == 1:
+            for riga in self.dec_hist:
+                m.write(riga)
 
     def knob_msg(self):
         k, m = self.knob_cfg(), self.knob
@@ -2548,7 +2574,7 @@ class Hub:
             w.close()
             self.wlog = w = None
         if want[0] and w is None:
-            self.wlog = wsjtxlog.WsjtxListener(want[1], self.on_wsjtx_adif, log)
+            self.wlog = wsjtxlog.WsjtxListener(want[1], self.on_wsjtx_adif, log, on_decode=self.on_wsjtx_decode)
             self.wlog.start()
             log(f'WSJT-X UDP: ascolto i QSO registrati su 127.0.0.1:{want[1]}')
 

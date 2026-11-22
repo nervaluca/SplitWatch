@@ -169,11 +169,13 @@ class Cloudlog:
 
 
 class WsjtxListener(threading.Thread):
-    """Ascolta i messaggi UDP di WSJT-X; a ogni «Logged ADIF» chiama on_adif(testo, id_istanza)."""
+    """Ascolta i messaggi UDP di WSJT-X: a ogni «Logged ADIF» chiama on_adif(testo, id_istanza),
+    a ogni decodifica nuova on_decode(dict) se è stata data."""
 
-    def __init__(self, port, on_adif, log=print, host='127.0.0.1'):
+    def __init__(self, port, on_adif, log=print, host='127.0.0.1', on_decode=None):
         super().__init__(daemon=True, name='wsjtx-udp')
         self.port, self.host, self.on_adif, self.log = int(port), host, on_adif, log
+        self.on_decode = on_decode
         self.alive = True
         self.sock = None
         self.seen = {}                  # ultimo heartbeat per istanza
@@ -220,6 +222,17 @@ class WsjtxListener(threading.Thread):
                 self.sock.sendto(rep, addr)
             except OSError:
                 pass
+        elif typ == 2 and self.on_decode is not None:       # Decode: una riga decodificata
+            nuova = b[i] != 0
+            i += 1
+            t_ms, = struct.unpack_from('>I', b, i); i += 4
+            snr, = struct.unpack_from('>i', b, i); i += 4
+            i += 8                                          # Δt in secondi: non serve
+            df, = struct.unpack_from('>I', b, i); i += 4
+            _mode, i = _utf8(b, i)
+            testo, i = _utf8(b, i)
+            if nuova and testo:                             # le ripetute (riascolto in WSJT-X) non le mando
+                self.on_decode({'t': t_ms // 1000, 'snr': snr, 'df': df, 'msg': testo})
         elif typ == 12:                                     # Logged ADIF
             text, _ = _utf8(b, i)
             self.on_adif(text, ident)

@@ -30,6 +30,7 @@ class Manopola:
         self.ok = False                 # porta aperta
         self.err = ''
         self.hello = ''                 # tipo di encoder dichiarato dal firmware ('' = non ha ancora risposto)
+        self.pagina = 0                 # pagina mostrata dal display: 0 manopola · 1 decodifiche FT8
         self.s = None
         self.wlock = threading.Lock()
         threading.Thread(target=self._run, daemon=True).start()
@@ -89,6 +90,7 @@ class Manopola:
                 continue
             self.s = s
             self.hello = ''
+            self.pagina = 0
             self._set(True)
             try:
                 with self.wlock:
@@ -130,6 +132,12 @@ class Manopola:
                         hist.append((now, abs(n)))
                     elif len(t) == 3 and t[0] == 'K' and t[2] in 'SL':
                         self.on_key(t[1], t[2] == 'L')
+                    elif t.startswith('PG'):                 # pagina mostrata dal display
+                        try:
+                            self.pagina = int(t.split()[1])
+                        except (IndexError, ValueError):
+                            self.pagina = 0
+                        self.on_state()                  # aprendo le decodifiche gli mando quelle già prese
                     elif t.startswith('FZRKNOB'):
                         parts = t.split()
                         self.hello = parts[2] if len(parts) > 2 else '?'
