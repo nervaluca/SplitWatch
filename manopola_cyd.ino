@@ -17,6 +17,8 @@
 
   Protocollo: come la manopola semplice (E+3, K1S, K1L ...) più, dal PC:
     S A=<Hz VFO A> B=<Hz VFO B, 0 = spento> P=<passo Hz> V=<A|B> L=<0|1> O=<modo>
+      X=<0 split spento, 1 acceso, 2 modi skimmer> M=<S-meter 0…100, -1 ignoto> N=<S-meter scritto>
+      T=<0 TX non disponibile, 1 pronto, 2 in trasmissione> W=<1 avviso bandplan>
 */
 
 // ======== da regolare se serve ========
@@ -110,6 +112,11 @@ struct Stato {
   bool lock = false;
   char modo[10] = "CW";
   bool vivo = false;                 // true = arrivano dati da FZR SDR
+  uint8_t split = 2;                 // 0 spento · 1 acceso · 2 modi skimmer (non c'entra)
+  int16_t m = -1;                    // S-meter 0…100 sulla scala di FZR SDR (-1 = non si sa)
+  char sm[8] = "";                   // S-meter scritto (S7, S9+20)
+  uint8_t tx = 0;                    // 0 non disponibile · 1 pronto · 2 in trasmissione
+  bool warn = false;                 // avviso bandplan
 };
 Stato st, vis;                        // st = da mostrare, vis = quello già disegnato
 bool primo = true;
@@ -118,12 +125,15 @@ int tocX = -1, tocY = -1, tocRX = 0, tocRY = 0;
 const uint32_t PASSI[] = {10, 50, 100, 500, 1000};
 
 // ---------- tasti sullo schermo ----------
+// Ognuno mostra il valore che cambia: passo, VFO mosso dalla manopola, blocco del DX, modo.
 struct Tasto { int x, y, w, h; const char *nome; char k; };
 Tasto tasti[] = {
-  {4, 186, 101, 50, "PASSO", '1'},
-  {110, 186, 100, 50, "A / B", '3'},
-  {215, 186, 101, 50, "MODO", '4'},       // mostra il modo (CW, USB, LSB...) e lo cambia
+  {4, 186, 74, 50, "PASSO", '1'},
+  {83, 186, 74, 50, "VFO", '3'},
+  {162, 186, 74, 50, "BLOCCO", '2'},
+  {241, 186, 75, 50, "MODO", '4'},
 };
+const int NTASTI = sizeof tasti / sizeof tasti[0];
 int tastoGiu = -1;
 
 void presentati() { Serial.println("FZRKNOB 1 CYD"); }
@@ -143,25 +153,57 @@ String fmtFreq(uint64_t hz) {                  // 14025300 → "14.025.300"
 
 String fmtPasso(uint32_t p) { return p >= 1000 ? String(p / 1000.0, p % 1000 ? 1 : 0) + " kHz" : String(p) + " Hz"; }
 
+String valoreTasto(int i) {                     // il valore scritto in grande dentro il tasto
+  switch (tasti[i].k) {
+    case '1': return fmtPasso(st.p);
+    case '3': return String(st.v);
+    case '2': return st.lock ? "fermo" : "libero";
+    default:  return String(st.modo);
+  }
+}
+
 void disegnaTasto(int i, bool premuto) {
   Tasto &t = tasti[i];
-  bool modo = t.k == '4';
-  uint16_t fondo = premuto ? C_BORDO : (modo ? 0x18E3 : C_TASTO);
+  bool bloccato = tasti[i].k == '2' && st.lock;
+  String val = valoreTasto(i);
+  uint16_t fondo = premuto ? C_BORDO : bloccato ? 0x5800 : C_TASTO;
+  uint16_t cval = bloccato ? C_TESTO : C_FREQ;
   lcd.fillRoundRect(t.x, t.y, t.w, t.h, 8, fondo);
-  lcd.drawRoundRect(t.x, t.y, t.w, t.h, 8, modo ? C_FREQ : C_BORDO);
+  lcd.drawRoundRect(t.x, t.y, t.w, t.h, 8, bloccato ? C_ROSSO : C_BORDO);
   lcd.setTextDatum(middle_center);
-  if (modo) {                                   // il modo in grande, "MODO" piccolo sopra
-    lcd.setFont(&fonts::Font0);
-    lcd.setTextColor(C_GRIGIO, fondo);
-    lcd.drawString("MODO", t.x + t.w / 2, t.y + 9);
-    lcd.setFont(strlen(st.modo) > 4 ? &fonts::FreeSansBold9pt7b : &fonts::FreeSansBold12pt7b);
-    lcd.setTextColor(C_FREQ, fondo);
-    lcd.drawString(st.modo, t.x + t.w / 2, t.y + t.h / 2 + 5);
-  } else {
-    lcd.setFont(&fonts::FreeSansBold9pt7b);
-    lcd.setTextColor(C_TESTO, fondo);
-    lcd.drawString(t.nome, t.x + t.w / 2, t.y + t.h / 2);
+  lcd.setFont(&fonts::Font0);                   // nome piccolo sopra, valore grande sotto
+  lcd.setTextColor(C_GRIGIO, fondo);
+  lcd.drawString(t.nome, t.x + t.w / 2, t.y + 10);
+  lcd.setFont(val.length() > 4 ? &fonts::FreeSansBold9pt7b : &fonts::FreeSansBold12pt7b);
+  lcd.setTextColor(cval, fondo);
+  lcd.drawString(val, t.x + t.w / 2, t.y + t.h / 2 + 6);
+}
+
+// ---------- S-meter: la barra arriva già pronta da FZR SDR (0…100 sulla sua scala, S9 al 60%) ----------
+void disegnaSmeter() {
+  const int x0 = 8, y0 = 142, w = 304, h = 26;
+  if (!st.vivo) { lcd.fillRect(0, 136, 320, 44, C_FONDO); return; }
+  lcd.fillRoundRect(x0, y0, w, h, 6, C_TASTO);
+  lcd.drawRoundRect(x0, y0, w, h, 6, C_BORDO);
+  const int dentro = w - 4, s9 = dentro * 60 / 100;
+  if (st.m > 0) {
+    int piena = dentro * (st.m > 100 ? 100 : st.m) / 100;
+    int verde = piena < s9 ? piena : s9;
+    if (verde > 2) lcd.fillRoundRect(x0 + 2, y0 + 2, verde, h - 4, 4, C_VERDE);
+    if (piena > verde) lcd.fillRect(x0 + 2 + verde, y0 + 2, piena - verde, h - 4, C_ROSSO);
   }
+  lcd.drawFastVLine(x0 + 2 + s9, y0 + 4, h - 8, C_GRIGIO);        // dove sta S9
+  lcd.setFont(&fonts::FreeSansBold9pt7b);
+  lcd.setTextDatum(middle_right);
+  lcd.setTextColor(C_TESTO);
+  lcd.drawString(st.sm, x0 + w - 8, y0 + h / 2);
+}
+
+// in trasmissione tutto lo schermo prende un bordo rosso (arancio se c'è l'avviso bandplan)
+void disegnaBordo() {
+  uint16_t c = st.tx == 2 ? (st.warn ? C_FREQ : C_ROSSO) : C_FONDO;
+  lcd.drawRect(0, 0, 320, 240, c);
+  lcd.drawRect(1, 1, 318, 238, c);
 }
 
 const char *banda(uint64_t hz) {               // banda radioamatoriale della frequenza, per la barra in alto
@@ -197,12 +239,12 @@ void disegna() {
   if (tutto) {
     lcd.fillScreen(C_FONDO);
     lcd.drawFastHLine(0, 28, 320, C_BORDO);
-    for (int i = 0; i < 3; i++) disegnaTasto(i, false);
+    for (int i = 0; i < NTASTI; i++) disegnaTasto(i, false);
   }
   // barra in alto: VFO mosso dalla manopola · modo · collegamento
   static const char *bandaVis = nullptr;
   const char *bnd = banda(st.a);
-  if (tutto || st.v != vis.v || bnd != bandaVis || st.vivo != vis.vivo) {
+  if (tutto || st.v != vis.v || bnd != bandaVis || st.vivo != vis.vivo || st.tx != vis.tx || st.warn != vis.warn) {
     bandaVis = bnd;
     lcd.fillRect(0, 0, 320, 27, C_FONDO);
     lcd.fillRoundRect(4, 3, 70, 22, 6, st.v == 'A' ? C_VERDE : C_AZZ);
@@ -213,36 +255,42 @@ void disegna() {
     lcd.setTextColor(C_TESTO, C_FONDO);
     lcd.drawString(bnd, 160, 14);
     lcd.setTextDatum(middle_right);
-    lcd.setFont(&fonts::FreeSans9pt7b);
-    lcd.setTextColor(st.vivo ? C_VERDE : 0xFD20, C_FONDO);
-    lcd.drawString(st.vivo ? "FZR SDR" : "PROVA", 316, 14);
+    if (st.tx == 2) {                           // in trasmissione: al posto della scritta, TX ben visibile
+      uint16_t c = st.warn ? C_FREQ : C_ROSSO;
+      lcd.fillRoundRect(st.warn ? 232 : 262, 3, st.warn ? 84 : 54, 22, 6, c);
+      lcd.setFont(&fonts::FreeSansBold9pt7b);
+      lcd.setTextDatum(middle_center);
+      lcd.setTextColor(st.warn ? TFT_BLACK : TFT_WHITE);
+      lcd.drawString(st.warn ? "TX  BANDA!" : "TX", st.warn ? 274 : 289, 14);
+    } else {
+      lcd.setFont(&fonts::FreeSans9pt7b);
+      lcd.setTextColor(st.vivo ? C_VERDE : 0xFD20, C_FONDO);
+      lcd.drawString(st.vivo ? "FZR SDR" : "PROVA", 316, 14);
+    }
   }
   if (tutto || st.a != vis.a || st.b != vis.b || st.v != vis.v) disegnaFrequenza();
   // riga sotto: l'altro VFO
-  if (tutto || st.a != vis.a || st.b != vis.b || st.v != vis.v) {
+  if (tutto || st.a != vis.a || st.b != vis.b || st.v != vis.v || st.split != vis.split) {
     lcd.fillRect(0, 100, 320, 30, C_FONDO);
     lcd.setFont(&fonts::FreeSans12pt7b);
     lcd.setTextDatum(middle_left);
     lcd.setTextColor(C_GRIGIO, C_FONDO);
     String r = st.v == 'A' ? (st.b ? String("B  ") + fmtFreq(st.b) : String("B  spento")) : String("A  ") + fmtFreq(st.a);
     lcd.drawString(r, 8, 115);
-  }
-  // passo e blocco
-  if (tutto || st.p != vis.p || st.lock != vis.lock) {
-    lcd.fillRect(0, 136, 320, 44, C_FONDO);
-    lcd.setFont(&fonts::FreeSans12pt7b);
-    lcd.setTextDatum(middle_left);
-    lcd.setTextColor(C_TESTO, C_FONDO);
-    lcd.drawString("Passo " + fmtPasso(st.p), 8, 158);
-    if (st.lock) {
-      lcd.fillRoundRect(206, 144, 106, 28, 6, C_ROSSO);
+    if (st.split == 1) {                        // split acceso: il TX sta sul VFO B
+      lcd.fillRoundRect(244, 102, 68, 24, 6, C_AZZ);
       lcd.setFont(&fonts::FreeSansBold9pt7b);
       lcd.setTextDatum(middle_center);
-      lcd.setTextColor(TFT_WHITE);
-      lcd.drawString("BLOCCATO", 259, 158);
+      lcd.setTextColor(TFT_BLACK);
+      lcd.drawString("SPLIT", 278, 114);
     }
   }
-  if (!tutto && strcmp(st.modo, vis.modo)) disegnaTasto(2, false);
+  if (tutto || st.m != vis.m || strcmp(st.sm, vis.sm) || st.vivo != vis.vivo) disegnaSmeter();
+  if (!tutto && st.p != vis.p) disegnaTasto(0, false);
+  if (!tutto && strcmp(st.modo, vis.modo)) disegnaTasto(3, false);
+  if (!tutto && st.v != vis.v) disegnaTasto(1, false);
+  if (!tutto && st.lock != vis.lock) disegnaTasto(2, false);
+  disegnaBordo();                               // due righe sottili: si rifà sempre, costa niente
   vis = st;
   primo = false;
 }
@@ -279,6 +327,8 @@ void giraProva(int32_t n) {
 void leggiRiga(char *r) {
   if (!strcmp(r, "?")) { presentati(); return; }
   if (r[0] != 'S' || r[1] != ' ') return;
+  st.sm[0] = 0;                                 // «N=» vuoto non arriva come campo: lo azzero prima
+  st.m = -1;
   for (char *t = strtok(r + 2, " "); t; t = strtok(nullptr, " ")) {
     char *eq = strchr(t, '=');
     if (!eq) continue;
@@ -290,6 +340,11 @@ void leggiRiga(char *r) {
     else if (!strcmp(t, "V")) st.v = v[0] == 'B' ? 'B' : 'A';
     else if (!strcmp(t, "L")) st.lock = v[0] == '1';
     else if (!strcmp(t, "O")) { strncpy(st.modo, v, sizeof st.modo - 1); st.modo[sizeof st.modo - 1] = 0; }
+    else if (!strcmp(t, "X")) st.split = (uint8_t)atoi(v);
+    else if (!strcmp(t, "M")) st.m = (int16_t)atoi(v);
+    else if (!strcmp(t, "N")) { strncpy(st.sm, v, sizeof st.sm - 1); st.sm[sizeof st.sm - 1] = 0; }
+    else if (!strcmp(t, "T")) st.tx = (uint8_t)atoi(v);
+    else if (!strcmp(t, "W")) st.warn = v[0] == '1';
   }
   st.vivo = true;
   tUltimoS = millis();
@@ -334,7 +389,7 @@ void gestisciTocco() {
     tVisto = ora;
     if (dito) return;                           // stesso tocco di prima: un comando solo per pressione
     dito = true;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < NTASTI; i++) {
       Tasto &t = tasti[i];
       if (x >= t.x && x < t.x + t.w && y >= t.y && y < t.y + t.h) {
         tastoGiu = i;

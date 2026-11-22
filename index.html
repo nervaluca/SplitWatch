@@ -2468,11 +2468,16 @@ function knobUI(r){if(r.hello&&r.hello!==KNOBTYPE)setTimeout(()=>knobDisp(true),
   setT(st,t);st.style.color=r.port&&(!r.ok||!r.hello)?'#ff5a5a':''}
 const knobModo=()=>({rxcw:'CW',ssb:sbe()>0?'USB':'LSB',rtty:'RTTY',ft8:'FT8',fm:'FM',am:'AM',dx:'DX',contest:'CONTEST',normale:'SKIMMER'})[MODE]||'-';
 const KNOB_MODI=['rxcw','ssb','am','fm','rtty','ft8'];   // giro del tasto MODO (dagli Skimmer si va in CW)
-// display della manopola (es. CYD): la pagina gli manda lo stato vero, solo quando cambia (e ogni 3 s, se si è riavviato)
+// display della manopola (es. CYD): la pagina gli manda lo stato vero, solo quando cambia (e ogni 3 s, se si è riavviato).
+// Senza manopola con display non parte niente: KNOBTYPE è vuoto e si esce subito.
 let knobDispLast='',knobDispT=0;
 function knobDisp(force){if(!KNOBTYPE||!CFG)return;knobSync();
   const b=(isRX()?rx2Live():RX2ON)?Math.round(CFG.dx+CFG.rx2_off):0,mo=knobModo();
-  const t=`S A=${Math.round(CFG.dx)} B=${b} P=${KNOBB?P2():P1()} V=${KNOBB?'B':'A'} L=${dxLocked()?1:0} O=${mo} X=${isRX()?(SPLIT?1:0):2}`,now=performance.now();
+  const d=KNOBB?SM.rx2.t:SM.dx.t;                                  // S-meter del VFO che la manopola muove
+  const sm=d==null?-1:Math.round(smX(d)*50)*2;                     // 0…100 a passi di 2: meno righe uguali sulla seriale
+  const tb=$('#txBar'),tx=tb.hidden?0:tb.classList.contains('live')?2:1;
+  const t=`S A=${Math.round(CFG.dx)} B=${b} P=${KNOBB?P2():P1()} V=${KNOBB?'B':'A'} L=${dxLocked()?1:0} O=${mo} X=${isRX()?(SPLIT?1:0):2}`+
+          ` M=${sm} N=${d==null?'':sText(d)} T=${tx} W=${$('#bpWarn').hidden?0:1}`,now=performance.now();
   if(t===knobDispLast&&!force&&now-knobDispT<3000)return;knobDispLast=t;knobDispT=now;send({cmd:'knob_disp',s:t})}
 setInterval(()=>knobDisp(false),250);
 $('#selKnob').onchange=e=>send({cmd:'knob',v:{port:e.target.value}});

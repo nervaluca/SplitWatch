@@ -68,6 +68,7 @@ class Manopola:
         s.port = self.port
         s.baudrate = BAUD
         s.timeout = 0.01
+        s.write_timeout = 0.05          # se la porta si inchioda lo stato per il display non blocca il programma
         s.dtr = False                   # DTR e RTS spenti: aprendo la porta l'ESP32 non si resetta
         s.rts = False
         s.open()
