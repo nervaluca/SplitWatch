@@ -406,6 +406,8 @@ class Hub:
         self.wcat = None                       # CAT per WSJT-X (Hamlib NET rigctl)
         self.digi_key = None
         self.digi_t = 0.0
+        self.digi_hi = 0.0                     # da quando c'è audio sul cavo TX senza che WSJT-X trasmetta
+        self.digi_hiw = 0.0                    # ultimo avviso per quell'audio sempre presente
         self.digi_rxk = 10 ** (float(self.digi_cfg().get('rxgain', 0.0)) / 20) / 25500.0   # livello RX → WSJT-X
         self.wlog = None
         try:
@@ -2863,8 +2865,21 @@ class Hub:
         tx = self.ssbtx is not None and self.ssbtx.alive and isinstance(self.ssbtx.gen, txmod.DigiTx)
         if tx:
             b.level = self.ssbtx.gen.level              # in TX il VOX non legge: il livello lo dà il TX
+        cat_on = self.wcat is not None and self.wcat.clients > 0
+        b.vox = not cat_on                              # col CAT il PTT lo dà WSJT-X: il VOX si spegne, così
+        #                                                 l'audio che non è di WSJT-X non fa partire il TX da solo
+        if not tx and b.level >= b.thr:
+            t = time.time()
+            self.digi_hi = self.digi_hi or t
+            if t - self.digi_hi > 8 and t - self.digi_hiw > 120:
+                self.digi_hiw = t
+                self.on_status('Ponte WSJT-X: sul cavo «TX ← WSJT-X» c\'è audio anche se WSJT-X non trasmette: '
+                               'in Windows l\'uscita predefinita non deve essere un cavo virtuale'
+                               + ('' if cat_on else ', altrimenti il VOX fa partire il TX'))
+        else:
+            self.digi_hi = 0.0
         self.post_json({'type': 'digi_st', 'run': True, 'out': b.ost is not None, 'inp': b.ist is not None,
-                        'cat': self.wcat.clients if self.wcat is not None else -1,
+                        'cat': self.wcat.clients if self.wcat is not None else -1, 'vox': b.vox,
                         'cat_port': self.wcat.port if self.wcat is not None else None,
                         'rx_db': db(b.rx_level), 'tx_db': db(b.level), 'rx_n': b.rx_n, 'under': b.under, 'tx': tx})
 
@@ -2910,6 +2925,13 @@ class Hub:
         st = self.ssbtx
         if st is not None and st.alive:
             return                      # sta già trasmettendo: il VOX resta fermo finché quella non finisce
+        if not cat and self.wcat is not None and self.wcat.clients > 0:
+            # WSJT-X è collegato col CAT: il PTT arriva da lì, quindi il VOX non deve far partire niente
+            if time.time() - self.digi_t > 20:
+                self.digi_t = time.time()
+                self.on_status('Ponte WSJT-X: audio sul cavo TX senza il PTT di WSJT-X: non trasmetto')
+            b.tx_ended()
+            return
         if not self.tx or not self.keyer:
             if time.time() - self.digi_t > 20:
                 self.digi_t = time.time()
