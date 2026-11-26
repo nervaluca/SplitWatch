@@ -2561,6 +2561,7 @@ class Hub:
         d.setdefault('cl_url', '')
         d.setdefault('cl_key', '')
         d.setdefault('cl_id', '')          # ID del profilo stazione in Cloudlog
+        d.setdefault('style', 'fzr')       # aspetto di WSJT-X: '' chiaro · 'fzr' scuro FZR SDR · 'qdark' scuro pieno
         return d
 
     ADI_PATH = os.path.join(DATA_DIR, 'fzrsdr_lotw.adi')
@@ -2790,12 +2791,26 @@ class Hub:
                     wsjtxlog.ini_set_udp(wsjtxlog.ini_path(self.WSJTX_NAME), int(d.get('udp_port', 2238)))
                 except OSError as e:
                     log(f'WSJT-X: non riesco a impostare la porta UDP nel suo ini ({e})')
-            subprocess.Popen([exe, f'--rig-name={self.WSJTX_NAME}'], cwd=os.path.dirname(exe), creationflags=flags,
-                             close_fds=True)
-            log(f'WSJT-X dedicato avviato: {exe} --rig-name={self.WSJTX_NAME}')
+            arg = [exe, f'--rig-name={self.WSJTX_NAME}'] + self.wsjtx_stile(d)
+            subprocess.Popen(arg, cwd=os.path.dirname(exe), creationflags=flags, close_fds=True)
+            log('WSJT-X dedicato avviato: ' + ' '.join(arg))
             self.on_status(f'WSJT-X avviato come istanza «{self.WSJTX_NAME}» (impostazioni separate da quelle solite)')
         except Exception as e:
             self.on_status(f'WSJT-X: {e}')
+
+    @staticmethod
+    def wsjtx_stile(d):
+        """L'aspetto di WSJT-X: è un foglio di stile Qt passato all'avvio, il programma non viene toccato."""
+        v = str(d.get('style', 'fzr'))
+        if v == 'qdark':
+            return ['-stylesheet', ':/qdarkstyle/style.qss']      # il tema scuro che WSJT-X ha già dentro
+        if v == 'fzr':
+            f = res_path('fzrsdr_dark.qss')
+            if os.path.isfile(f):
+                return ['-stylesheet', f]
+            log('WSJT-X: fzrsdr_dark.qss non trovato, uso il tema scuro di WSJT-X')
+            return ['-stylesheet', ':/qdarkstyle/style.qss']
+        return []
 
     def digi_auto(self):
         """Sceglie da solo i cavi virtuali: RX → «CABLE Input» (o CABLE-A), TX ← «Hi-Fi Cable Output» (o CABLE-B)."""
@@ -4017,7 +4032,8 @@ class Hub:
                     d = self.digi_cfg()
                     v = c.get('v', {})
                     dev_old = (d.get('out'), d.get('in'))
-                    for kk in ('on', 'out', 'in', 'gain', 'rxgain', 'exe', 'udp', 'udp_port', 'cl_on', 'cl_url', 'cl_key', 'cl_id'):
+                    for kk in ('on', 'out', 'in', 'gain', 'rxgain', 'exe', 'udp', 'udp_port', 'cl_on', 'cl_url',
+                               'cl_key', 'cl_id', 'style'):
                         if kk in v:
                             d[kk] = (bool(v[kk]) if kk in ('on', 'udp', 'cl_on') else
                                      max(-30.0, min(30.0, float(v[kk]))) if kk in ('gain', 'rxgain') else

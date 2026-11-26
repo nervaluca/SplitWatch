@@ -1,0 +1,143 @@
+/* Tema scuro per WSJT-X, nei colori di FZR SDR.
+   Si passa a WSJT-X con  -stylesheet <percorso di questo file>  e non tocca il programma: è solo un foglio di stile.
+
+   Le due finestre delle decodifiche restano CHIARE di proposito. WSJT-X colora le righe importanti
+   (il tuo nominativo, i CQ, le entità nuove) mettendo solo lo sfondo, chiaro, e lasciando il colore del testo
+   a quello della finestra: su fondo scuro quelle righe diventerebbero illeggibili. Chiare, i colori di
+   Impostazioni → Colori continuano a funzionare come dice il manuale. */
+
+/* ---------- sfondo e testo ---------- */
+QMainWindow, QDialog, QWidget#centralWidget, QFrame, QStackedWidget, QSplitter, QScrollArea {
+    background-color: #0d1117;
+    color: #c9d1d9;
+}
+QWidget { color: #c9d1d9; }
+QLabel { color: #c9d1d9; background: transparent; }
+QToolTip {
+    background-color: #161b22; color: #e6edf3;
+    border: 1px solid #e9b949; padding: 4px;
+}
+
+/* ---------- menu ---------- */
+QMenuBar { background-color: #161b22; color: #c9d1d9; border-bottom: 1px solid #30363d; }
+QMenuBar::item { background: transparent; padding: 4px 10px; }
+QMenuBar::item:selected { background-color: #1f6feb; color: #ffffff; }
+QMenu { background-color: #161b22; color: #c9d1d9; border: 1px solid #30363d; padding: 4px; }
+QMenu::item { padding: 5px 26px 5px 22px; }
+QMenu::item:selected { background-color: #1f6feb; color: #ffffff; }
+QMenu::separator { height: 1px; background: #30363d; margin: 4px 8px; }
+
+/* ---------- pulsanti ---------- */
+QPushButton, QToolButton {
+    background-color: #21262d; color: #e6edf3;
+    border: 1px solid #3d444d; border-radius: 6px;
+    padding: 4px 10px; min-height: 18px;
+}
+QPushButton:hover, QToolButton:hover { background-color: #2d333b; border-color: #58a6ff; }
+QPushButton:pressed, QToolButton:pressed { background-color: #1f6feb; color: #ffffff; }
+QPushButton:checked, QToolButton:checked {
+    background-color: #8a5a00; color: #ffffff; border-color: #e9b949;
+}
+QPushButton:disabled, QToolButton:disabled { background-color: #161b22; color: #6e7681; border-color: #30363d; }
+QPushButton:default { border-color: #e9b949; }
+
+/* ---------- caselle di testo e numeri ---------- */
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QAbstractSpinBox {
+    background-color: #0f141a; color: #e6edf3;
+    border: 1px solid #3d444d; border-radius: 5px;
+    padding: 2px 6px; selection-background-color: #1f6feb; selection-color: #ffffff;
+}
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border-color: #58a6ff; }
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled { color: #6e7681; }
+QComboBox::drop-down { border: 0; width: 18px; }
+QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid #adbac7; margin-right: 6px; }
+QComboBox QAbstractItemView {
+    background-color: #161b22; color: #e6edf3;
+    border: 1px solid #3d444d; selection-background-color: #1f6feb; selection-color: #ffffff;
+}
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button { background-color: #21262d; border: 1px solid #3d444d; width: 15px; }
+QAbstractSpinBox::up-arrow { border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-bottom: 5px solid #adbac7; }
+QAbstractSpinBox::down-arrow { border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid #adbac7; }
+
+/* ---------- caselle da spuntare e scelte ---------- */
+QCheckBox, QRadioButton { color: #c9d1d9; spacing: 6px; background: transparent; }
+QCheckBox::indicator, QRadioButton::indicator { width: 14px; height: 14px; }
+QCheckBox::indicator { border: 1px solid #6e7681; border-radius: 3px; background: #0f141a; }
+QRadioButton::indicator { border: 1px solid #6e7681; border-radius: 7px; background: #0f141a; }
+QCheckBox::indicator:checked { background: #e9b949; border-color: #e9b949; }
+QRadioButton::indicator:checked { background: #e9b949; border: 4px solid #0f141a; }
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled { border-color: #3d444d; background: #161b22; }
+
+/* ---------- riquadri e schede ---------- */
+QGroupBox {
+    background-color: #11161d; border: 1px solid #30363d; border-radius: 8px;
+    margin-top: 14px; padding-top: 8px;
+}
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; color: #e9b949; }
+QTabWidget::pane { background-color: #11161d; border: 1px solid #30363d; border-radius: 6px; }
+QTabBar::tab {
+    background: #161b22; color: #adbac7;
+    border: 1px solid #30363d; border-bottom: 0;
+    border-top-left-radius: 6px; border-top-right-radius: 6px;
+    padding: 5px 12px; margin-right: 2px;
+}
+QTabBar::tab:selected { background: #11161d; color: #e9b949; border-color: #3d444d; }
+QTabBar::tab:hover { color: #e6edf3; }
+
+/* ---------- tabelle ed elenchi ---------- */
+QTableView, QTableWidget, QTreeView, QListView, QListWidget {
+    background-color: #0f141a; color: #e6edf3;
+    alternate-background-color: #131a22;
+    border: 1px solid #30363d; border-radius: 6px;
+    gridline-color: #30363d;
+    selection-background-color: #1f6feb; selection-color: #ffffff;
+}
+QHeaderView::section {
+    background-color: #21262d; color: #adbac7;
+    border: 0; border-right: 1px solid #30363d; border-bottom: 1px solid #30363d;
+    padding: 4px 6px;
+}
+
+/* ---------- barre di scorrimento ---------- */
+QScrollBar:vertical { background: #0d1117; width: 12px; margin: 0; border: 0; }
+QScrollBar:horizontal { background: #0d1117; height: 12px; margin: 0; border: 0; }
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+    background: #3d444d; border-radius: 6px; min-height: 26px; min-width: 26px;
+}
+QScrollBar::handle:hover { background: #58a6ff; }
+QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0; border: 0; background: none; }
+QScrollBar::add-page, QScrollBar::sub-page { background: none; }
+
+/* ---------- cursori e barre ---------- */
+QSlider::groove:horizontal { background: #21262d; height: 5px; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: #e9b949; border-radius: 3px; }
+QSlider::handle:horizontal { background: #e6edf3; width: 13px; margin: -5px 0; border-radius: 7px; }
+QSlider::groove:vertical { background: #21262d; width: 5px; border-radius: 3px; }
+QSlider::handle:vertical { background: #e6edf3; height: 13px; margin: 0 -5px; border-radius: 7px; }
+QProgressBar {
+    background-color: #0f141a; border: 1px solid #30363d; border-radius: 5px;
+    text-align: center; color: #e6edf3;
+}
+QProgressBar::chunk { background-color: #2ea043; border-radius: 4px; }
+
+/* ---------- barra di stato e separatori ---------- */
+QStatusBar { background-color: #161b22; color: #adbac7; border-top: 1px solid #30363d; }
+QStatusBar::item { border: 0; }
+QSplitter::handle { background-color: #21262d; }
+
+/* ---------- finestre di testo ---------- */
+QTextEdit, QPlainTextEdit, QTextBrowser {
+    background-color: #0f141a; color: #e6edf3;
+    border: 1px solid #30363d; border-radius: 6px;
+    selection-background-color: #1f6feb; selection-color: #ffffff;
+}
+
+/* Le decodifiche restano chiare: vedi la nota in cima. Questa regola viene dopo apposta, così vince. */
+DisplayText {
+    background-color: #f6f8fa; color: #11161d;
+    border: 1px solid #30363d; border-radius: 6px;
+    selection-background-color: #1f6feb; selection-color: #ffffff;
+}

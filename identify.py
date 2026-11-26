@@ -189,14 +189,18 @@ def identify(iq, fs, center, hz):
     n = len(iq)
     if n < fs * 1.0:
         return dict(out, key='none', it='Pochi dati: riprova fra un attimo', en='Not enough data: try again in a moment')
-    if abs(hz - center) > fs / 2 - 4000:
+    half = min(8000.0, fs / 2 - 500)                          # ricevitori stretti (KiwiSDR, SpyServer): tengo quel che c'è
+    if half < 1500:
+        return dict(out, key='none', it='Banda troppo stretta per riconoscere il segnale',
+                    en='The received band is too narrow to identify the signal')
+    if abs(hz - center) > fs / 2 - min(4000.0, fs / 5):
         return dict(out, key='none', it='Fuori dalla banda ricevuta', en='Outside the received band')
     for f0, tol, key in KNOWN:
         if on_qo(hz) and abs(hz - f0) <= tol:
             return _result(out, key, 0.95, {})
 
-    # banda di ±8 kHz attorno al clic, a ~16 kS/s
-    y, fs2 = _band(np.asarray(iq, np.complex64), fs, hz - center, 8000.0)
+    # banda attorno al clic (±8 kHz quando il ricevitore è largo), a ~16 kS/s
+    y, fs2 = _band(np.asarray(iq, np.complex64), fs, hz - center, half)
     f, P = _welch(y, fs2, int(fs2 / 4))                       # risoluzione 4 Hz
     df = f[1] - f[0]
     Pd = 10 * np.log10(P + 1e-20)
