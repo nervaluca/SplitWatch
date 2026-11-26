@@ -1476,6 +1476,8 @@ class Hub:
                 if now - getattr(self, 'digi_chk', 0) > 0.5:
                     self.digi_chk = now
                     try:
+                        if self.digi is not None:
+                            self.digi.check()        # cavi audio fermi: li riapre da solo
                         self.digi_sync()
                         self.digi_meter()
                     except Exception as e:
@@ -2473,9 +2475,12 @@ class Hub:
             g = getattr(self.ssbtx, 'gen', None)
             if isinstance(g, txmod.DigiTx):
                 pk = 20 * math.log10(max(g.peak, 1e-9))
+                ri = getattr(self.digi, 'riaperti', 0) if self.digi is not None else 0
                 log(f'TX DIGI finito dopo {time.time() - self.digi_t0:.1f} s · audio da WSJT-X: {g.sent:.1f} s, '
-                    f'livello massimo {pk:.0f} dB' + ('  ← NESSUN AUDIO: in WSJT-X «Audio → Uscita» deve essere '
-                                                       'il cavo scelto come «TX ← WSJT-X»' if g.sent < 0.2 else ''))
+                    f'livello massimo {pk:.0f} dB' + (f' · cavi riaperti {ri}' if ri else '')
+                    + ('  ← NESSUN AUDIO: in WSJT-X «Audio → Uscita» deve essere il cavo scelto come '
+                       '«TX ← WSJT-X», e nel mixer di Windows WSJT-X non deve essere muto o a volume basso'
+                       if g.sent < 0.2 else ''))
                 if g.sent < 0.2:
                     self.on_status('TX DIGI: il PTT è arrivato ma da WSJT-X non arriva audio — in WSJT-X '
                                    'Impostazioni → Audio → Uscita deve essere il cavo «TX ← WSJT-X»')

@@ -724,11 +724,11 @@ class SsbMod:
         return (y.astype(np.complex64).view(np.float32) * SSB_PEAK).astype('<i2').tobytes()   # I, Q, I, Q…
 
 
-def open_mic(dev):
+def open_mic(dev, stat=None, q=None):
     """Microfono a 48 kHz (o a quello che regge), ridotto a 8 kHz in una coda. → (stream, coda)"""
     import numpy as np
     import sounddevice as sd
-    q = queue.Queue(maxsize=100)
+    q = q if q is not None else queue.Queue(maxsize=100)   # riaprendo il cavo tengo la coda di prima
     st = {'rate': None}
     dec = {'h': None, 'tail': None, 'ph': 0}
 
@@ -745,6 +745,8 @@ def open_mic(dev):
             pos = dec['ph'] + np.arange(0, len(f) - dec['ph'], step)
             dec['ph'] = float(pos[-1] + step - len(f)) if len(pos) else dec['ph'] - len(f)
             y = np.interp(pos, np.arange(len(f)), f).astype(np.float32)
+        if stat is not None:
+            stat['t'] = time.monotonic()                # il cavo dà segni di vita: serve al controllo periodico
         try:
             q.put_nowait(y)
         except queue.Full:
@@ -1121,52 +1123,107 @@ class DigiBridge:
         self.trim = 0                             # volte che ho buttato audio vecchio (ritardo verso WSJT-X)
         self.err = ''
         self.ores = {'ph': 0.0, 'last': 0.0}
+        self.in_stat = {'t': 0.0}                 # ultimo momento in cui i due cavi hanno dato segni di vita
+        self.out_stat = {'t': 0.0}
+        self.riaperti = 0                         # quante volte li ho dovuti riaprire
         self.slack_min, self.slack_n = None, 0    # riserva minima vista negli ultimi secondi (uscita verso WSJT-X)
 
     def start(self):
         import numpy as np
-        import sounddevice as sd
         self.alive = True
         self.buf = np.zeros(0, np.float32)
         if self.out_dev is not None:                     # None = spento; 'default' = uscita predefinita
-            def cb(outdata, frames, t, status):
-                need = frames
-                parts = [self.buf]
-                while True:                              # prendo tutto quello che c'è…
-                    try:
-                        parts.append(self.oq.get_nowait())
-                    except queue.Empty:
-                        break
-                self.buf = np.concatenate(parts) if len(parts) > 1 else self.buf
-                keep = need + 9600                       # …e non tengo più di 0,2 s di riserva: WSJT-X vuole l'ora giusta
-                if len(self.buf) > keep:
-                    self.buf = self.buf[-keep:]
-                    self.trim += 1
-                # riserva su misura: dopo un attimo di ritardo del calcolo la riserva restava alta per sempre (fino a
-                # 0,2 s: in WSJT-X il DT saliva). Guardo per 4 s quanta ne avanza SEMPRE: se sono più di 60 ms, quella
-                # in più non serve e la tolgo (ne lascio 40 ms sopra il momento peggiore visto)
-                slack = len(self.buf) - need
-                self.slack_min = slack if self.slack_min is None else min(self.slack_min, slack)
-                self.slack_n += frames
-                if self.slack_n >= 4 * 48000:
-                    if self.slack_min > 2880:
-                        self.buf = self.buf[int(self.slack_min - 1920):]
-                        self.trim += 1
-                    self.slack_min, self.slack_n = None, 0
-                a = self.buf[:need]
-                self.buf = self.buf[need:]
-                if len(a) < need:
-                    a = np.concatenate([a, np.zeros(need - len(a), np.float32)])
-                if status:
-                    self.under += 1
-                outdata[:, 0] = a
-            dv = None if self.out_dev == 'default' else self.out_dev
-            self.ost = sd.OutputStream(samplerate=48000, channels=1, dtype='float32', device=dv, callback=cb,
-                                       blocksize=1024, latency='low')
-            self.ost.start()
+            self._apri_out()
         if self.in_dev is not None:
-            self.ist, self.iq = open_mic(None if self.in_dev == 'default' else self.in_dev)
+            self._apri_in()
             threading.Thread(target=self._vox, daemon=True).start()
+
+    def _apri_out(self):
+        """Apre il cavo verso WSJT-X (la ricezione)."""
+        import numpy as np
+        import sounddevice as sd
+        def cb(outdata, frames, t, status):
+            self.out_stat['t'] = time.monotonic()
+            need = frames
+            parts = [self.buf]
+            while True:                              # prendo tutto quello che c'è…
+                try:
+                    parts.append(self.oq.get_nowait())
+                except queue.Empty:
+                    break
+            self.buf = np.concatenate(parts) if len(parts) > 1 else self.buf
+            keep = need + 9600                       # …e non tengo più di 0,2 s di riserva: WSJT-X vuole l'ora giusta
+            if len(self.buf) > keep:
+                self.buf = self.buf[-keep:]
+                self.trim += 1
+            # riserva su misura: dopo un attimo di ritardo del calcolo la riserva restava alta per sempre (fino a
+            # 0,2 s: in WSJT-X il DT saliva). Guardo per 4 s quanta ne avanza SEMPRE: se sono più di 60 ms, quella
+            # in più non serve e la tolgo (ne lascio 40 ms sopra il momento peggiore visto)
+            slack = len(self.buf) - need
+            self.slack_min = slack if self.slack_min is None else min(self.slack_min, slack)
+            self.slack_n += frames
+            if self.slack_n >= 4 * 48000:
+                if self.slack_min > 2880:
+                    self.buf = self.buf[int(self.slack_min - 1920):]
+                    self.trim += 1
+                self.slack_min, self.slack_n = None, 0
+            a = self.buf[:need]
+            self.buf = self.buf[need:]
+            if len(a) < need:
+                a = np.concatenate([a, np.zeros(need - len(a), np.float32)])
+            if status:
+                self.under += 1
+            outdata[:, 0] = a
+        dv = None if self.out_dev == 'default' else self.out_dev
+        self.ost = sd.OutputStream(samplerate=48000, channels=1, dtype='float32', device=dv, callback=cb,
+                                   blocksize=1024, latency='low')
+        self.ost.start()
+        self.out_stat['t'] = time.monotonic()
+
+    def _apri_in(self):
+        """Apre il cavo da WSJT-X (la trasmissione). La coda è la stessa di prima, così una trasmissione
+        in corso continua a leggere da dove leggeva."""
+        self.ist, self.iq = open_mic(None if self.in_dev == 'default' else self.in_dev,
+                                     stat=self.in_stat, q=self.iq)
+        self.in_stat['t'] = time.monotonic()
+
+    def check(self):
+        """Chiamata ogni mezzo secondo: se un cavo smette di dare segni di vita lo riapro da solo.
+        Windows ogni tanto se li porta via (cambio di dispositivo audio, sospensione, driver che si riavvia)
+        e il ponte resta muto senza accorgersene: è il caso dell'audio che «ogni tanto non arriva»."""
+        if not self.alive:
+            return
+        t = time.monotonic()
+        if self.ost is not None and self.out_stat['t'] and t - self.out_stat['t'] > 2.0:
+            self.riaperti += 1
+            try:
+                self.ost.abort()
+                self.ost.close()
+            except Exception:
+                pass
+            self.ost = None
+            try:
+                self._apri_out()
+                self.on_status('Ponte WSJT-X: il cavo della ricezione si era fermato, l\'ho riaperto')
+            except Exception as e:
+                self.err = str(e)
+                self.on_status(f'Ponte WSJT-X: il cavo della ricezione si è fermato e non riparte: {e}')
+                self.out_stat['t'] = t                   # riprovo fra due secondi, non di continuo
+        if self.ist is not None and not self.tx_busy and self.in_stat['t'] and t - self.in_stat['t'] > 2.0:
+            self.riaperti += 1
+            try:
+                self.ist.abort()
+                self.ist.close()
+            except Exception:
+                pass
+            self.ist = None
+            try:
+                self._apri_in()
+                self.on_status('Ponte WSJT-X: il cavo della trasmissione si era fermato, l\'ho riaperto')
+            except Exception as e:
+                self.err = str(e)
+                self.on_status(f'Ponte WSJT-X: il cavo della trasmissione si è fermato e non riparte: {e}')
+                self.in_stat['t'] = t
 
     def push_rx(self, a, rate):
         """Audio del VFO A (float −1…1, mono) verso WSJT-X, portato a 48 kHz."""
