@@ -1116,6 +1116,7 @@ class DigiBridge:
         self.ist = None
         self.iq = None
         self.tx_busy = False                      # mentre DigiTx legge la coda, il VOX non la tocca
+        self.vox = True                           # col CAT il PTT lo dà WSJT-X: il VOX si spegne (lo decide digi_meter)
         self.level = 0.0                          # livello dell'audio che arriva da WSJT-X (RMS)
         self.rx_level = 0.0                       # livello dell'audio che mando a WSJT-X (RMS)
         self.rx_n = 0                             # campioni mandati a WSJT-X
@@ -1253,13 +1254,14 @@ class DigiBridge:
             try:
                 x = self.iq.get(timeout=0.3)
             except queue.Empty:
-                continue
+                self.level = 0.0        # il cavo non dà niente: il livello va a zero, così non resta su un
+                continue                # valore vecchio e sulla finestra WSJT-X si vede che l'audio non arriva
             if self.tx_busy:
                 continue                              # nel frattempo è partito il TX (PTT via CAT): la coda è sua
             lvl = float(np.sqrt(np.mean(x * x))) if len(x) else 0.0
             self.level = lvl
             hist = (hist + [x])[-4:]
-            if lvl >= self.thr:
+            if lvl >= self.thr and self.vox:
                 self.tx_busy = True
                 try:
                     self.on_vox(True, list(hist))
