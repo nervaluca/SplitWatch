@@ -15,7 +15,7 @@ import threading
 import time
 
 BAUD = 115200
-FLUSH_S = 0.025          # gli scatti arrivati si mandano alla pagina al massimo 40 volte al secondo
+FLUSH_S = 0.015          # gli scatti arrivati si mandano alla pagina al massimo ~65 volte al secondo
 SPEED_WIN = 0.15         # finestra per la velocità (scatti al secondo) che decide l'accelerazione
 RETRY_S = 3.0            # porta assente o cavo staccato: riprovo ogni 3 s
 
@@ -115,7 +115,7 @@ class Manopola:
         t_open = t_flush
         asked = False
         while self.alive:
-            data = s.read(256)
+            data = s.read(s.in_waiting or 1)   # torna appena arriva qualcosa (prima aspettava sempre 10 ms)
             now = time.time()
             if data:
                 buf += data
